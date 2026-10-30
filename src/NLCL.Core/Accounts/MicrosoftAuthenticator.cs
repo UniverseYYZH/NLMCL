@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
@@ -43,16 +43,20 @@ namespace NLCL.Core.Accounts
         private const string Scope = "XboxLive.signin offline_access";
 
         private readonly IDownloadService _download;
-        private readonly string _clientId;
 
         public MicrosoftAuthenticator(IDownloadService download, string? clientId)
         {
             _download = download ?? throw new ArgumentNullException(nameof(download));
-            _clientId = clientId ?? string.Empty;
+            ClientId = string.IsNullOrWhiteSpace(clientId) ? null : clientId!.Trim();
         }
 
+        /// <summary>
+        /// Azure 应用的 client id。运行期可改：设置页填的值在登录前会覆盖构造时的环境变量。
+        /// </summary>
+        public string? ClientId { get; set; }
+
         /// <summary>是否配置了 client_id。没配置时界面应提示，而不是让用户点进死胡同。</summary>
-        public bool IsConfigured => !string.IsNullOrWhiteSpace(_clientId);
+        public bool IsConfigured => !string.IsNullOrWhiteSpace(ClientId);
 
         private void EnsureConfigured()
         {
@@ -72,7 +76,7 @@ namespace NLCL.Core.Accounts
 
             Dictionary<string, string> fields = new Dictionary<string, string>
             {
-                ["client_id"] = _clientId,
+                ["client_id"] = ClientId,
                 ["tenant"] = "/consumers",
                 ["scope"] = Scope
             };
@@ -144,7 +148,7 @@ namespace NLCL.Core.Accounts
 
             Dictionary<string, string> fields = new Dictionary<string, string>
             {
-                ["client_id"] = _clientId,
+                ["client_id"] = ClientId,
                 ["refresh_token"] = refreshToken,
                 ["grant_type"] = "refresh_token",
                 ["scope"] = Scope
@@ -195,7 +199,7 @@ namespace NLCL.Core.Accounts
 
                 Dictionary<string, string> fields = new Dictionary<string, string>
                 {
-                    ["client_id"] = _clientId,
+                    ["client_id"] = ClientId,
                     ["device_code"] = challenge.DeviceCode,
                     ["grant_type"] = "urn:ietf:params:oauth:grant-type:device_code",
                     ["scope"] = Scope

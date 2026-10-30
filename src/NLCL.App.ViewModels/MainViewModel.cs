@@ -194,6 +194,13 @@ namespace NLCL.App.ViewModels
         [ObservableProperty]
         private string _playerNameInput = "Player";
 
+        /// <summary>
+        /// Azure 应用的 client id（登录弹层里填）。
+        /// 不内置：与 PCL 一样要求使用方自行注册公共客户端应用。
+        /// </summary>
+        [ObservableProperty]
+        private string _microsoftClientId = string.Empty;
+
 
         /// <summary>登录状态文案。</summary>
 
@@ -490,6 +497,30 @@ namespace NLCL.App.ViewModels
                 return;
             }
 
+            string? clientId = string.IsNullOrWhiteSpace(MicrosoftClientId)
+                ? _microsoft.ClientId
+                : MicrosoftClientId.Trim();
+
+            if (string.IsNullOrWhiteSpace(clientId))
+            {
+                StatusText = "微软登录需要 Azure 应用的 client id：请填在登录弹层下方（获取步骤见 docs/FIX-6-ACCOUNTS.md）";
+                return;
+            }
+
+            _microsoft.ClientId = clientId;
+
+            // 记住这次填的 id，下次不用再填（环境变量仍然优先）
+            try
+            {
+                AppSettings settings = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+                settings.MicrosoftClientId = clientId;
+                await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception)
+            {
+                // 存不上不影响登录本身
+            }
+
             IsMicrosoftSigningIn = true;
 
             try
@@ -547,6 +578,17 @@ namespace NLCL.App.ViewModels
                     System.IO.Directory.Exists(settings.GameDirectory))
                 {
                     CurrentGameDirectory = settings.GameDirectory!;
+                }
+
+                // 微软登录的 client id：设置里存过就带出来（环境变量仍优先，构造函数里已设）
+                if (!string.IsNullOrWhiteSpace(settings.MicrosoftClientId))
+                {
+                    MicrosoftClientId = settings.MicrosoftClientId!;
+
+                    if (string.IsNullOrWhiteSpace(_microsoft.ClientId))
+                    {
+                        _microsoft.ClientId = settings.MicrosoftClientId;
+                    }
                 }
             }
             catch (Exception ex)

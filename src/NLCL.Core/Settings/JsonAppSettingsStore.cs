@@ -34,7 +34,8 @@ namespace NLCL.Core.Settings
 
                 return Task.FromResult(new AppSettings
                 {
-                    GameDirectory = root.Value<string>("gameDirectory")
+                    GameDirectory = root.Value<string>("gameDirectory"),
+                    MicrosoftClientId = root.Value<string>("microsoftClientId")
                 });
             }
             catch (JsonException)
@@ -75,7 +76,8 @@ namespace NLCL.Core.Settings
 
             JObject root = new JObject
             {
-                ["gameDirectory"] = settings.GameDirectory
+                ["gameDirectory"] = settings.GameDirectory,
+                ["microsoftClientId"] = settings.MicrosoftClientId
             };
 
             // 原子替换：先写临时文件，再换名。直接 WriteAllText 会在写到一半时被截断，

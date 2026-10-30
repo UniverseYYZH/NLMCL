@@ -171,6 +171,8 @@ namespace NLCL.Tests
 
             public bool Succeed { get; }
 
+            public string? ClientId { get; set; }
+
             public int RefreshCalls { get; private set; }
 
             public Task<DeviceCodeChallenge> StartAsync(CancellationToken cancellationToken)

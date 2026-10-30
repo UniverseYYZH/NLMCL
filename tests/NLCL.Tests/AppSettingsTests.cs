@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -27,11 +27,17 @@ namespace NLCL.Tests
             {
                 Assert.Null((await store.LoadAsync(CancellationToken.None)).GameDirectory);
 
-                await store.SaveAsync(new AppSettings { GameDirectory = @"D:\games\.minecraft" },
+                await store.SaveAsync(
+                    new AppSettings
+                    {
+                        GameDirectory = @"D:\games\.minecraft",
+                        MicrosoftClientId = "11111111-2222-3333-4444-555555555555"
+                    },
                     CancellationToken.None);
 
                 AppSettings loaded = await store.LoadAsync(CancellationToken.None);
                 Assert.Equal(@"D:\games\.minecraft", loaded.GameDirectory);
+                Assert.Equal("11111111-2222-3333-4444-555555555555", loaded.MicrosoftClientId);
 
                 Assert.True(File.Exists(paths.SettingsFile));
             }

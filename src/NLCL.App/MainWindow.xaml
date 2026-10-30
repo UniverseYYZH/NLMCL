@@ -209,7 +209,7 @@
                                AllowsTransparency="True">
                             <Border Background="{StaticResource Card}" CornerRadius="9"
                                     BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
-                                    Padding="12,10" Width="252">
+                                    Padding="12,10" Width="300">
                                 <StackPanel>
                                     <TextBlock Text="离线登录" FontSize="11.5" FontWeight="SemiBold"
                                                Foreground="{StaticResource Text}" />
@@ -233,6 +233,21 @@
                                         <Button Content="退出" Style="{StaticResource GhostButton}"
                                                 Margin="8,0,0,0" Command="{Binding SignOutCommand}" />
                                     </StackPanel>
+
+                                    <!-- 微软登录的 Azure 应用 ID：不内置，用户填一次 -->
+                                    <TextBlock Text="微软登录需要 Azure 应用 ID（client id）"
+                                               FontSize="9.5" Foreground="{StaticResource Faint}"
+                                               Margin="0,10,0,4" TextWrapping="Wrap" />
+                                    <Border Background="{StaticResource Surface}"
+                                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                                            CornerRadius="6" Padding="8,5">
+                                        <TextBox Text="{Binding MicrosoftClientId, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="Transparent" BorderThickness="0" FontSize="10.5"
+                                                 Foreground="{StaticResource Text}" />
+                                    </Border>
+                                    <TextBlock Text="在 Azure 门户注册公共客户端应用后复制；填过会记住"
+                                               FontSize="9" Foreground="{StaticResource Faint}"
+                                               Margin="2,3,0,0" TextWrapping="Wrap" />
 
                                     <!-- 设备码：让用户照着输入到浏览器 -->
                                     <Border Background="{StaticResource PrimarySoft}" CornerRadius="6"

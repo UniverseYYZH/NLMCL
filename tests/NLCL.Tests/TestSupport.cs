@@ -194,6 +194,8 @@ namespace NLCL.Tests
         /// <summary>不会真的联网的微软认证器。</summary>
         internal sealed class NoopAuthenticator : IMicrosoftAuthenticator
         {
+            public string? ClientId { get; set; }
+
             public Task<DeviceCodeChallenge> StartAsync(CancellationToken cancellationToken)
             {
                 throw new NotSupportedException("测试不应真的发起微软登录");

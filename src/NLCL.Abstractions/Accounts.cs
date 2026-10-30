@@ -102,6 +102,12 @@ namespace NLCL.Abstractions
     /// </summary>
     public interface IMicrosoftAuthenticator
     {
+        /// <summary>
+        /// Azure 应用的 client id。界面允许运行期填写（登录弹层），因此必须可写；
+        /// 为空时 <c>StartAsync</c> 会抛出带说明的异常，而不是发一个注定失败的请求。
+        /// </summary>
+        string? ClientId { get; set; }
+
         /// <summary>取设备码，并给用户一个短码去浏览器输入。</summary>
         Task<DeviceCodeChallenge> StartAsync(CancellationToken cancellationToken);
 
