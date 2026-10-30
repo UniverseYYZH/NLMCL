@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>NLCL.App</RootNamespace>
+    <AssemblyName>NLCL</AssemblyName>
+    <ApplicationIcon></ApplicationIcon>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NLCL.Abstractions\NLCL.Abstractions.csproj" />
+    <ProjectReference Include="..\NLCL.Core\NLCL.Core.csproj" />
+    <ProjectReference Include="..\NLCL.Core.Pcl\NLCL.Core.Pcl.csproj" />
+    <ProjectReference Include="..\NLCL.Core.Pcl.Vb\NLCL.Core.Pcl.Vb.vbproj" />
+    <ProjectReference Include="..\NLCL.App.ViewModels\NLCL.App.ViewModels.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <!-- 单文件发布：Costura 把依赖 DLL 嵌进 exe（net48 不支持 PublishSingleFile） -->
+    <PackageReference Include="Costura.Fody">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="All" />
+    <!-- 文件夹选择框用系统自带的 FolderBrowserDialog（net48 的 WPF 没有原生实现） -->
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+</Project>

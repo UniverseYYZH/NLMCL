@@ -1,0 +1,28 @@
+## Build output
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+## NuGet
+*.nupkg
+packages/
+
+## 第三方源码（只读参考，不入库）
+pcl_src/
+
+## 分析产物
+analysis/
+
+## 工具与环境
+.dotnet/
+dsh-dotnet/
+*.log
+
+## Windows
+Thumbs.db
+desktop.ini
+
+# 发布产物
+artifacts/

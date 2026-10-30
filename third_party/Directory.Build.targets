@@ -1,0 +1,6 @@
+<Project>
+  <!-- 在项目自身属性之后生效，用于覆盖上游写死的 LangVersion -->
+  <PropertyGroup>
+    <LangVersion>12.0</LangVersion>
+  </PropertyGroup>
+</Project>

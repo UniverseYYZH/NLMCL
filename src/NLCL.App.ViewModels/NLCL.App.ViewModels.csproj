@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>NLCL.App.ViewModels</RootNamespace>
+    <AssemblyName>NLCL.App.ViewModels</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NLCL.Abstractions\NLCL.Abstractions.csproj" />
+    <ProjectReference Include="..\NLCL.Core\NLCL.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" PrivateAssets="All" />
+  </ItemGroup>
+</Project>

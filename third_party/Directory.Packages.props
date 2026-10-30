@@ -1,0 +1,6 @@
+<Project>
+  <!-- 第三方工程在自身 csproj 中显式写版本号，因此关闭本仓库的中央包管理 -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

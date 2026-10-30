@@ -1,0 +1,26 @@
+﻿<Project>
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <Platforms>AnyCPU</Platforms>
+    <NeutralLanguage>zh-Hans</NeutralLanguage>
+    <Company>NLCL</Company>
+    <Product>NLCL</Product>
+    <Copyright>Copyright (c) NLCL</Copyright>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.vbproj'">
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>On</OptionInfer>
+    <OptionCompare>Binary</OptionCompare>
+    <OptionStrict>On</OptionStrict>
+    <RootNamespace></RootNamespace>
+  </PropertyGroup>
+</Project>

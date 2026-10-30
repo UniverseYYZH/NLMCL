@@ -1,0 +1,12 @@
+<Project>
+  <!-- 第三方代码（MeloongCore）保持上游原样，不继承本仓库的构建约定 -->
+  <PropertyGroup>
+    <!-- 本机 SDK 8 最高支持 C# 12；上游用 13，先降到 12 试编译 -->
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <Deterministic>true</Deterministic>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

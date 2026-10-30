@@ -1,0 +1,88 @@
+﻿using System;
+using System.IO;
+using System.Threading;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using NLCL.App.ViewModels;
+using NLCL.Core;
+using NLCL.Core.Pcl;
+using Xunit;
+
+namespace NLCL.Tests
+{
+    public class RenderMultiplayerSnapshotTests
+    {
+        [Fact]
+        public void MultiplayerPage_renders_offscreen_to_png()
+        {
+            Exception? failure = null;
+            string? output = null;
+            string roaming = Path.Combine(Path.GetTempPath(), "nlcl-lan-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(roaming, ".minecraft"));
+
+            Thread thread = new Thread(() =>
+            {
+                try
+                {
+                    MainViewModel vm = TestSupport.CreateMain(new PclVersionCatalog(), new AppPaths(roaming));
+
+                    vm.SelectSection(vm.NavigationGroups[0].Items[2]);
+                    Assert.True(vm.IsMultiplayerSection);
+
+                    vm.MyPort = "54321";
+                    vm.RefreshMyAddress();
+                    vm.ServerAddress = "10.21.3.9:54321";
+                    vm.StatusText = "已复制：192.168.1.7:54321";
+
+                    const int width = 1060;
+                    const int height = 700;
+
+                    NLCL.App.MainWindow window = new NLCL.App.MainWindow(vm) { Width = width, Height = height };
+
+                    FrameworkElement root = (FrameworkElement)window.Content;
+                    root.Measure(new Size(width, height));
+                    root.Arrange(new Rect(0, 0, width, height));
+                    root.UpdateLayout();
+
+                    RenderTargetBitmap bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+                    bitmap.Render(root);
+
+                    PngBitmapEncoder encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+
+                    string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts");
+                    Directory.CreateDirectory(dir);
+                    output = Path.Combine(dir, "ui-multiplayer.png");
+
+                    using (FileStream stream = File.Create(output))
+                    {
+                        encoder.Save(stream);
+                    }
+
+                    window.Close();
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            });
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            Assert.True(thread.Join(TimeSpan.FromSeconds(60)), "渲染线程超时。");
+
+            Assert.Null(failure);
+            Assert.NotNull(output);
+            Assert.True(new FileInfo(output!).Length > 10_000, "渲染结果过小，可能是空白图。");
+
+            try
+            {
+                Directory.Delete(roaming, recursive: true);
+            }
+            catch (IOException)
+            {
+            }
+        }
+    }
+}

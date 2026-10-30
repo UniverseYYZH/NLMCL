@@ -1,0 +1,3 @@
+# 这个仓库只在 Windows 上构建（net48 + WPF），不做行尾转换，
+# 避免 Git 在 checkout 时把 LF/CRLF 改来改去（VB/WPF 的 diff 噪声很大）。
+* -text
