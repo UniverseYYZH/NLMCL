@@ -100,9 +100,11 @@ namespace NLCL.App
             services.AddSingleton<IFolderPicker, Services.WinFormsFolderPicker>();
             // ViewModel 不引用 WPF，需要封送到 UI 线程时走这个端口
             services.AddSingleton<IUiDispatcher, Services.WpfUiDispatcher>();
-            // 微软登录：client_id 不内置（与 PCL 一致），从环境变量读
+            // 微软登录：client_id 不内置（与 PCL 一致），从环境变量读。
+            // 外面包一层 OAuthDownloadService：OAuth/Xbox 的错误是 4xx + 正文，
+            // 不把正文放回来，认证器里的 authorization_pending / XErr 分支就是死代码。
             services.AddSingleton<IMicrosoftAuthenticator>(sp => new MicrosoftAuthenticator(
-                sp.GetRequiredService<IDownloadService>(),
+                new OAuthDownloadService(sp.GetRequiredService<IDownloadService>()),
                 Environment.GetEnvironmentVariable("NLCL_MS_CLIENT_ID")));
 
             // PCL 适配层（VB 程序集只在这里被引用）

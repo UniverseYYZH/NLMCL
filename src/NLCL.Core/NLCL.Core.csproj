@@ -24,6 +24,8 @@
     <!-- net48 下 ZipArchive 在单独的转发程序集里 -->
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
+    <!-- HttpRequestException（MeloongCore 的 HttpRequestCodeException 基类） -->
+    <Reference Include="System.Net.Http" />
     <!-- DPAPI（ProtectedData）用于加密账号令牌 -->
     <Reference Include="System.Security" />
   </ItemGroup>

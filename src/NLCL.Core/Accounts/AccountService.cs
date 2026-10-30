@@ -101,6 +101,17 @@ namespace NLCL.Core.Accounts
                 name!, uuid!, type,
                 DecryptToken(root.Value<string>("accessToken")),
                 DecryptToken(root.Value<string>("refreshToken")));
+
+            // 微软账号必须有可用的 accessToken 才能算"登录着"。
+            // DPAPI 在换 Windows 用户 / 换机器 / 重装系统后解不开（返回 null），
+            // 以前这里照样把账号当正版载入：界面显示"正版"，启动时 accessToken 回落成 "0"，
+            // 进正版服务器直接被踢，全程没有任何提示。现在当作未登录处理。
+            // 只有 refreshToken 缺失时不拦：本次仍可正常玩，只是过期后需要重新登录。
+            if (type == AccountType.Microsoft && string.IsNullOrEmpty(account.AccessToken))
+            {
+                return System.Threading.Tasks.Task.FromResult<Account?>(null);
+            }
+
             return System.Threading.Tasks.Task.FromResult<Account?>(account);
         }
 
@@ -158,13 +169,15 @@ namespace NLCL.Core.Accounts
 
                 return "dpapi:" + Convert.ToBase64String(cipher);
             }
-            catch (CryptographicException)
+            catch (CryptographicException ex)
             {
-                return null;
+                // 不再静默存成"没有令牌的正版账号"：那会让下次启动加载出一个假登录态。
+                // 抛出后由调用方提示用户，旧文件保持原样。
+                throw new InvalidOperationException("无法用 DPAPI 加密账号令牌，本次未保存账号。", ex);
             }
-            catch (PlatformNotSupportedException)
+            catch (PlatformNotSupportedException ex)
             {
-                return null;
+                throw new InvalidOperationException("当前系统不支持 DPAPI，本次未保存账号。", ex);
             }
         }
 

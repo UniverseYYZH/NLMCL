@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using MeloongCore;
 using Newtonsoft.Json.Linq;
 using NLCL.Abstractions;
 
@@ -28,7 +30,6 @@ namespace NLCL.Core.Accounts
     {
         public const string DeviceCodeUrl =
             "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
-
         public const string TokenUrl =
             "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
 
