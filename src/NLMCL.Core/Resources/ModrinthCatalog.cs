@@ -24,7 +24,6 @@ namespace NLMCL.Core.Resources
     {
         public const string ApiBase = "https://api.modrinth.com/v2";
 
-        private const string UserAgent = "NLMCL/1.0 (Minecraft launcher)";
 
         private readonly IDownloadService _download;
 
@@ -43,14 +42,21 @@ namespace NLMCL.Core.Resources
 
             string url = BuildSearchUrl(query);
 
-            Dictionary<string, string> headers = new Dictionary<string, string>
+            string json;
+            try
             {
-                ["User-Agent"] = UserAgent
-            };
+                json = await _download.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log(url, "失败：" + ex.Message);
+                throw;
+            }
 
-            string json = await _download.GetStringAsync(url, headers, cancellationToken).ConfigureAwait(false);
+            IReadOnlyList<ResourceSummary> hits = ParseSearch(json, query.Kind);
+            Log(url, "命中 " + hits.Count);
 
-            return ParseSearch(json, query.Kind);
+            return hits;
         }
 
         public async Task<IReadOnlyList<ResourceFile>> GetFilesAsync(
@@ -81,12 +87,7 @@ namespace NLMCL.Core.Resources
                 url += "?" + string.Join("&", parts);
             }
 
-            Dictionary<string, string> headers = new Dictionary<string, string>
-            {
-                ["User-Agent"] = UserAgent
-            };
-
-            string json = await _download.GetStringAsync(url, headers, cancellationToken).ConfigureAwait(false);
+            string json = await _download.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
 
             return ParseFiles(json);
         }
@@ -155,6 +156,24 @@ namespace NLMCL.Core.Resources
             }
 
             return null;
+        }
+
+        /// <summary>把搜索地址与命中数记到临时文件，面板空白时能直接定位是请求失败还是 0 结果。</summary>
+        private static void Log(string url, string message)
+        {
+            try
+            {
+                string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nlmcl-search.log");
+                lock (typeof(ModrinthCatalog))
+                {
+                    System.IO.File.AppendAllText(
+                        path,
+                        DateTime.Now.ToString("HH:mm:ss") + "  " + message + "  " + url + Environment.NewLine);
+                }
+            }
+            catch (Exception)
+            {
+            }
         }
 
         internal static IReadOnlyList<ResourceSummary> ParseSearch(string json, ResourceKind kind)

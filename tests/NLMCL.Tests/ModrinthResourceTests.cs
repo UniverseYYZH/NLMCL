@@ -102,6 +102,15 @@ namespace NLMCL.Tests
             Assert.Equal("0.5.13", files[0].VersionName);
         }
 
+        [Theory]
+        [InlineData("1.20.1", "1.20.1")]
+        [InlineData("1.20.1-Fabric 0.20.1", "1.20.1")]
+        [InlineData("fabric-loader-0.16.9-1.20.1", "1.20.1")]
+        [InlineData("1.21.2-Fabric 0.20.1", "1.21.2")]
+        public void Extracts_game_version_from_instance_folder(string folder, string expected)
+        {
+            Assert.Equal(expected, NLMCL.App.ViewModels.ResourceViewModel.ExtractGameVersion(folder));
+        }
         [Fact]
         public void Installer_prefers_isolated_instance_directory()
         {

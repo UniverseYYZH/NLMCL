@@ -162,6 +162,36 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>
+        /// 从实例目录名里提取游戏版本：优先取最后一个 1.x 形式的，
+        /// 因为 "fabric-loader-0.16.9-1.20.1" 的第一个匹配是加载器版本。
+        /// </summary>
+        public static string ExtractGameVersion(string? folderName)
+        {
+            if (string.IsNullOrWhiteSpace(folderName))
+            {
+                return string.Empty;
+            }
+
+            MatchCollection matches = Regex.Matches(folderName!, @"\d+\.\d+(\.\d+)?");
+
+            if (matches.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            // 从后往前找第一个 1.x，找不到就用最后一个匹配
+            for (int index = matches.Count - 1; index >= 0; index--)
+            {
+                if (matches[index].Value.StartsWith("1.", StringComparison.Ordinal))
+                {
+                    return matches[index].Value;
+                }
+            }
+
+            return matches[matches.Count - 1].Value;
+        }
+
         internal static ResourceKind KindOf(string text)
         {
             switch (text)
@@ -198,9 +228,9 @@ namespace NLMCL.App.ViewModels
             MinecraftDirectory = minecraftDirectory;
             VersionFolder = versionFolder;
 
-            // 目录名可能是 "1.20.1-Fabric 0.20.1" 这类，Modrinth 只认纯游戏版本
-            Match match = Regex.Match(versionFolder ?? string.Empty, @"\d+\.\d+(\.\d+)?");
-            GameVersion = match.Success ? match.Value : (versionFolder ?? string.Empty);
+            // 目录名可能是 "1.20.1-Fabric 0.20.1" / "fabric-loader-0.16.9-1.20.1" 这类，
+            // Modrinth 只认纯游戏版本，所以取最后一个 "1.x" 形式的版本号
+            GameVersion = ExtractGameVersion(versionFolder);
 
             if (versionFolder.IndexOf("Fabric", StringComparison.OrdinalIgnoreCase) >= 0)
             {
