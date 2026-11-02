@@ -61,7 +61,10 @@ namespace NLMCL.Core.Installing
 
             foreach (JToken item in array)
             {
-                string? version = item.Value<string>("version");
+                // meta 的真实结构是嵌套的：{ "loader": { "version": "0.16.9", ... }, ... }
+                // 顶层 version 只在旧接口/手写清单里出现，保留作回退。
+                string? version = item["loader"]?.Value<string>("version")
+                    ?? item.Value<string>("version");
                 if (!string.IsNullOrWhiteSpace(version) && !versions.Contains(version!))
                 {
                     versions.Add(version!);

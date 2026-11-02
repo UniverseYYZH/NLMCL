@@ -16,10 +16,11 @@ namespace NLMCL.Tests
         [Fact]
         public void Parses_loader_versions_from_fabric_meta()
         {
+            // 真实结构：版本号嵌在 loader 对象里（曾按顶层 version 解析，导致下拉永远是空的）
             const string json = @"[
-                { ""separator"": ""."", ""build"": 1, ""maven"": ""x"", ""version"": ""0.16.9"", ""stable"": true },
-                { ""separator"": ""."", ""build"": 2, ""maven"": ""x"", ""version"": ""0.16.8"", ""stable"": true },
-                { ""separator"": ""."", ""build"": 3, ""maven"": ""x"", ""version"": ""0.16.9"", ""stable"": true }
+                { ""loader"": { ""version"": ""0.16.9"", ""stable"": true }, ""intermediary"": { ""version"": ""1.21.1"" } },
+                { ""loader"": { ""version"": ""0.16.8"", ""stable"": true }, ""intermediary"": { ""version"": ""1.21.1"" } },
+                { ""loader"": { ""version"": ""0.16.9"", ""stable"": true }, ""intermediary"": { ""version"": ""1.21.1"" } }
             ]";
 
             IReadOnlyList<string> versions = FabricLoaderVersionCatalog.Parse(json);

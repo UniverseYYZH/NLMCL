@@ -21,17 +21,20 @@ namespace NLMCL.App.ViewModels
         private readonly IAppPaths _paths;
 
         private readonly IFabricLoaderCatalog? _loaderCatalog;
+        private readonly IVersionCatalog? _catalog;
 
         public DownloadViewModel(
             IVersionListProvider provider,
             IVersionInstaller installer,
             IAppPaths paths,
-            IFabricLoaderCatalog? loaderCatalog = null)
+            IFabricLoaderCatalog? loaderCatalog = null,
+            IVersionCatalog? catalog = null)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
             _paths = paths ?? throw new ArgumentNullException(nameof(paths));
             _loaderCatalog = loaderCatalog;
+            _catalog = catalog;
 
             TargetDirectory = paths.DefaultMinecraftDirectory;
         }
@@ -130,6 +133,28 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>按本地已安装版本刷新标记；没有目录服务时静默跳过。</summary>
+        private async Task MarkInstalledFromCatalogAsync()
+        {
+            if (_catalog == null)
+            {
+                return;
+            }
+
+            try
+            {
+                IReadOnlyList<MinecraftVersion> installed = await _catalog
+                    .GetInstalledAsync(TargetDirectory, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                MarkInstalled(installed.Select(version => version.Id));
+            }
+            catch (Exception)
+            {
+                // 扫描失败不影响下载列表本身
+            }
+        }
+
         /// <summary>把本地已安装的版本打上标记（安装完成后主窗口会再调一次）。</summary>
         public void MarkInstalled(IEnumerable<string> installedIds)
         {
@@ -181,6 +206,9 @@ namespace NLMCL.App.ViewModels
                 {
                     Versions.Add(version);
                 }
+
+                // 列表拉回来后立刻标一次"已安装"（主窗口扫描时可能还没加载过这个列表）
+                await MarkInstalledFromCatalogAsync().ConfigureAwait(true);
 
                 // 默认选第一个正式版：清单按发布时间倒序，第一项通常是最新快照
                 SelectedVersion = Versions.FirstOrDefault(version => version.Type == "release")
