@@ -139,6 +139,8 @@ namespace NLMCL.App
                 sp.GetRequiredService<VanillaVersionInstaller>(),
                 sp.GetRequiredService<FabricLoaderInstaller>()));
             services.AddSingleton<IVersionListProvider, MojangVersionListProvider>();
+            services.AddSingleton<IFabricLoaderCatalog, FabricLoaderVersionCatalog>();
+            services.AddSingleton<IDownloadTuning, PclDownloadTuning>();
             services.AddSingleton<IJavaLocator, PclJavaLocator>();
             services.AddSingleton<IJavaRuntimeInstaller, JavaRuntimeInstaller>();
             services.AddSingleton<IGameLauncher, PclGameLauncher>();

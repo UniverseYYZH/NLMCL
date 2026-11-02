@@ -53,6 +53,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>主题与缩放（App 层实现）。null 时设置页只保存、不生效。</summary>
         private readonly IAppearance? _appearance;
 
+        /// <summary>下载线程数接线到 PCL 设置。null 时只保存不生效。</summary>
+        private readonly IDownloadTuning? _downloadTuning;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -89,7 +92,8 @@ namespace NLMCL.App.ViewModels
             IAuthlibInjector? authlibInjector = null,
             ISnapshotService? snapshotService = null,
             IDialogService? dialogs = null,
-            IAppearance? appearance = null)
+            IAppearance? appearance = null,
+            IDownloadTuning? downloadTuning = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -109,6 +113,7 @@ namespace NLMCL.App.ViewModels
             _snapshotService = snapshotService;
             _dialogs = dialogs;
             _appearance = appearance;
+            _downloadTuning = downloadTuning;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -388,6 +393,26 @@ namespace NLMCL.App.ViewModels
 
         public string UiScaleMaximizedText => (int)Math.Round(UiScaleMaximizedPercent) + "%";
 
+        public IReadOnlyList<string> ThreadOptions { get; } = new[] { "2", "4", "6", "8", "16" };
+
+        [ObservableProperty]
+        private string _selectedThreads = "6";
+
+        partial void OnSelectedThreadsChanged(string value)
+        {
+            if (!_settingsLoaded)
+            {
+                return;
+            }
+
+            if (int.TryParse(value, out int threads))
+            {
+                _downloadTuning?.ApplyThreadCount(threads);
+            }
+
+            _ = SaveAppearanceAsync();
+        }
+
         partial void OnSelectedThemeChanged(string value)
         {
             if (!_settingsLoaded)
@@ -503,6 +528,7 @@ namespace NLMCL.App.ViewModels
                 settings.Theme = ThemeFromText(SelectedTheme);
                 settings.UiScale = ClampPercent(UiScalePercent) / 100.0;
                 settings.UiScaleMaximized = ClampMaximizedPercent(UiScaleMaximizedPercent) / 100.0;
+                settings.DownloadThreads = int.TryParse(SelectedThreads, out int threads) ? threads : 6;
 
                 await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
 
@@ -1016,6 +1042,9 @@ namespace NLMCL.App.ViewModels
                 UiScalePercent = ClampPercent(settings.UiScale <= 0 ? 100 : settings.UiScale * 100);
                 UiScaleMaximizedPercent = ClampMaximizedPercent(
                     settings.UiScaleMaximized <= 0 ? 150 : settings.UiScaleMaximized * 100);
+                SelectedThreads = (settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads).ToString();
+
+                _downloadTuning?.ApplyThreadCount(settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads);
 
                 _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
 
@@ -1384,6 +1413,9 @@ namespace NLMCL.App.ViewModels
                 {
                     Versions.Add(new VersionItem(version, !version.HasClientJar));
                 }
+
+                // 下载页的"已安装"标记跟着本地列表走（装完会自动重扫，这里顺带刷新标记）
+                Download.MarkInstalled(versions.Select(version => version.Id));
 
                 UpdateSummary();
 

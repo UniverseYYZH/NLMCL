@@ -20,11 +20,18 @@ namespace NLMCL.App.ViewModels
         private readonly IVersionInstaller _installer;
         private readonly IAppPaths _paths;
 
-        public DownloadViewModel(IVersionListProvider provider, IVersionInstaller installer, IAppPaths paths)
+        private readonly IFabricLoaderCatalog? _loaderCatalog;
+
+        public DownloadViewModel(
+            IVersionListProvider provider,
+            IVersionInstaller installer,
+            IAppPaths paths,
+            IFabricLoaderCatalog? loaderCatalog = null)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
             _paths = paths ?? throw new ArgumentNullException(nameof(paths));
+            _loaderCatalog = loaderCatalog;
 
             TargetDirectory = paths.DefaultMinecraftDirectory;
         }
@@ -54,6 +61,9 @@ namespace NLMCL.App.ViewModels
 
 
 
+        /// <summary>该游戏版本可选的 Fabric 加载器版本（来自 meta）。</summary>
+        public ObservableCollection<string> LoaderVersions { get; } = new ObservableCollection<string>();
+
         /// <summary>Fabric 加载器版本（原版安装时忽略）。</summary>
 
 
@@ -72,7 +82,63 @@ namespace NLMCL.App.ViewModels
         {
         OnPropertyChanged(nameof(IsFabricSelected));
 
+            if (IsFabricSelected)
+            {
+                _ = ReloadLoaderVersionsAsync();
+            }
 
+        }
+
+        partial void OnSelectedVersionChanged(VanillaVersion? value)
+        {
+            if (IsFabricSelected)
+            {
+                _ = ReloadLoaderVersionsAsync();
+            }
+        }
+
+        /// <summary>按当前游戏版本拉取可用的 Fabric 加载器版本。</summary>
+        public async Task ReloadLoaderVersionsAsync()
+        {
+            if (_loaderCatalog == null || SelectedVersion == null)
+            {
+                return;
+            }
+
+            try
+            {
+                IReadOnlyList<string> versions = await _loaderCatalog
+                    .GetLoaderVersionsAsync(SelectedVersion.Id, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                LoaderVersions.Clear();
+                foreach (string version in versions)
+                {
+                    LoaderVersions.Add(version);
+                }
+
+                if (LoaderVersions.Count > 0)
+                {
+                    LoaderVersion = LoaderVersions[0];
+                }
+
+                StatusText = SelectedVersion.Id + " 可选加载器版本 " + LoaderVersions.Count + " 个";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "获取加载器版本失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>把本地已安装的版本打上标记（安装完成后主窗口会再调一次）。</summary>
+        public void MarkInstalled(IEnumerable<string> installedIds)
+        {
+            HashSet<string> installed = new HashSet<string>(installedIds, StringComparer.OrdinalIgnoreCase);
+
+            foreach (VanillaVersion version in Versions)
+            {
+                version.IsInstalled = installed.Contains(version.Id);
+            }
         }
 
         [ObservableProperty]
