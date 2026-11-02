@@ -17,9 +17,15 @@ namespace NLMCL.Tests
 
             public double Scale { get; private set; } = 1.0;
 
+            public bool IsMaximized { get; set; }
+
+            public event EventHandler? WindowStateChanged;
+
             public void ApplyTheme(string theme) => Theme = theme;
 
             public void ApplyScale(double scale) => Scale = scale;
+
+            public void RaiseWindowStateChanged() => WindowStateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private sealed class EmptyCatalog : IVersionCatalog

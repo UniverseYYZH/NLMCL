@@ -22,8 +22,11 @@ namespace NLMCL.Abstractions
         /// <summary>外观主题："light" 或 "dark"。</summary>
         public string Theme { get; set; } = "light";
 
-        /// <summary>界面缩放（1.0 = 100%）。</summary>
+        /// <summary>普通窗口状态的界面缩放（1.0 = 100%）。</summary>
         public double UiScale { get; set; } = 1.0;
+
+        /// <summary>最大化窗口状态的界面缩放（默认 150%）。</summary>
+        public double UiScaleMaximized { get; set; } = 1.5;
 
         /// <summary>下载线程数（对应 PCL 的 ToolDownloadThread）。</summary>
         public int DownloadThreads { get; set; } = 6;

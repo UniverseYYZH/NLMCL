@@ -38,6 +38,7 @@ namespace NLMCL.Core.Settings
                     MicrosoftClientId = root.Value<string>("microsoftClientId"),
                     Theme = root.Value<string>("theme") ?? "light",
                     UiScale = root.Value<double?>("uiScale") ?? 1.0,
+                    UiScaleMaximized = root.Value<double?>("uiScaleMaximized") ?? 1.5,
                     DownloadThreads = root.Value<int?>("downloadThreads") ?? 6,
                     DefaultMemoryMb = root.Value<int?>("defaultMemoryMb") ?? 2048
                 });
@@ -84,6 +85,7 @@ namespace NLMCL.Core.Settings
                 ["microsoftClientId"] = settings.MicrosoftClientId,
                 ["theme"] = settings.Theme,
                 ["uiScale"] = settings.UiScale,
+                ["uiScaleMaximized"] = settings.UiScaleMaximized,
                 ["downloadThreads"] = settings.DownloadThreads,
                 ["defaultMemoryMb"] = settings.DefaultMemoryMb
             };

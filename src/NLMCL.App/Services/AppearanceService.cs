@@ -22,6 +22,7 @@ namespace NLMCL.App.Services
             @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 
         private string _theme = "light";
+        private Window? _hooked;
 
         public AppearanceService()
         {
@@ -41,6 +42,8 @@ namespace NLMCL.App.Services
             {
                 return;
             }
+
+            HookWindow();
 
             var dictionaries = window.Resources.MergedDictionaries;
 
@@ -62,6 +65,30 @@ namespace NLMCL.App.Services
             {
                 Source = new Uri(DarkDictionary, UriKind.Relative)
             });
+        }
+
+        public bool IsMaximized
+        {
+            get
+            {
+                HookWindow();
+                return _hooked?.WindowState == WindowState.Maximized;
+            }
+        }
+
+        public event EventHandler? WindowStateChanged;
+
+        /// <summary>第一次用到外观时把窗口的 StateChanged 接出来（此时窗口已创建）。</summary>
+        private void HookWindow()
+        {
+            Window? window = Application.Current?.MainWindow;
+            if (window == null || ReferenceEquals(window, _hooked))
+            {
+                return;
+            }
+
+            _hooked = window;
+            window.StateChanged += (_, __) => WindowStateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void ApplyScale(double scale)

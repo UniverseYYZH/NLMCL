@@ -10,10 +10,16 @@ namespace NLMCL.Abstractions
     /// </summary>
     public interface IAppearance
     {
-        /// <summary>主题名：light / dark。</summary>
+        /// <summary>主题名：light / dark / system。</summary>
         void ApplyTheme(string theme);
 
         /// <summary>缩放倍数（1.0 = 100%）。</summary>
         void ApplyScale(double scale);
+
+        /// <summary>窗口当前是否最大化。缩放按窗口状态取不同档位。</summary>
+        bool IsMaximized { get; }
+
+        /// <summary>窗口最大化/还原时触发（实现负责把它从 WPF 线程转发出来）。</summary>
+        event EventHandler? WindowStateChanged;
     }
 }

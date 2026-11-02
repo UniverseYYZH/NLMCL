@@ -457,7 +457,7 @@
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Margin="20,0,0,0" Width="230">
                                         <Grid>
-                                            <TextBlock Text="界面缩放" FontSize="10.5"
+                                            <TextBlock Text="窗口缩放" FontSize="10.5"
                                                        Foreground="{DynamicResource Muted}" />
                                             <TextBlock Text="{Binding UiScaleText}" FontSize="10.5"
                                                        HorizontalAlignment="Right"
@@ -468,7 +468,21 @@
                                                 Value="{Binding UiScalePercent, Mode=TwoWay}" />
                                     </StackPanel>
                                 </Grid>
-                                <TextBlock Text="主题切换即时生效；缩放会把整个界面按比例放大/缩小（窗口尺寸不变）。"
+
+                                <StackPanel Margin="0,14,0,0" Width="400" HorizontalAlignment="Left">
+                                    <Grid>
+                                        <TextBlock Text="最大化缩放" FontSize="10.5"
+                                                   Foreground="{DynamicResource Muted}" />
+                                        <TextBlock Text="{Binding UiScaleMaximizedText}" FontSize="10.5"
+                                                   HorizontalAlignment="Right"
+                                                   Foreground="{DynamicResource Text}" />
+                                    </Grid>
+                                    <Slider Minimum="100" Maximum="200" TickFrequency="5"
+                                            IsSnapToTickEnabled="True" Margin="0,8,0,0"
+                                            Value="{Binding UiScaleMaximizedPercent, Mode=TwoWay}" />
+                                </StackPanel>
+
+                                <TextBlock Text="普通窗口与最大化各记一档：默认 100% / 150%，最大化、还原时自动切换。"
                                            FontSize="9.5" Foreground="{DynamicResource Faint}"
                                            Margin="0,10,0,0" TextWrapping="Wrap" />
                             </StackPanel>

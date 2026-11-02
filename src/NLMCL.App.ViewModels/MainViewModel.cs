@@ -59,6 +59,12 @@ namespace NLMCL.App.ViewModels
         /// <summary>缩放滑块的防抖令牌（拖动中不断取消上一次）。</summary>
         private CancellationTokenSource? _scaleDebounce;
 
+        /// <summary>最大化缩放滑块的防抖令牌。</summary>
+        private CancellationTokenSource? _scaleMaximizedDebounce;
+
+        /// <summary>窗口状态变化只订阅一次。</summary>
+        private bool _windowStateHooked;
+
 
         private bool _accountLoaded;
         private CancellationTokenSource? _scanCts;
@@ -370,11 +376,17 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string _selectedTheme = "浅色";
 
-        /// <summary>界面缩放（百分比，滑块 80–150）。</summary>
+        /// <summary>普通窗口的缩放（百分比，滑块 80–150）。</summary>
         [ObservableProperty]
         private double _uiScalePercent = 100;
 
+        /// <summary>最大化时的缩放（百分比，滑块 100–200）。</summary>
+        [ObservableProperty]
+        private double _uiScaleMaximizedPercent = 150;
+
         public string UiScaleText => (int)Math.Round(UiScalePercent) + "%";
+
+        public string UiScaleMaximizedText => (int)Math.Round(UiScaleMaximizedPercent) + "%";
 
         partial void OnSelectedThemeChanged(string value)
         {
@@ -391,22 +403,42 @@ namespace NLMCL.App.ViewModels
         {
             OnPropertyChanged(nameof(UiScaleText));
 
-            if (!_settingsLoaded)
+            if (!_settingsLoaded || _appearance?.IsMaximized == true)
             {
                 return;
             }
 
-            // 拖动滑块时不能每变一次就重排窗口：缩放会改变控件尺寸，
-            // 滑块自己也会跟着缩放，鼠标下的位置一变就来回弹（窗口抖动）。
-            // 这里做防抖——停手 250ms 后再真正缩放并保存。
-            _scaleDebounce?.Cancel();
-            CancellationTokenSource source = new CancellationTokenSource();
-            _scaleDebounce = source;
-
-            _ = ApplyScaleDebouncedAsync(value, source.Token);
+            ScheduleScaleApply(ref _scaleDebounce);
         }
 
-        private async Task ApplyScaleDebouncedAsync(double percent, CancellationToken token)
+        partial void OnUiScaleMaximizedPercentChanged(double value)
+        {
+            OnPropertyChanged(nameof(UiScaleMaximizedText));
+
+            if (!_settingsLoaded || _appearance?.IsMaximized != true)
+            {
+                return;
+            }
+
+            ScheduleScaleApply(ref _scaleMaximizedDebounce);
+        }
+
+        /// <summary>
+        /// 拖动滑块时不能每变一次就重排窗口：缩放会改变控件尺寸，
+        /// 滑块自己也会跟着缩放，鼠标下的位置一变就来回弹（窗口抖动）。
+        /// 停手 250ms 后才真正缩放并保存。
+        /// </summary>
+        private void ScheduleScaleApply(ref CancellationTokenSource? slot)
+        {
+            slot?.Cancel();
+
+            CancellationTokenSource source = new CancellationTokenSource();
+            slot = source;
+
+            _ = ApplyScaleDebouncedAsync(source.Token);
+        }
+
+        private async Task ApplyScaleDebouncedAsync(CancellationToken token)
         {
             try
             {
@@ -422,8 +454,17 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            _appearance?.ApplyScale(percent / 100.0);
+            ApplyScaleForCurrentWindowState();
             await SaveAppearanceAsync().ConfigureAwait(true);
+        }
+
+        /// <summary>按当前窗口状态取对应档位：普通 100%，最大化 150%（可调）。</summary>
+        public void ApplyScaleForCurrentWindowState()
+        {
+            bool maximized = _appearance?.IsMaximized ?? false;
+            double percent = maximized ? UiScaleMaximizedPercent : UiScalePercent;
+
+            _appearance?.ApplyScale(percent / 100.0);
         }
 
 
@@ -450,6 +491,9 @@ namespace NLMCL.App.ViewModels
         private static double ClampPercent(double percent)
             => Math.Max(80, Math.Min(150, Math.Round(percent)));
 
+        private static double ClampMaximizedPercent(double percent)
+            => Math.Max(100, Math.Min(200, Math.Round(percent)));
+
         private async Task SaveAppearanceAsync()
         {
             try
@@ -458,6 +502,7 @@ namespace NLMCL.App.ViewModels
 
                 settings.Theme = ThemeFromText(SelectedTheme);
                 settings.UiScale = ClampPercent(UiScalePercent) / 100.0;
+                settings.UiScaleMaximized = ClampMaximizedPercent(UiScaleMaximizedPercent) / 100.0;
 
                 await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
 
@@ -969,9 +1014,19 @@ namespace NLMCL.App.ViewModels
                 // 设置页的当前值 + 立刻应用一次外观（窗口可能已经显示，DynamicResource 会即时刷新）
                 SelectedTheme = ThemeToText(settings.Theme);
                 UiScalePercent = ClampPercent(settings.UiScale <= 0 ? 100 : settings.UiScale * 100);
+                UiScaleMaximizedPercent = ClampMaximizedPercent(
+                    settings.UiScaleMaximized <= 0 ? 150 : settings.UiScaleMaximized * 100);
 
                 _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
-                _appearance?.ApplyScale(UiScalePercent / 100.0);
+
+                // 窗口最大化/还原时按对应档位重算（只订阅一次）
+                if (_appearance != null && !_windowStateHooked)
+                {
+                    _windowStateHooked = true;
+                    _appearance.WindowStateChanged += (_, __) => ApplyScaleForCurrentWindowState();
+                }
+
+                ApplyScaleForCurrentWindowState();
 
                 _settingsLoaded = true;
             }
