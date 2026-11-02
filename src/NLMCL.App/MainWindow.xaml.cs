@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using NLMCL.App.ViewModels;
 
 namespace NLMCL.App
@@ -36,6 +37,20 @@ namespace NLMCL.App
             {
                 _viewModel.ExternalPassword = box.Password;
             }
+        }
+
+        /// <summary>点遮罩空白处关闭弹层；点卡片内部不关（事件源是卡片里的控件）。</summary>
+        private void AccountOverlayClicked(object sender, MouseButtonEventArgs e)
+        {
+            if (ReferenceEquals(e.OriginalSource, sender))
+            {
+                _viewModel.IsAccountPopupOpen = false;
+            }
+        }
+
+        private void CloseAccountOverlay(object sender, RoutedEventArgs e)
+        {
+            _viewModel.IsAccountPopupOpen = false;
         }
     }
 }
