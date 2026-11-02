@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -181,5 +181,64 @@ namespace NLCL.Tests
             Assert.True(catalog.Calls > before, "安装完成后应重新扫描本地版本");
         }
 
+        private sealed class StubSession : IGameSession
+        {
+            public event EventHandler<GameOutputLine>? Output;
+
+            public event EventHandler<int>? Exited;
+
+            public int ProcessId => 777;
+
+            public bool IsRunning { get; private set; } = true;
+
+            public int? ExitCode { get; private set; }
+
+            public void Stop() => IsRunning = false;
+
+            public void Dispose()
+            {
+            }
+
+            public void Emit(string text) => Output?.Invoke(this, new GameOutputLine(text, false));
+        }
+
+        private sealed class StubSessionLauncher : IGameSessionLauncher
+        {
+            public StubSession Session { get; } = new StubSession();
+
+            public Task<IGameSession> StartAsync(LaunchRequest request, CancellationToken cancellationToken)
+            {
+                return Task.FromResult<IGameSession>(Session);
+            }
+        }
+
+        /// <summary>
+        /// 回归：从「本地版本」点「启动游戏」也要把会话交给控制台。
+        /// 以前两条启动路径互不相干——主界面走 IGameLauncher，不捕获输出，
+        /// 所以本地版本启动的游戏在「启动与日志」里一行日志都看不到。
+        /// </summary>
+        [Fact]
+        public async Task Main_launch_hands_the_session_to_the_console()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            StubSessionLauncher launcher = new StubSessionLauncher();
+
+            MainViewModel vm = TestSupport.CreateMain(
+                catalog,
+                new AppPaths(@"C:\Temp\roaming"),
+                new FixedJavaLocator(TestSupport.CreateJava(21)),
+                launcher);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+
+            Assert.True(vm.Console.IsRunning, "主界面启动后，控制台应当进入运行状态");
+            Assert.Contains("777", vm.Console.StatusText);
+
+            launcher.Session.Emit("[main/INFO] hello from main page");
+            Assert.Contains(vm.Console.Lines, line => line.Text.Contains("hello from main page"));
+        }
     }
 }

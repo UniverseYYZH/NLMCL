@@ -185,8 +185,7 @@ namespace NLCL.App.ViewModels
                     : string.Empty;
                 StatusText = "正在启动（Java " + java.Major + javaNote + "）…";
 
-                _exitHandled = false;
-                _session = await _launcher.StartAsync(
+                IGameSession session = await _launcher.StartAsync(
                     new LaunchRequest(GameDirectory, VersionId)
                     {
                         JavaExecutable = java.ExecutablePath,
@@ -194,22 +193,42 @@ namespace NLCL.App.ViewModels
                     }.WithAccount(Account ?? OfflineAccountFactory.Create("Player")),
                     CancellationToken.None).ConfigureAwait(true);
 
-                _session.Output += OnOutput;
-                _session.Exited += OnExited;
-
-                IsRunning = true;
-                StatusText = "运行中（PID " + _session.ProcessId + "）";
-
-                // JVM 秒退时，Exited 可能在订阅之前就广播完了——补查一次终态，
-                // 否则界面永远停在"运行中"，StartCommand 会一直拒绝再次启动。
-                if (_session.ExitCode.HasValue)
-                {
-                    HandleExit(_session.ExitCode.Value);
-                }
+                Attach(session);
             }
             catch (Exception ex)
             {
                 StatusText = "启动失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>
+        /// 接管一个已经在运行的会话。
+        ///
+        /// 主界面「启动游戏」与这里原本是两条独立路径：主界面走 IGameLauncher（发射后不管，
+        /// 不捕获输出），所以从「本地版本」启动的游戏在控制台里看不到任何日志。
+        /// 统一成会话模式后，两个入口共用一个控制台，也都能用「停止」。
+        /// </summary>
+        public void Attach(IGameSession session)
+        {
+            if (session == null)
+            {
+                return;
+            }
+
+            _session = session;
+            _exitHandled = false;
+
+            _session.Output += OnOutput;
+            _session.Exited += OnExited;
+
+            IsRunning = true;
+            StatusText = "运行中（PID " + _session.ProcessId + "）";
+
+            // JVM 秒退时，Exited 可能在订阅之前就广播完了——补查一次终态，
+            // 否则界面永远停在"运行中"，StartCommand 会一直拒绝再次启动。
+            if (_session.ExitCode.HasValue)
+            {
+                HandleExit(_session.ExitCode.Value);
             }
         }
 

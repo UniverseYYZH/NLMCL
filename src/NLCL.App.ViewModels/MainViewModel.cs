@@ -35,6 +35,9 @@ namespace NLCL.App.ViewModels
         /// <summary>没有合适的 Java 时按版本要求自动下载（组合根注入；单测里可为 null）。</summary>
         private readonly IJavaRuntimeInstaller? _javaInstaller;
 
+        /// <summary>会话式启动器（捕获 stdout/stderr）。为 null 时退回 IGameLauncher。</summary>
+        private readonly IGameSessionLauncher? _sessionLauncher;
+
 
         private bool _accountLoaded;
         private CancellationTokenSource? _scanCts;
@@ -53,7 +56,8 @@ namespace NLCL.App.ViewModels
             IClipboard clipboard,
             IFolderPicker folderPicker,
             IAppSettingsStore appSettings,
-            IJavaRuntimeInstaller? javaInstaller = null)
+            IJavaRuntimeInstaller? javaInstaller = null,
+            IGameSessionLauncher? sessionLauncher = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -67,6 +71,7 @@ namespace NLCL.App.ViewModels
             _folderPicker = folderPicker ?? throw new ArgumentNullException(nameof(folderPicker));
             _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
             _javaInstaller = javaInstaller;
+            _sessionLauncher = sessionLauncher;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -821,6 +826,12 @@ namespace NLCL.App.ViewModels
 
                 StatusText = "正在启动 " + SelectedVersion.Name + "（内存 " + MemoryMb + " MB）…";
 
+                if (Console.IsRunning)
+                {
+                    StatusText = "游戏已经在运行，日志见「启动与日志」";
+                    return;
+                }
+
                 LaunchRequest request = new LaunchRequest(CurrentGameDirectory, SelectedVersion.FolderName)
                 {
                     JavaExecutable = javaExecutable,
@@ -828,6 +839,21 @@ namespace NLCL.App.ViewModels
                     MaximumMemoryMb = MemoryMb,
                     ServerAddress = serverAddress
                 }.WithAccount(Account ?? BuildImplicitOfflineAccount());
+
+                if (_sessionLauncher != null)
+                {
+                    // 统一走会话式启动：捕获输出并交给控制台，这样从「本地版本」启动
+                    // 也能在「启动与日志」里看到日志、也能停止（以前两条路径互不相干）。
+                    IGameSession session = await _sessionLauncher
+                        .StartAsync(request, CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    Console.Attach(session);
+
+                    StatusText = "已启动 " + SelectedVersion.Name
+                        + "（PID " + session.ProcessId + "），日志见「启动与日志」";
+                    return;
+                }
 
                 LaunchResult result = await _launcher
                     .LaunchAsync(request, CancellationToken.None)

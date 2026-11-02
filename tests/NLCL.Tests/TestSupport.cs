@@ -293,7 +293,11 @@ namespace NLCL.Tests
         }
 
         /// <summary>组装一个只依赖目录的主窗口视图模型。</summary>
-        internal static MainViewModel CreateMain(IVersionCatalog catalog, IAppPaths paths)
+        internal static MainViewModel CreateMain(
+            IVersionCatalog catalog,
+            IAppPaths paths,
+            IJavaLocator? javaLocator = null,
+            IGameSessionLauncher? sessionLauncher = null)
         {
             return new MainViewModel(
                 catalog,
@@ -301,14 +305,16 @@ namespace NLCL.Tests
                 CreateDownload(paths),
                 CreateConsole(paths),
                 new NoopLauncher(),
-                new NoopJavaLocator(),
+                javaLocator ?? new NoopJavaLocator(),
                 new MemoryAccountStore(),
                 new NoopAuthenticator(),
                 new MemoryInstanceSettingsStore(),
                 new FakeNetwork(),
                 new FakeClipboard(),
                 new FakeFolderPicker(),
-                new FakeAppSettings());
+                new FakeAppSettings(),
+                javaInstaller: null,
+                sessionLauncher: sessionLauncher);
         }
     }
 }
