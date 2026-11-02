@@ -1,4 +1,4 @@
-# NLCL
+# NLMCL
 
 Minecraft Java 版启动器。
 
@@ -11,7 +11,7 @@ Minecraft Java 版启动器。
 ```powershell
 .\scripts\build.ps1     # 构建
 .\scripts\test.ps1      # 测试
-.\src\NLCL.App\bin\Debug\net48\NLCL.exe
+.\src\NLMCL.App\bin\Debug\net48\NLMCL.exe
 ```
 
 要求：.NET SDK 8+（无需 Visual Studio）。首次构建会自动还原 NuGet 包。
@@ -20,13 +20,13 @@ Minecraft Java 版启动器。
 
 ```
 src/
-  NLCL.Abstractions      端口契约（netstandard2.0）——全项目的稳定边界
-  NLCL.Core              领域与编排（C# / net48）
-  NLCL.Core.Pcl          PCL 适配层（VB.NET / net48）——唯一允许出现 VB 的地方
-  NLCL.App.ViewModels    展示逻辑（C# / net48，零 WPF 依赖，可单测）
-  NLCL.App               WPF 视图 + 组合根（C# / net48）
+  NLMCL.Abstractions      端口契约（netstandard2.0）——全项目的稳定边界
+  NLMCL.Core              领域与编排（C# / net48）
+  NLMCL.Core.Pcl          PCL 适配层（VB.NET / net48）——唯一允许出现 VB 的地方
+  NLMCL.App.ViewModels    展示逻辑（C# / net48，零 WPF 依赖，可单测）
+  NLMCL.App               WPF 视图 + 组合根（C# / net48）
 tests/
-  NLCL.Tests             单元测试 + XAML 冒烟测试
+  NLMCL.Tests             单元测试 + XAML 冒烟测试
 legacy/                  旧的 Python + Flet 实现（迁移对照物，勿删）
 ```
 

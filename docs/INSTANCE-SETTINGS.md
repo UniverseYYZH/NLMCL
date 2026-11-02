@@ -2,7 +2,7 @@
 
 ## 存哪里
 
-`<mc>/versions/<版本>/nlcl-settings.json`
+`<mc>/versions/<版本>/nlmcl-settings.json`
 
 **为什么按版本目录存，而不是全局一个文件**：
 

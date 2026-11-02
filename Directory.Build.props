@@ -3,9 +3,9 @@
     <Deterministic>true</Deterministic>
     <Platforms>AnyCPU</Platforms>
     <NeutralLanguage>zh-Hans</NeutralLanguage>
-    <Company>NLCL</Company>
-    <Product>NLCL</Product>
-    <Copyright>Copyright (c) NLCL</Copyright>
+    <Company>NLMCL</Company>
+    <Product>NLMCL</Product>
+    <Copyright>Copyright (c) NLMCL</Copyright>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">

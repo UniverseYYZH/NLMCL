@@ -8,8 +8,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $dn = Join-Path $env:LOCALAPPDATA 'dsh-dotnet\dotnet.exe'
 if (-not (Test-Path $dn)) { $dn = 'dotnet' }
 
-& $dn build (Join-Path $root 'NLCL.sln') -c $Configuration --nologo -v m
+& $dn build (Join-Path $root 'NLMCL.sln') -c $Configuration --nologo -v m
 if ($LASTEXITCODE -ne 0) { throw "构建失败（$Configuration）。" }
 
 Write-Host ''
-Write-Host "输出：$root\src\NLCL.App\bin\$Configuration\net48\NLCL.exe" -ForegroundColor Green
+Write-Host "输出：$root\src\NLMCL.App\bin\$Configuration\net48\NLMCL.exe" -ForegroundColor Green

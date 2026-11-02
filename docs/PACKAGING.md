@@ -17,7 +17,7 @@ powershell -ExecutionPolicy Bypass -File scripts\publish.ps1
 产物：
 
 ```
-artifacts\publish\NLCL.exe      约 1.45 MB
+artifacts\publish\NLMCL.exe      约 1.45 MB
 ```
 
 **只有一个文件**。已实测：把它单独拷进一个空目录，双击能正常启动并显示主窗口。
@@ -29,7 +29,7 @@ artifacts\publish\NLCL.exe      约 1.45 MB
 - Win10 1903+ / Win11 默认自带 .NET Framework 4.8
 - 更老的系统需要先装一次 .NET Framework 4.8 运行时
 
-对比：原版 `NLCL.exe`（PyInstaller）86 MB，因为它要把 Python 解释器和全部依赖塞进单文件。
+对比：原版 `NLMCL.exe`（PyInstaller）86 MB，因为它要把 Python 解释器和全部依赖塞进单文件。
 **体积小不等于更优**——代价是依赖系统运行时。
 
 ## 已验证 / 未验证
@@ -37,7 +37,7 @@ artifacts\publish\NLCL.exe      约 1.45 MB
 | 项 | 状态 |
 |---|---|
 | 构建出单个 exe，无同目录 DLL | ✅ Release 输出仅 exe（+ config/pdb，发布时只拷 exe） |
-| 空目录独立启动 | ✅ 进程存活、主窗口标题 `NLCL` |
+| 空目录独立启动 | ✅ 进程存活、主窗口标题 `NLMCL` |
 | 主窗口能创建（说明嵌入的 WPF/Newtonsoft/自有程序集都解析成功） | ✅ |
 | 真实游戏启动 / 下载 / 联机 | ❌ 未在发布产物上跑过完整流程 |
 | 杀毒软件误报 | ❌ 未测 |
@@ -48,14 +48,14 @@ artifacts\publish\NLCL.exe      约 1.45 MB
 ## 发布时要注意
 
 1. **未签名** → 首次运行可能触发 SmartScreen「未知发布者」。
-   选择「更多信息 → 仍要运行」。这是原版 NLCL 也有的提示。
+   选择「更多信息 → 仍要运行」。这是原版 NLMCL 也有的提示。
 2. **可能被杀毒软件误报**：单文件程序把 DLL 塞进 exe 的资源段，启发式扫描容易误判。
    加白名单或提交误报。
 3. **不要分发 `bin\Debug`**：那是有 43 个文件的普通构建。
 
 ## 实现细节
 
-`src/NLCL.App/FodyWeavers.xml`：
+`src/NLMCL.App/FodyWeavers.xml`：
 
 ```xml
 <Weavers>
@@ -67,5 +67,5 @@ artifacts\publish\NLCL.exe      约 1.45 MB
 - `CreateTemporaryAssemblies=false`（默认）→ 从内存加载，不落地 `%TEMP%`
 - 压缩（默认开启）→ 1.45 MB 是压缩后的体积
 
-`NLCL.App.csproj` 里 `Costura.Fody` 带 `PrivateAssets="all"`，
+`NLMCL.App.csproj` 里 `Costura.Fody` 带 `PrivateAssets="all"`，
 **不要加 `IncludeAssets`**——Fody 会警告缺少 `compile` 部分。

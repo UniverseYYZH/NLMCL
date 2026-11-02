@@ -1,0 +1,122 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace NLMCL.Abstractions
+{
+    /// <summary>账号类型。</summary>
+    public enum AccountType
+    {
+        /// <summary>离线账号：名字自定，UUID 由名字推导。</summary>
+        Offline = 0,
+
+        /// <summary>微软账号（正版）。</summary>
+        Microsoft = 1
+    }
+
+    /// <summary>一个可用于启动的账号。</summary>
+    public sealed class Account
+    {
+        public Account(string name, string uuid, AccountType type,
+            string? accessToken = null, string? refreshToken = null)
+        {
+            Name = name ?? throw new ArgumentNullException(nameof(name));
+            Uuid = uuid ?? throw new ArgumentNullException(nameof(uuid));
+            Type = type;
+            AccessToken = accessToken;
+            RefreshToken = refreshToken;
+        }
+
+        public string Name { get; }
+
+        /// <summary>不带花括号的 UUID 字符串。</summary>
+        public string Uuid { get; }
+
+        public AccountType Type { get; }
+
+        /// <summary>正版账号的访问令牌；离线账号为 null。</summary>
+        public string? AccessToken { get; }
+
+        /// <summary>
+        /// OAuth 刷新令牌。正版账号用它续期，避免访问令牌过期后要求重新登录。
+        /// </summary>
+        public string? RefreshToken { get; }
+
+        /// <summary>是否可以自动续期。</summary>
+        public bool CanRefresh => Type == AccountType.Microsoft && !string.IsNullOrEmpty(RefreshToken);
+
+        /// <summary>界面上显示的类型标签。</summary>
+        public string TypeLabel => Type == AccountType.Microsoft ? "正版" : "离线";
+
+        /// <summary>启动时传给游戏的 accessToken。离线账号用占位值。</summary>
+        public string EffectiveAccessToken =>
+            string.IsNullOrEmpty(AccessToken) ? "0" : AccessToken!;
+
+        public override string ToString() => Name + " (" + TypeLabel + ")";
+    }
+
+    /// <summary>账号的持久化。实现可以是 JSON 文件。</summary>
+    public interface IAccountStore
+    {
+        Task<Account?> LoadAsync(CancellationToken cancellationToken);
+
+        Task SaveAsync(Account account, CancellationToken cancellationToken);
+
+        Task ClearAsync(CancellationToken cancellationToken);
+    }
+
+    /// <summary>微软设备码登录的一次挑战。</summary>
+    public sealed class DeviceCodeChallenge
+    {
+        public DeviceCodeChallenge(
+            string deviceCode,
+            string userCode,
+            string verificationUri,
+            int intervalSeconds,
+            DateTimeOffset expiresAt)
+        {
+            DeviceCode = deviceCode ?? throw new ArgumentNullException(nameof(deviceCode));
+            UserCode = userCode ?? throw new ArgumentNullException(nameof(userCode));
+            VerificationUri = verificationUri ?? string.Empty;
+            IntervalSeconds = intervalSeconds <= 0 ? 5 : intervalSeconds;
+            ExpiresAt = expiresAt;
+        }
+
+        /// <summary>内部设备码（轮询时用，给用户看的是下面那个）。</summary>
+        public string DeviceCode { get; }
+
+        /// <summary>给用户输入的短码，例如 ABCD-1234。</summary>
+        public string UserCode { get; }
+
+        /// <summary>用户要打开的网址。</summary>
+        public string VerificationUri { get; }
+
+        public int IntervalSeconds { get; }
+
+        public DateTimeOffset ExpiresAt;
+    }
+
+    /// <summary>
+    /// 微软账号登录（OAuth 2.0 设备码 → Xbox Live → XSTS → Minecraft Services）。
+    /// </summary>
+    public interface IMicrosoftAuthenticator
+    {
+        /// <summary>
+        /// Azure 应用的 client id。界面允许运行期填写（登录弹层），因此必须可写；
+        /// 为空时 <c>StartAsync</c> 会抛出带说明的异常，而不是发一个注定失败的请求。
+        /// </summary>
+        string? ClientId { get; set; }
+
+        /// <summary>取设备码，并给用户一个短码去浏览器输入。</summary>
+        Task<DeviceCodeChallenge> StartAsync(CancellationToken cancellationToken);
+
+        /// <summary>轮询直到用户完成授权，返回可用账号；超时或出错则抛异常。</summary>
+        Task<Account> WaitForAccountAsync(DeviceCodeChallenge challenge, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 用 refresh_token 续期。失败时抛异常，调用方应保留旧账号并提示重新登录。
+        /// </summary>
+        Task<Account> RefreshAsync(string refreshToken, CancellationToken cancellationToken);
+    }
+}

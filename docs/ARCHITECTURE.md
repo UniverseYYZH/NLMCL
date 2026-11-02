@@ -1,9 +1,9 @@
-# NLCL 架构决策记录（ADR-0001）
+# NLMCL 架构决策记录（ADR-0001）
 
 > 状态：已采纳
 > 日期：2026-10-26
 > 决策人：项目负责人
-> 适用范围：`NLCL.sln` 全部工程
+> 适用范围：`NLMCL.sln` 全部工程
 
 ---
 
@@ -29,34 +29,34 @@
 由此还有两个被动的正确选择：
 
 - **不引 WPF 到 ViewModel**：net48 + WPF 的 ViewModel 若引用 `Dispatcher`/`Window`，就永远无法单测，也无法换 UI 框架。现在 ViewModels 这层是纯 POCO + `INotifyPropertyChanged`。
-- **接口放 `netstandard2.0`**：`NLCL.Abstractions` 刻意用 netstandard2.0，这样**将来若把后端换成 .NET 10 + 纯 C# 实现（如 CmlLib.Core），上层一行不用改**——这是给 net48 冻结风险留的逃生门。
+- **接口放 `netstandard2.0`**：`NLMCL.Abstractions` 刻意用 netstandard2.0，这样**将来若把后端换成 .NET 10 + 纯 C# 实现（如 CmlLib.Core），上层一行不用改**——这是给 net48 冻结风险留的逃生门。
 
 ## 3. 分层与依赖规则
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ NLCL.App                     WPF 视图 + 组合根            │  net48 / C#
+│ NLMCL.App                     WPF 视图 + 组合根            │  net48 / C#
 │   MainWindow.xaml, App.xaml.cs, Converters               │
 └───────────────┬──────────────────────────────────────────┘
                 │ 依赖
 ┌───────────────▼──────────────────────────────────────────┐
-│ NLCL.App.ViewModels          展示逻辑（零 WPF 依赖）        │  net48 / C#
+│ NLMCL.App.ViewModels          展示逻辑（零 WPF 依赖）        │  net48 / C#
 │   MainViewModel, NavigationItem, VersionItem             │
 └───────────────┬──────────────────────────────────────────┘
                 │ 依赖
 ┌───────────────▼──────────────────────────────────────────┐
-│ NLCL.Core                    我们的领域与编排              │  net48 / C#
+│ NLMCL.Core                    我们的领域与编排              │  net48 / C#
 │   AppPaths ...                                            │
 └───────────────┬──────────────────────────────────────────┘
                 │ 依赖（只依赖接口）
 ┌───────────────▼──────────────────────────────────────────┐
-│ NLCL.Abstractions            稳定契约（端口）              │  netstandard2.0 / C#
+│ NLMCL.Abstractions            稳定契约（端口）              │  netstandard2.0 / C#
 │   IAppPaths, IVersionCatalog, IVersionInstaller,          │
 │   IGameLauncher, MinecraftVersion, InstallRequest ...     │
 └───────────────▲──────────────────────────────────────────┘
                 │ 实现
 ┌───────────────┴──────────────────────────────────────────┐
-│ NLCL.Core.Pcl                PCL 适配器（防腐层）          │  net48 / C#
+│ NLMCL.Core.Pcl                PCL 适配器（防腐层）          │  net48 / C#
 │   Vendor/（PCL 原样源码）+ PclVersionCatalog              │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -64,19 +64,19 @@
 **三条不可违反的依赖规则：**
 
 1. **依赖只能向下**（App → ViewModels → Core → Abstractions）。反向引用一律 review 打回。
-2. **`NLCL.Core` 永不引用 `NLCL.Core.Pcl`**。Core 只认接口，实现在组合根注入。
-3. **只有 `NLCL.App/App.xaml.cs` 知道具体实现是谁**。换后端只改这一个文件。
+2. **`NLMCL.Core` 永不引用 `NLMCL.Core.Pcl`**。Core 只认接口，实现在组合根注入。
+3. **只有 `NLMCL.App/App.xaml.cs` 知道具体实现是谁**。换后端只改这一个文件。
 
 ## 4. 程序集职责与归属
 
 | 程序集 | 语言/TFM | 职责 | 谁主要改它 |
 |---|---|---|---|
-| `NLCL.Abstractions` | C# / netstandard2.0 | 端口接口 + 跨层 DTO。**改动需评审**，因为它是全项目的稳定契约 | 架构负责人 |
-| `NLCL.Core` | C# / net48 | 领域逻辑：路径、版本编排、实例、账号、设置、快照 | 后端/逻辑开发者 |
-| `NLCL.Core.Pcl` | **VB** / net48 | PCL 代码的唯一落脚点。PCL 原文件原样放入，外加薄适配 | 后端开发者 |
-| `NLCL.App.ViewModels` | C# / net48 | 展示逻辑、命令、状态。**禁止引用 WPF** | 前端/逻辑开发者 |
-| `NLCL.App` | C# / net48 WPF | XAML、样式、控件、组合根 | 前端开发者 |
-| `NLCL.Tests` | C# / net48 | 单测 + XAML 冒烟测试 | 全员 |
+| `NLMCL.Abstractions` | C# / netstandard2.0 | 端口接口 + 跨层 DTO。**改动需评审**，因为它是全项目的稳定契约 | 架构负责人 |
+| `NLMCL.Core` | C# / net48 | 领域逻辑：路径、版本编排、实例、账号、设置、快照 | 后端/逻辑开发者 |
+| `NLMCL.Core.Pcl` | **VB** / net48 | PCL 代码的唯一落脚点。PCL 原文件原样放入，外加薄适配 | 后端开发者 |
+| `NLMCL.App.ViewModels` | C# / net48 | 展示逻辑、命令、状态。**禁止引用 WPF** | 前端/逻辑开发者 |
+| `NLMCL.App` | C# / net48 WPF | XAML、样式、控件、组合根 | 前端开发者 |
+| `NLMCL.Tests` | C# / net48 | 单测 + XAML 冒烟测试 | 全员 |
 
 这样拆的直接好处：**UI 开发者与后端开发者改的是不同程序集**，日常几乎不会产生合并冲突。Contracts 是唯一需要交叉的地方，因此它被刻意做得小而稳定。
 
@@ -98,12 +98,12 @@
 
 不是口号，是具体机制：
 
-1. **编译期边界**：`NLCL.Core` 想偷偷引用 PCL 会编译失败。架构靠编译器守，不靠自觉。
+1. **编译期边界**：`NLMCL.Core` 想偷偷引用 PCL 会编译失败。架构靠编译器守，不靠自觉。
 2. **可测的展示层**：`MainViewModel` 不依赖 WPF → 现有 `MainViewModelTests` 能在毫秒级验证业务行为，不需要开界面。
 3. **XAML 冒烟测试**：`MainWindowSmokeTests` 在 STA 线程真实构造窗口，XAML 语法错、资源缺失、绑定目标不存在都会让 CI 变红，不需要人肉点开。
 4. **组合根单点**：换实现只改 `App.ConfigureServices`，review 时一眼能看出依赖变化。
 5. **中央包管理 + 统一 `Directory.Build.props`**：TFM、语言版本、可空性、分析器全员一致，不会出现"你机器上能编"。
-6. **适配层可替换**：`NLCL.Abstractions` 是 netstandard2.0，将来整体升 .NET 10 时，只需重写 `NLCL.Core.Pcl` 这一个程序集。
+6. **适配层可替换**：`NLMCL.Abstractions` 是 netstandard2.0，将来整体升 .NET 10 时，只需重写 `NLMCL.Core.Pcl` 这一个程序集。
 
 ## 7. 构建、测试、运行
 
@@ -111,7 +111,7 @@
 # 首次（SDK 已按 per-user 安装到 %LOCALAPPDATA%\dsh-dotnet）
 .\scripts\build.ps1
 .\scripts\test.ps1
-.\src\NLCL.App\bin\Debug\net48\NLCL.exe
+.\src\NLMCL.App\bin\Debug\net48\NLMCL.exe
 ```
 
 已验证的基线（本次实测）：
@@ -136,7 +136,7 @@
 ## 9. 已知取舍与风险
 
 1. **net48 是冻结平台**。缓解：所有新代码在接口之后，`Abstractions` 用 netstandard2.0，必要时整层替换。
-2. **VB 与 C# 混编的认知成本**。缓解：VB 只允许出现在 `NLCL.Core.Pcl`，其余一律 C#；该目录设 CODEOWNERS。
+2. **VB 与 C# 混编的认知成本**。缓解：VB 只允许出现在 `NLMCL.Core.Pcl`，其余一律 C#；该目录设 CODEOWNERS。
 3. **PCL 的 `ModMain` 是上帝对象**（全局状态 + 导航）。接入时不要把它搬进 Core，应按职责拆成状态容器与导航服务，否则分层会被它腐化。
 4. **`Option Strict Off` 的 VB 代码**。适配时必须在边界处显式转换类型，不能让 `Object` 漏进 C# 层。
 5. **XAML 冒烟测试不验证绑定表达式的运行时求值**（未 Show 窗口时绑定可能延迟），只验证 XAML 可加载与 DataContext 装配。视觉回归靠 `RenderSnapshotTests` 产出的 PNG 人工比对，还没有像素级自动断言。

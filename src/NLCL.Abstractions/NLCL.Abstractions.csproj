@@ -1,7 +1,0 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <RootNamespace>NLCL.Abstractions</RootNamespace>
-    <AssemblyName>NLCL.Abstractions</AssemblyName>
-  </PropertyGroup>
-</Project>
