@@ -301,7 +301,8 @@ namespace NLMCL.Tests
             ISnapshotService? snapshotService = null,
             IDialogService? dialogs = null,
             IAppearance? appearance = null,
-            IAppSettingsStore? appSettings = null)
+            IAppSettingsStore? appSettings = null,
+            ResourceViewModel? resource = null)
         {
             return new MainViewModel(
                 catalog,
@@ -321,7 +322,28 @@ namespace NLMCL.Tests
                 sessionLauncher: sessionLauncher,
                 snapshotService: snapshotService,
                 dialogs: dialogs,
-                appearance: appearance);
+                appearance: appearance,
+                resource: resource);
         }
+        internal sealed class NoopResourceCatalog : IResourceCatalog
+        {
+            public Task<IReadOnlyList<ResourceSummary>> SearchAsync(
+                ResourceQuery query, CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ResourceSummary>>(Array.Empty<ResourceSummary>());
+
+            public Task<IReadOnlyList<ResourceFile>> GetFilesAsync(
+                string projectId, ResourceKind kind, string? gameVersion, string? loader,
+                CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ResourceFile>>(Array.Empty<ResourceFile>());
+        }
+
+        internal sealed class NoopResourceInstaller : IResourceInstaller
+        {
+            public Task<string> InstallAsync(
+                ResourceFile file, ResourceKind kind, string minecraftDirectory, string versionFolder,
+                CancellationToken cancellationToken)
+                => Task.FromResult(Path.Combine(minecraftDirectory, "mods", file.Name));
+        }
+
     }
 }
