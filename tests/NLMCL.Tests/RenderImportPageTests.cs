@@ -29,11 +29,17 @@ namespace NLMCL.Tests
                     string roaming = Path.Combine(
                         Path.GetTempPath(), "nlmcl-import-" + Guid.NewGuid().ToString("N"), "roaming");
 
+                    ResourceViewModel resource = new ResourceViewModel(
+                        new TestSupport.NoopResourceCatalog(),
+                        new TestSupport.NoopResourceInstaller());
+
                     MainViewModel vm = TestSupport.CreateMain(
                         new TestSupport.EmptyCatalog(), new AppPaths(roaming),
-                        resource: new ResourceViewModel(
-                            new TestSupport.NoopResourceCatalog(),
-                            new TestSupport.NoopResourceInstaller()));
+                        resource: resource);
+
+                    // 先搜一次，让结果列表真正渲染（Run 绑定这类问题只有有数据时才暴露）
+                    resource.SearchText = "sodium";
+                    resource.SearchAsync().GetAwaiter().GetResult();
 
                     vm.SelectSection(vm.NavigationGroups[1].Items[1]);
                     Assert.True(vm.IsImportSection);

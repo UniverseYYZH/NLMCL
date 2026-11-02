@@ -329,7 +329,13 @@ namespace NLMCL.Tests
         {
             public Task<IReadOnlyList<ResourceSummary>> SearchAsync(
                 ResourceQuery query, CancellationToken cancellationToken)
-                => Task.FromResult<IReadOnlyList<ResourceSummary>>(Array.Empty<ResourceSummary>());
+                => Task.FromResult<IReadOnlyList<ResourceSummary>>(new[]
+                {
+                    new ResourceSummary("AANobbMI", "sodium", "Sodium", "Modern rendering engine",
+                        "https://cdn.modrinth.com/sodium.png", "jellysquid3", 123456789, ResourceKind.Mod),
+                    new ResourceSummary("YL57xq9U", "iris", "Iris Shaders", "Shaders",
+                        null, "coderbot", 5000, ResourceKind.Mod)
+                });
 
             public Task<IReadOnlyList<ResourceFile>> GetFilesAsync(
                 string projectId, ResourceKind kind, string? gameVersion, string? loader,

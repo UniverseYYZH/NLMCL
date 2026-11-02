@@ -35,7 +35,7 @@
                                        TextTrimming="CharacterEllipsis"
                                        Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
                             <TextBlock FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,3,0,0">
-                                <Run Text="{Binding DownloadsText}" /><Run Text=" 次下载 · " /><Run Text="{Binding Slug}" />
+                                <Run Text="{Binding DownloadsText, Mode=OneWay}" /><Run Text=" 次下载 · " /><Run Text="{Binding Slug, Mode=OneWay}" />
                             </TextBlock>
                         </StackPanel>
 
