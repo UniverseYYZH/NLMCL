@@ -59,8 +59,42 @@ namespace NLMCL.Tests
 
                 bool migrated = LegacyDataMigration.TryMigrate(target);
 
-                Assert.False(migrated);
+                Assert.False(migrated); // 没有可补的东西
                 Assert.Equal("new", File.ReadAllText(Path.Combine(target, "settings.json")));
+            }
+            finally
+            {
+                TryDelete(root);
+            }
+        }
+
+        /// <summary>
+        /// 新目录已存在（例如测试或先跑过新版本，只写了个 pcl_settings.json）时，
+        /// 老配置也要能补齐——否则改名的用户会"配置全丢"。
+        /// </summary>
+        [Fact]
+        public void Fills_missing_files_even_when_new_folder_exists()
+        {
+            string root = NewRoot();
+            Directory.CreateDirectory(root);
+
+            try
+            {
+                string legacy = Path.Combine(root, "NLCL");
+                Directory.CreateDirectory(legacy);
+                File.WriteAllText(Path.Combine(legacy, "settings.json"), "{\"gameDirectory\":\"D:\\\\MC\"}", Encoding.UTF8);
+                File.WriteAllText(Path.Combine(legacy, "accounts.json"), "{}", Encoding.UTF8);
+
+                string target = Path.Combine(root, "NLMCL");
+                Directory.CreateDirectory(target);
+                File.WriteAllText(Path.Combine(target, "pcl_settings.json"), "{}", Encoding.UTF8);
+
+                bool migrated = LegacyDataMigration.TryMigrate(target);
+
+                Assert.True(migrated);
+                Assert.True(File.Exists(Path.Combine(target, "settings.json")));
+                Assert.True(File.Exists(Path.Combine(target, "accounts.json")));
+                Assert.True(File.Exists(Path.Combine(target, "pcl_settings.json")));
             }
             finally
             {

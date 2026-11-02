@@ -4,22 +4,23 @@ using System.IO;
 namespace NLMCL.Core.Settings
 {
     /// <summary>
-    /// 改名迁移：老版本（NLCL）的数据在 <c>%APPDATA%\NLCL</c>，
-    /// 新名字第一次启动时把它整体复制到 <c>%APPDATA%\NLMCL</c>。
+    /// 改名迁移：老版本（NLMCL 之前的名字 NLCL）的数据在 <c>%APPDATA%\NLCL</c>，
+    /// 新名字启动时把**缺失**的文件/目录补齐到 <c>%APPDATA%\NLMCL</c>。
     ///
-    /// 只在新目录**还不存在**时执行——否则会把用户新数据覆盖掉。
-    /// 迁移是尽力而为：失败不抛异常，最坏情况就是重新配置一次。
+    /// 逐项合并而不是"整个目录搬一次"：新目录可能已经被写过（比如测试或先跑过新版本的
+    /// pcl_settings.json），若只在"新目录不存在"时迁移，老配置就永远搬不过来了。
+    /// 已存在的文件一律不覆盖。
     /// </summary>
     public static class LegacyDataMigration
     {
         public const string LegacyFolderName = "NLCL";
 
-        /// <summary>返回是否真的发生了迁移。</summary>
+        /// <summary>返回是否真的复制了东西。</summary>
         public static bool TryMigrate(string dataRoot)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(dataRoot) || Directory.Exists(dataRoot))
+                if (string.IsNullOrWhiteSpace(dataRoot))
                 {
                     return false;
                 }
@@ -39,8 +40,7 @@ namespace NLMCL.Core.Settings
                     return false;
                 }
 
-                CopyDirectory(legacy, dataRoot);
-                return true;
+                return CopyMissing(legacy, dataRoot);
             }
             catch (Exception)
             {
@@ -48,19 +48,34 @@ namespace NLMCL.Core.Settings
             }
         }
 
-        private static void CopyDirectory(string source, string target)
+        /// <summary>只复制目标里不存在的文件/目录；返回是否有任何复制。</summary>
+        private static bool CopyMissing(string source, string target)
         {
+            bool copied = false;
+
             Directory.CreateDirectory(target);
 
             foreach (string file in Directory.GetFiles(source))
             {
-                File.Copy(file, Path.Combine(target, Path.GetFileName(file)), overwrite: false);
+                string destination = Path.Combine(target, Path.GetFileName(file));
+                if (File.Exists(destination))
+                {
+                    continue;
+                }
+
+                File.Copy(file, destination, overwrite: false);
+                copied = true;
             }
 
             foreach (string directory in Directory.GetDirectories(source))
             {
-                CopyDirectory(directory, Path.Combine(target, Path.GetFileName(directory)));
+                if (CopyMissing(directory, Path.Combine(target, Path.GetFileName(directory))))
+                {
+                    copied = true;
+                }
             }
+
+            return copied;
         }
     }
 }
