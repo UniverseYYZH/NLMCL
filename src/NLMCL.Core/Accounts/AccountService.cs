@@ -95,19 +95,23 @@ namespace NLMCL.Core.Accounts
             string typeText = root.Value<string>("type") ?? "Offline";
             AccountType type = string.Equals(typeText, "Microsoft", StringComparison.OrdinalIgnoreCase)
                 ? AccountType.Microsoft
-                : AccountType.Offline;
+                : string.Equals(typeText, "External", StringComparison.OrdinalIgnoreCase)
+                    ? AccountType.External
+                    : AccountType.Offline;
 
             Account account = new Account(
                 name!, uuid!, type,
                 DecryptToken(root.Value<string>("accessToken")),
-                DecryptToken(root.Value<string>("refreshToken")));
+                DecryptToken(root.Value<string>("refreshToken")),
+                root.Value<string>("authServer"));
 
-            // 微软账号必须有可用的 accessToken 才能算"登录着"。
+            // 正版/外置账号必须有可用的 accessToken 才能算"登录着"。
             // DPAPI 在换 Windows 用户 / 换机器 / 重装系统后解不开（返回 null），
             // 以前这里照样把账号当正版载入：界面显示"正版"，启动时 accessToken 回落成 "0"，
             // 进正版服务器直接被踢，全程没有任何提示。现在当作未登录处理。
             // 只有 refreshToken 缺失时不拦：本次仍可正常玩，只是过期后需要重新登录。
-            if (type == AccountType.Microsoft && string.IsNullOrEmpty(account.AccessToken))
+            if ((type == AccountType.Microsoft || type == AccountType.External)
+                && string.IsNullOrEmpty(account.AccessToken))
             {
                 return System.Threading.Tasks.Task.FromResult<Account?>(null);
             }
@@ -132,7 +136,8 @@ namespace NLMCL.Core.Accounts
                 ["uuid"] = account.Uuid,
                 ["type"] = account.Type.ToString(),
                 ["accessToken"] = EncryptToken(account.AccessToken),
-                ["refreshToken"] = EncryptToken(account.RefreshToken)
+                ["refreshToken"] = EncryptToken(account.RefreshToken),
+                ["authServer"] = account.AuthServer
             };
 
             File.WriteAllText(

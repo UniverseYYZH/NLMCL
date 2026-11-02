@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using NLMCL.App.ViewModels;
 
 namespace NLMCL.App
@@ -23,6 +24,18 @@ namespace NLMCL.App
         {
             Loaded -= OnLoaded;
             _viewModel.InitializeCommand.Execute(null);
+        }
+
+        /// <summary>
+        /// PasswordBox.Password 不是依赖属性，没法直接绑定；
+        /// 这里只做一次单向搬运，业务判断仍然全在 ViewModel 里。
+        /// </summary>
+        private void ExternalPasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (sender is PasswordBox box)
+            {
+                _viewModel.ExternalPassword = box.Password;
+            }
         }
     }
 }

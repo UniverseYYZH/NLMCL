@@ -111,6 +111,12 @@ namespace NLMCL.App
                 new OAuthDownloadService(sp.GetRequiredService<IDownloadService>()),
                 Environment.GetEnvironmentVariable("NLMCL_MS_CLIENT_ID")));
 
+            // 外置登录（MUA 联合认证 / Blessing Skin 皮肤站）：Yggdrasil 协议。
+            // 同样需要把 4xx 的正文放回来，否则"密码错误"只会显示成一串异常。
+            services.AddSingleton<IExternalAuthenticator>(sp => new YggdrasilAuthenticator(
+                new OAuthDownloadService(sp.GetRequiredService<IDownloadService>())));
+            services.AddSingleton<IAuthlibInjector, AuthlibInjectorProvider>();
+
             // PCL 适配层（VB 程序集只在这里被引用）
             services.AddSingleton<IVersionCatalog, PclVersionCatalog>();
             services.AddSingleton<PclDownloadService>();

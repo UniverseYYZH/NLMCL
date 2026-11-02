@@ -53,6 +53,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>没有合适的 Java 时按版本要求自动下载（单测里可为 null）。</summary>
         private readonly IJavaRuntimeInstaller? _javaInstaller;
 
+        /// <summary>外置登录所需的 authlib-injector（单测里可为 null）。</summary>
+        private readonly IAuthlibInjector? _authlibInjector;
+
         private IGameSession? _session;
 
         /// <summary>
@@ -69,13 +72,15 @@ namespace NLMCL.App.ViewModels
             IJavaLocator javaLocator,
             IAppPaths paths,
             IUiDispatcher dispatcher,
-            IJavaRuntimeInstaller? javaInstaller = null)
+            IJavaRuntimeInstaller? javaInstaller = null,
+            IAuthlibInjector? authlibInjector = null)
         {
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
             _javaLocator = javaLocator ?? throw new ArgumentNullException(nameof(javaLocator));
             _paths = paths ?? throw new ArgumentNullException(nameof(paths));
             _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             _javaInstaller = javaInstaller;
+            _authlibInjector = authlibInjector;
 
             GameDirectory = paths.DefaultMinecraftDirectory;
 
@@ -185,13 +190,20 @@ namespace NLMCL.App.ViewModels
                     : string.Empty;
                 StatusText = "正在启动（Java " + java.Major + javaNote + "）…";
 
-                IGameSession session = await _launcher.StartAsync(
-                    new LaunchRequest(GameDirectory, VersionId)
-                    {
-                        JavaExecutable = java.ExecutablePath,
-                        JavaVersion = java.Version
-                    }.WithAccount(Account ?? OfflineAccountFactory.Create("Player")),
-                    CancellationToken.None).ConfigureAwait(true);
+                LaunchRequest request = new LaunchRequest(GameDirectory, VersionId)
+                {
+                    JavaExecutable = java.ExecutablePath,
+                    JavaVersion = java.Version
+                }.WithAccount(Account ?? OfflineAccountFactory.Create("Player"));
+
+                // 外置登录：与主界面共用同一段逻辑，避免两个入口行为不一致
+                request.ExtraJvmArguments = await ExternalLaunch
+                    .BuildJvmArgumentsAsync(Account, _authlibInjector, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                IGameSession session = await _launcher
+                    .StartAsync(request, CancellationToken.None)
+                    .ConfigureAwait(true);
 
                 Attach(session);
             }

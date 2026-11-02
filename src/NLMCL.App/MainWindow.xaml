@@ -249,6 +249,38 @@
                                                FontSize="9" Foreground="{StaticResource Faint}"
                                                Margin="2,3,0,0" TextWrapping="Wrap" />
 
+                                    <!-- 外置登录：MUA 联合认证 / Blessing Skin 皮肤站 -->
+                                    <Border Background="{StaticResource BorderColor}" Height="1" Margin="0,10,0,8" />
+                                    <TextBlock Text="外置登录（MUA 联合认证 / 皮肤站）"
+                                               FontSize="9.5" Foreground="{StaticResource Faint}"
+                                               Margin="0,0,0,4" TextWrapping="Wrap" />
+                                    <Border Background="{StaticResource Surface}"
+                                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                                            CornerRadius="6" Padding="8,4">
+                                        <TextBox Text="{Binding ExternalServer, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="Transparent" BorderThickness="0" FontSize="10"
+                                                 Foreground="{StaticResource Text}" />
+                                    </Border>
+                                    <Border Background="{StaticResource Surface}" Margin="0,4,0,0"
+                                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                                            CornerRadius="6" Padding="8,4">
+                                        <TextBox Text="{Binding ExternalUserName, UpdateSourceTrigger=PropertyChanged}"
+                                                 Background="Transparent" BorderThickness="0" FontSize="10.5"
+                                                 Foreground="{StaticResource Text}" />
+                                    </Border>
+                                    <Border Background="{StaticResource Surface}" Margin="0,4,0,0"
+                                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                                            CornerRadius="6" Padding="8,4">
+                                        <PasswordBox x:Name="ExternalPasswordBox"
+                                                     PasswordChanged="ExternalPasswordChanged"
+                                                     Background="Transparent" BorderThickness="0" FontSize="10.5"
+                                                     Foreground="{StaticResource Text}" />
+                                    </Border>
+                                    <Button Content="外置登录" Style="{StaticResource GhostButton}"
+                                            Margin="0,8,0,0" Padding="12,6"
+                                            Command="{Binding ExternalSignInCommand}"
+                                            IsEnabled="{Binding IsExternalSigningIn, Converter={StaticResource InverseBool}}" />
+
                                     <!-- 设备码：让用户照着输入到浏览器 -->
                                     <Border Background="{StaticResource PrimarySoft}" CornerRadius="6"
                                             Padding="8,6" Margin="0,8,0,0"

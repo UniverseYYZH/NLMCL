@@ -75,6 +75,14 @@ namespace NLMCL.Abstractions
     /// 没有时不该让用户自己去装 JDK，而是按版本 JSON 里声明的
     /// <c>javaVersion.component</c> 把 Mojang 的运行时拉下来。
     /// </summary>
+    /// <summary>
+    /// authlib-injector（外置登录所需的 Java agent）。
+    /// 实现负责下载/校验/缓存，返回本地 jar 路径。
+    /// </summary>
+    public interface IAuthlibInjector
+    {
+        Task<string> EnsureAsync(CancellationToken cancellationToken);
+    }
     public interface IJavaRuntimeInstaller
     {
         /// <summary>

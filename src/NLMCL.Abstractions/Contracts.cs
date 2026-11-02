@@ -150,6 +150,13 @@ namespace NLMCL.Abstractions
         /// </summary>
         public Version? JavaVersion { get; set; }
 
+        /// <summary>
+        /// 额外的 JVM 参数（会插到 -cp 之前，例如外置登录的
+        /// <c>-javaagent:authlib-injector.jar=&lt;apiRoot&gt;</c>）。
+        /// 由实现方负责与用户自己的 JVM 参数共存，不覆盖。
+        /// </summary>
+        public string? ExtraJvmArguments { get; set; }
+
         /// <summary>玩家名。为空时用占位名 Player。</summary>
         public string? PlayerName { get; set; }
 

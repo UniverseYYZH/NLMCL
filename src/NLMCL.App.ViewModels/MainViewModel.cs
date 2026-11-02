@@ -38,6 +38,12 @@ namespace NLMCL.App.ViewModels
         /// <summary>会话式启动器（捕获 stdout/stderr）。为 null 时退回 IGameLauncher。</summary>
         private readonly IGameSessionLauncher? _sessionLauncher;
 
+        /// <summary>外置登录（Yggdrasil）。null 时按钮会提示不可用。</summary>
+        private readonly IExternalAuthenticator? _externalAuthenticator;
+
+        /// <summary>authlib-injector（外置登录启动所需）。null 时外置账号无法启动。</summary>
+        private readonly IAuthlibInjector? _authlibInjector;
+
 
         private bool _accountLoaded;
         private CancellationTokenSource? _scanCts;
@@ -57,7 +63,9 @@ namespace NLMCL.App.ViewModels
             IFolderPicker folderPicker,
             IAppSettingsStore appSettings,
             IJavaRuntimeInstaller? javaInstaller = null,
-            IGameSessionLauncher? sessionLauncher = null)
+            IGameSessionLauncher? sessionLauncher = null,
+            IExternalAuthenticator? externalAuthenticator = null,
+            IAuthlibInjector? authlibInjector = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -72,6 +80,8 @@ namespace NLMCL.App.ViewModels
             _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
             _javaInstaller = javaInstaller;
             _sessionLauncher = sessionLauncher;
+            _externalAuthenticator = externalAuthenticator;
+            _authlibInjector = authlibInjector;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -205,6 +215,23 @@ namespace NLMCL.App.ViewModels
         /// </summary>
         [ObservableProperty]
         private string _microsoftClientId = string.Empty;
+
+        /// <summary>
+        /// 外置登录的认证服务器（Yggdrasil API 根）。默认 MUA 用户中心，
+        /// 支持其它 Blessing Skin 站点（填站点自己的 /api/yggdrasil）。
+        /// </summary>
+        [ObservableProperty]
+        private string _externalServer = "https://skin.mualliance.ltd/api/yggdrasil";
+
+        [ObservableProperty]
+        private string _externalUserName = string.Empty;
+
+        /// <summary>密码只在内存里过一遍，登录成功后立即清空，不落盘。</summary>
+        [ObservableProperty]
+        private string _externalPassword = string.Empty;
+
+        [ObservableProperty]
+        private bool _isExternalSigningIn;
 
 
         /// <summary>登录状态文案。</summary>
@@ -569,6 +596,52 @@ namespace NLMCL.App.ViewModels
         }
 
         /// <summary>
+        /// 外置登录：Yggdrasil 账号密码登录（MUA 联合认证 / 皮肤站）。
+        /// 密码只在本次调用里用掉，成功后立刻清空，不写进任何文件。
+        /// </summary>
+        [RelayCommand]
+        public async Task ExternalSignInAsync()
+        {
+            if (IsExternalSigningIn)
+            {
+                return;
+            }
+
+            if (_externalAuthenticator == null)
+            {
+                StatusText = "外置登录不可用（未装配认证器）。";
+                return;
+            }
+
+            IsExternalSigningIn = true;
+            StatusText = "正在登录外置账号…";
+
+            try
+            {
+                Account account = await _externalAuthenticator
+                    .LoginAsync(ExternalServer, ExternalUserName, ExternalPassword, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                await _accounts.SaveAsync(account, CancellationToken.None).ConfigureAwait(true);
+
+                Account = account;
+                Console.Account = account;
+                ExternalPassword = string.Empty;
+                IsAccountPopupOpen = false;
+
+                StatusText = "已登录外置账号：" + account.Name + "（" + account.TypeLabel + "）";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "外置登录失败：" + ex.Message;
+            }
+            finally
+            {
+                IsExternalSigningIn = false;
+            }
+        }
+
+        /// <summary>
         /// 启动时初始化：读回上次的游戏目录 → 读回账号 → 扫描版本。
         /// 顺序有意义：目录要先于扫描确定，否则会扫错地方。
         /// </summary>
@@ -664,15 +737,17 @@ namespace NLMCL.App.ViewModels
                 Account? account = await _accounts.LoadAsync(CancellationToken.None).ConfigureAwait(true);
                 if (account != null)
                 {
-                    // 正版令牌约 24 小时过期：启动时静默续期一次，
+                    // 令牌会过期：启动时静默续期一次。
                     // 失败就保留旧账号（可能仍然有效），真正过期时启动会报错并提示重新登录。
                     if (account.CanRefresh)
                     {
                         try
                         {
-                            Account refreshed = await _microsoft
-                                .RefreshAsync(account.RefreshToken!, CancellationToken.None)
-                                .ConfigureAwait(true);
+                            Account refreshed = account.Type == NLMCL.Abstractions.AccountType.External
+                                ? await ExternalRefreshAsync(account).ConfigureAwait(true)
+                                : await _microsoft
+                                    .RefreshAsync(account.RefreshToken!, CancellationToken.None)
+                                    .ConfigureAwait(true);
 
                             await _accounts.SaveAsync(refreshed, CancellationToken.None).ConfigureAwait(true);
                             account = refreshed;
@@ -692,6 +767,17 @@ namespace NLMCL.App.ViewModels
             {
                 StatusText = "读取账号失败：" + ex.Message;
             }
+        }
+
+        /// <summary>外置账号续期；没装配认证器时抛异常，由调用方保留旧账号。</summary>
+        private Task<Account> ExternalRefreshAsync(Account account)
+        {
+            if (_externalAuthenticator == null)
+            {
+                throw new InvalidOperationException("外置登录不可用（未装配认证器）。");
+            }
+
+            return _externalAuthenticator.RefreshAsync(account, CancellationToken.None);
         }
 
         /// <summary>点选列表里的一个版本。切换高亮并作为启动目标。</summary>
@@ -839,6 +925,20 @@ namespace NLMCL.App.ViewModels
                     MaximumMemoryMb = MemoryMb,
                     ServerAddress = serverAddress
                 }.WithAccount(Account ?? BuildImplicitOfflineAccount());
+
+                // 外置登录：把 authlib-injector 挂到 JVM 上。
+                // 失败就明确报错，不要带着空身份启动（服务器会直接踢人，日志还看不出原因）。
+                try
+                {
+                    request.ExtraJvmArguments = await ExternalLaunch
+                        .BuildJvmArgumentsAsync(Account, _authlibInjector, CancellationToken.None)
+                        .ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    StatusText = "外置登录准备失败：" + ex.Message;
+                    return;
+                }
 
                 if (_sessionLauncher != null)
                 {

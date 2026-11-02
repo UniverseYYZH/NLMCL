@@ -12,20 +12,24 @@ namespace NLMCL.Abstractions
         Offline = 0,
 
         /// <summary>微软账号（正版）。</summary>
-        Microsoft = 1
+        Microsoft = 1,
+
+        /// <summary>外置登录：Yggdrasil / authlib-injector 生态（如 MUA 联合认证）。</summary>
+        External = 2
     }
 
     /// <summary>一个可用于启动的账号。</summary>
     public sealed class Account
     {
         public Account(string name, string uuid, AccountType type,
-            string? accessToken = null, string? refreshToken = null)
+            string? accessToken = null, string? refreshToken = null, string? authServer = null)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Uuid = uuid ?? throw new ArgumentNullException(nameof(uuid));
             Type = type;
             AccessToken = accessToken;
             RefreshToken = refreshToken;
+            AuthServer = authServer;
         }
 
         public string Name { get; }
@@ -44,10 +48,31 @@ namespace NLMCL.Abstractions
         public string? RefreshToken { get; }
 
         /// <summary>是否可以自动续期。</summary>
-        public bool CanRefresh => Type == AccountType.Microsoft && !string.IsNullOrEmpty(RefreshToken);
+        public bool CanRefresh => (Type == AccountType.Microsoft || Type == AccountType.External)
+            && !string.IsNullOrEmpty(RefreshToken);
+
+        /// <summary>
+        /// 外置登录的认证服务器根地址（如 <c>https://skin.mualliance.ltd/api/yggdrasil</c>）。
+        /// 微软/离线账号为 null。
+        /// </summary>
+        public string? AuthServer { get; }
 
         /// <summary>界面上显示的类型标签。</summary>
-        public string TypeLabel => Type == AccountType.Microsoft ? "正版" : "离线";
+        public string TypeLabel
+        {
+            get
+            {
+                switch (Type)
+                {
+                    case AccountType.Microsoft:
+                        return "正版";
+                    case AccountType.External:
+                        return "外置";
+                    default:
+                        return "离线";
+                }
+            }
+        }
 
         /// <summary>启动时传给游戏的 accessToken。离线账号用占位值。</summary>
         public string EffectiveAccessToken =>
@@ -56,6 +81,18 @@ namespace NLMCL.Abstractions
         public override string ToString() => Name + " (" + TypeLabel + ")";
     }
 
+    /// <summary>
+    /// 外置登录：Yggdrasil 协议（MUA 联合认证、Blessing Skin / LittleSkin 皮肤站）。
+    /// 与微软登录并列，互不影响。
+    /// </summary>
+    public interface IExternalAuthenticator
+    {
+        /// <summary>用账号密码登录；成功返回带 accessToken 的账号。失败抛带中文说明的异常。</summary>
+        Task<Account> LoginAsync(string apiRoot, string username, string password, CancellationToken cancellationToken);
+
+        /// <summary>用 accessToken + clientToken 续期。</summary>
+        Task<Account> RefreshAsync(Account account, CancellationToken cancellationToken);
+    }
     /// <summary>账号的持久化。实现可以是 JSON 文件。</summary>
     public interface IAccountStore
     {
