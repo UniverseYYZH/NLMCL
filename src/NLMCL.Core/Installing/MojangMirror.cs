@@ -52,10 +52,18 @@ namespace NLMCL.Core.Installing
             }
 
             // Fabric 的 meta（加载器列表、profile JSON）：镜像按 /fabric-meta/<路径> 代理
-            // 注意 maven.fabricmc.net **没有**镜像，bmclapi 对 /maven/net/fabricmc 返回 403
             if (host == "meta.fabricmc.net")
             {
                 return MirrorBase + "/fabric-meta" + path;
+            }
+
+            // Fabric 的 maven：镜像按 /maven/<路径> 代理。
+            // 坑：它只认 PCL2 的 User-Agent（默认 UA 会 403）——因为底下的 ModNet 发的
+            // 就是 PCL2/...，所以这条改写实际是通的（实测 200 / 643ms）。
+            // 直连 maven.fabricmc.net 在国内经常超时，才是之前安装失败的根因。
+            if (host == "maven.fabricmc.net")
+            {
+                return MirrorBase + "/maven" + path;
             }
 
             return null;

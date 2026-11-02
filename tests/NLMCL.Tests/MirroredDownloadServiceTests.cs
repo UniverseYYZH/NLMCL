@@ -66,6 +66,8 @@ namespace NLMCL.Tests
             "https://bmclapi2.bangbang93.com/maven/org/ow2/asm/asm/9.6/asm-9.6.jar")]
         [InlineData("https://meta.fabricmc.net/v2/versions/loader/1.21.2",
             "https://bmclapi2.bangbang93.com/fabric-meta/v2/versions/loader/1.21.2")]
+        [InlineData("https://maven.fabricmc.net/net/fabricmc/intermediary/1.21.2/intermediary-1.21.2.jar",
+            "https://bmclapi2.bangbang93.com/maven/net/fabricmc/intermediary/1.21.2/intermediary-1.21.2.jar")]
         public void Rewrites_known_mojang_hosts(string official, string expected)
         {
             Assert.Equal(expected, MojangMirror.TryRewrite(official));
@@ -74,8 +76,8 @@ namespace NLMCL.Tests
         [Fact]
         public void Leaves_unknown_hosts_alone()
         {
-            // Fabric 的 maven 没有可用镜像：必须原样走官方，硬改会 403
-            Assert.Null(MojangMirror.TryRewrite("https://maven.fabricmc.net/net/fabricmc/intermediary/1.21.2/intermediary-1.21.2.jar"));
+            // 未知域名（例如第三方皮肤站）不被改写
+            Assert.Null(MojangMirror.TryRewrite("https://skin.example.cn/api/yggdrasil"));
             Assert.Null(MojangMirror.TryRewrite("not a url"));
         }
 
