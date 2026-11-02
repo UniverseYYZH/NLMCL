@@ -20,6 +20,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <local:InverseBooleanConverter x:Key="InverseBool" />
         <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <local:EmptyToVisibilityConverter x:Key="EmptyToVisibility" />
 
         <!-- 侧栏导航项 -->
         <DataTemplate x:Key="NavItemTemplate">
@@ -459,9 +460,14 @@
                             <Border Background="{StaticResource Surface}"
                                     BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,5">
-                                <TextBox Text="{Binding PlayerNameInput, UpdateSourceTrigger=PropertyChanged}"
-                                         Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                         Foreground="{StaticResource Text}" />
+                                <Grid>
+                                    <TextBlock Text="玩家名（离线）" FontSize="11.5" Margin="1,0,0,0"
+                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Visibility="{Binding PlayerNameInput, Converter={StaticResource EmptyToVisibility}}" />
+                                    <TextBox Text="{Binding PlayerNameInput, UpdateSourceTrigger=PropertyChanged}"
+                                             Background="Transparent" BorderThickness="0" FontSize="11.5"
+                                             Foreground="{StaticResource Text}" />
+                                </Grid>
                             </Border>
                             <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
                                 <Button Content="离线登录" Style="{StaticResource PrimaryButton}"
@@ -495,9 +501,14 @@
                             <Border Background="{StaticResource Surface}"
                                     BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,5">
-                                <TextBox Text="{Binding MicrosoftClientId, UpdateSourceTrigger=PropertyChanged}"
-                                         Background="Transparent" BorderThickness="0" FontSize="10.5"
-                                         Foreground="{StaticResource Text}" />
+                                <Grid>
+                                    <TextBlock Text="Azure 应用 (客户端) ID" FontSize="10.5" Margin="1,0,0,0"
+                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Visibility="{Binding MicrosoftClientId, Converter={StaticResource EmptyToVisibility}}" />
+                                    <TextBox Text="{Binding MicrosoftClientId, UpdateSourceTrigger=PropertyChanged}"
+                                             Background="Transparent" BorderThickness="0" FontSize="10.5"
+                                             Foreground="{StaticResource Text}" />
+                                </Grid>
                             </Border>
 
                             <!-- 外置登录：MUA 联合认证 / Blessing Skin 皮肤站 -->
@@ -508,24 +519,39 @@
                             <Border Background="{StaticResource Surface}"
                                     BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,4">
-                                <TextBox Text="{Binding ExternalServer, UpdateSourceTrigger=PropertyChanged}"
-                                         Background="Transparent" BorderThickness="0" FontSize="10"
-                                         Foreground="{StaticResource Text}" />
+                                <Grid>
+                                    <TextBlock Text="认证服务器地址（Yggdrasil）" FontSize="10" Margin="1,0,0,0"
+                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Visibility="{Binding ExternalServer, Converter={StaticResource EmptyToVisibility}}" />
+                                    <TextBox Text="{Binding ExternalServer, UpdateSourceTrigger=PropertyChanged}"
+                                             Background="Transparent" BorderThickness="0" FontSize="10"
+                                             Foreground="{StaticResource Text}" />
+                                </Grid>
                             </Border>
                             <Border Background="{StaticResource Surface}" Margin="0,4,0,0"
                                     BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,4">
-                                <TextBox Text="{Binding ExternalUserName, UpdateSourceTrigger=PropertyChanged}"
-                                         Background="Transparent" BorderThickness="0" FontSize="10.5"
-                                         Foreground="{StaticResource Text}" />
-                            </Border>
-                            <Border Background="{StaticResource Surface}" Margin="0,4,0,0"
-                                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
-                                    CornerRadius="6" Padding="8,4">
-                                <PasswordBox x:Name="ExternalPasswordBox"
-                                             PasswordChanged="ExternalPasswordChanged"
+                                <Grid>
+                                    <TextBlock Text="账号（邮箱或用户名）" FontSize="10.5" Margin="1,0,0,0"
+                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Visibility="{Binding ExternalUserName, Converter={StaticResource EmptyToVisibility}}" />
+                                    <TextBox Text="{Binding ExternalUserName, UpdateSourceTrigger=PropertyChanged}"
                                              Background="Transparent" BorderThickness="0" FontSize="10.5"
                                              Foreground="{StaticResource Text}" />
+                                </Grid>
+                            </Border>
+                            <Border Background="{StaticResource Surface}" Margin="0,4,0,0"
+                                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                                    CornerRadius="6" Padding="8,4">
+                                <Grid>
+                                    <TextBlock Text="密码" FontSize="10.5" Margin="1,0,0,0"
+                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Visibility="{Binding ExternalPassword, Converter={StaticResource EmptyToVisibility}}" />
+                                    <PasswordBox x:Name="ExternalPasswordBox"
+                                                 PasswordChanged="ExternalPasswordChanged"
+                                                 Background="Transparent" BorderThickness="0" FontSize="10.5"
+                                                 Foreground="{StaticResource Text}" />
+                                </Grid>
                             </Border>
                             <Button Content="外置登录" Style="{StaticResource GhostButton}"
                                     HorizontalAlignment="Left" Margin="0,8,0,2" Padding="12,6"

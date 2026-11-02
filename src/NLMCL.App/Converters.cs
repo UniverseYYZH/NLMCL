@@ -33,4 +33,22 @@ namespace NLMCL.App
             throw new NotSupportedException();
         }
     }
+
+    /// <summary>
+    /// 输入框为空时显示占位文字（WPF 的 TextBox 没有 placeholder）。
+    /// 拿到非字符串或非空字符串时隐藏。
+    /// </summary>
+    public sealed class EmptyToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            string text = value as string ?? string.Empty;
+            return string.IsNullOrEmpty(text) ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+    }
 }
