@@ -175,6 +175,9 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isLoading;
 
+        /// <summary>并发下载数（跟随设置里的下载线程）。</summary>
+        public int Parallelism { get; set; } = 8;
+
         /// <summary>安装进度 0–100；未开始时为 0。</summary>
         [ObservableProperty]
         private double _progress;
@@ -353,7 +356,10 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                InstallRequest request = new InstallRequest(TargetDirectory, target!.Id);
+                InstallRequest request = new InstallRequest(TargetDirectory, target!.Id)
+                {
+                    Parallelism = Parallelism
+                };
                 if (IsFabricSelected)
                 {
                     request.Loader = "fabric";

@@ -93,6 +93,12 @@ namespace NLMCL.Abstractions
         public string? Loader { get; set; }
 
         public string? LoaderVersion { get; set; }
+
+        /// <summary>
+        /// 同时下载的文件数。资源动辄几千个，串行会慢到不可用；
+        /// 默认 8，实现方应夹在 1–16 之间（再多容易被服务器限速）。
+        /// </summary>
+        public int Parallelism { get; set; } = 8;
     }
 
     public sealed class InstallProgress

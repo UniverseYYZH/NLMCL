@@ -57,6 +57,9 @@ namespace NLMCL.Core.Installing
 
             ProgressRelay relay = new ProgressRelay(progress);
 
+            // 1–16 之间，默认 8；太小会退化成串行，太大容易被服务器限速
+            int parallelism = Math.Max(1, Math.Min(16, request.Parallelism));
+
             // 1. 版本清单 → 该版本的 JSON 地址
             relay.Report("读取版本清单", 1);
             string manifest = await _download.GetStringAsync(_options.ManifestUrl, cancellationToken).ConfigureAwait(false);
@@ -72,7 +75,7 @@ namespace NLMCL.Core.Installing
             Directory.CreateDirectory(plan.VersionDirectory);
 
             // 3. 客户端 JAR + 库
-            await DownloadAllAsync(plan.Files, relay, 5, 55, "下载库与客户端", cancellationToken).ConfigureAwait(false);
+            await DownloadAllAsync(plan.Files, relay, 5, 55, "下载库与客户端", parallelism, cancellationToken).ConfigureAwait(false);
 
             // 4. 资源索引 → 资源对象
             if (plan.AssetIndex != null)
@@ -85,7 +88,7 @@ namespace NLMCL.Core.Installing
                     VersionPlanBuilder.BuildAssetFiles(
                         indexText, request.MinecraftDirectory, _options.ResourcesBaseUrl, _options.MaxAssetFiles));
 
-                await DownloadAllAsync(assets, relay, 60, 95, "下载游戏资源", cancellationToken).ConfigureAwait(false);
+                await DownloadAllAsync(assets, relay, 60, 95, "下载游戏资源", parallelism, cancellationToken).ConfigureAwait(false);
             }
 
             // 5. natives 解压
@@ -116,6 +119,7 @@ namespace NLMCL.Core.Installing
             int fromPercent,
             int toPercent,
             string stage,
+            int maxParallelism,
             CancellationToken cancellationToken)
         {
             if (files.Count == 0)
@@ -125,15 +129,38 @@ namespace NLMCL.Core.Installing
 
             float span = toPercent - fromPercent;
 
-            for (int index = 0; index < files.Count; index++)
+            // 资源动辄几千个，串行下载会慢到不可用（一个文件一次 TLS 往返）。
+            // 这里开有限并发：ModNet 每次调用都是独立请求，PCL 自己也是并行下的。
+            int parallelism = Math.Max(1, Math.Min(16, maxParallelism));
+            using (SemaphoreSlim gate = new SemaphoreSlim(parallelism))
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                List<Task> tasks = new List<Task>(files.Count);
+                int completed = 0;
 
-                // 进度按"已完成文件数"推进，且只在区间内单调增长。
-                int percent = fromPercent + (int)(span * index / files.Count);
-                relay.Report(stage + " " + (index + 1) + "/" + files.Count, percent);
+                foreach (RemoteFile file in files)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    gate.Wait(cancellationToken);
 
-                await EnsureFileAsync(files[index], cancellationToken).ConfigureAwait(false);
+                    RemoteFile current = file;
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await EnsureFileAsync(current, cancellationToken).ConfigureAwait(false);
+                        }
+                        finally
+                        {
+                            gate.Release();
+                        }
+
+                        int done = Interlocked.Increment(ref completed);
+                        int percent = fromPercent + (int)(span * done / files.Count);
+                        relay.Report(stage + " " + done + "/" + files.Count, percent);
+                    }, cancellationToken));
+                }
+
+                await Task.WhenAll(tasks).ConfigureAwait(false);
             }
         }
 
@@ -277,16 +304,22 @@ namespace NLMCL.Core.Installing
             private int _lastPercent = -1;
             private string _lastStage = string.Empty;
 
+            private readonly object _lock = new object();
+
             public void Report(string stage, int percent)
             {
-                if (percent < _lastPercent)
+                // 并发下载后多个线程会同时上报，必须串行化，否则 _lastPercent 会竞争
+                lock (_lock)
                 {
-                    percent = _lastPercent;
-                }
+                    if (percent < _lastPercent)
+                    {
+                        percent = _lastPercent;
+                    }
 
-                _lastPercent = percent;
-                _lastStage = stage;
-                _progress?.Report(new InstallProgress(stage, percent, 0));
+                    _lastPercent = percent;
+                    _lastStage = stage;
+                    _progress?.Report(new InstallProgress(stage, percent, 0));
+                }
             }
         }
     }

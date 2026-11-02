@@ -408,6 +408,7 @@ namespace NLMCL.App.ViewModels
             if (int.TryParse(value, out int threads))
             {
                 _downloadTuning?.ApplyThreadCount(threads);
+                Download.Parallelism = threads;
             }
 
             _ = SaveAppearanceAsync();
@@ -1045,6 +1046,7 @@ namespace NLMCL.App.ViewModels
                 SelectedThreads = (settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads).ToString();
 
                 _downloadTuning?.ApplyThreadCount(settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads);
+                Download.Parallelism = settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads;
 
                 _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
 
