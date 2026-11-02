@@ -56,6 +56,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>下载线程数接线到 PCL 设置。null 时只保存不生效。</summary>
         private readonly IDownloadTuning? _downloadTuning;
 
+        /// <summary>在线资源搜索与安装（Modrinth）。</summary>
+        private readonly ResourceViewModel? _resource;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -93,7 +96,8 @@ namespace NLMCL.App.ViewModels
             ISnapshotService? snapshotService = null,
             IDialogService? dialogs = null,
             IAppearance? appearance = null,
-            IDownloadTuning? downloadTuning = null)
+            IDownloadTuning? downloadTuning = null,
+            ResourceViewModel? resource = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -114,6 +118,7 @@ namespace NLMCL.App.ViewModels
             _dialogs = dialogs;
             _appearance = appearance;
             _downloadTuning = downloadTuning;
+            _resource = resource;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -371,6 +376,13 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isMultiplayerSection;
 
+        /// <summary>在线资源页的视图模型（可能为 null，例如单测未注入）。</summary>
+        public ResourceViewModel? Resource => _resource;
+
+        /// <summary>当前显示「导入资源」页。</summary>
+        [ObservableProperty]
+        private bool _isImportSection;
+
         /// <summary>当前显示「设置」页。</summary>
         [ObservableProperty]
         private bool _isSettingsSection;
@@ -570,6 +582,12 @@ namespace NLMCL.App.ViewModels
             IsLaunchSection = item.Section == ShellSection.Launch;
             IsMultiplayerSection = item.Section == ShellSection.Multiplayer;
             IsSettingsSection = item.Section == ShellSection.Settings;
+            IsImportSection = item.Section == ShellSection.Import;
+
+            if (IsImportSection && _resource != null)
+            {
+                _resource.SyncFromInstance(CurrentGameDirectory, SelectedVersion?.FolderName ?? string.Empty);
+            }
         }
 
         /// <summary>选择游戏目录（.minecraft 所在文件夹）。</summary>

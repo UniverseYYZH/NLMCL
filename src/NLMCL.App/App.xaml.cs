@@ -13,6 +13,7 @@ using NLMCL.Core.Installing;
 using NLMCL.Core.Networking;
 using NLMCL.Core.Settings;
 using NLMCL.Core.Snapshots;
+using NLMCL.Core.Resources;
 
 namespace NLMCL.App
 {
@@ -120,6 +121,8 @@ namespace NLMCL.App
                 new OAuthDownloadService(sp.GetRequiredService<IDownloadService>())));
             services.AddSingleton<IAuthlibInjector, AuthlibInjectorProvider>();
             services.AddSingleton<ISnapshotService, SnapshotService>();
+            services.AddSingleton<IResourceCatalog, ModrinthCatalog>();
+            services.AddSingleton<IResourceInstaller, ResourceInstaller>();
             services.AddSingleton<IDialogService, Services.MessageBoxDialogService>();
 
             // PCL 适配层（VB 程序集只在这里被引用）
@@ -148,6 +151,7 @@ namespace NLMCL.App
 
             // 展示层
             services.AddSingleton<DownloadViewModel>();
+            services.AddSingleton<ResourceViewModel>();
             services.AddSingleton<LaunchConsoleViewModel>();
             services.AddTransient<MainViewModel>();
             services.AddTransient<MainWindow>();

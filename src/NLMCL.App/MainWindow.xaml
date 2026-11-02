@@ -511,6 +511,12 @@
                 <TextBlock Grid.Row="2" Text="{Binding StatusText}" FontSize="10.5"
                            Foreground="{DynamicResource Muted}" Margin="2,10,0,0" />
             </Grid>
+            <!-- 导入资源页 -->
+            <views:ResourcePage Margin="26,22,26,14"
+                                DataContext="{Binding Resource}"
+                                Visibility="{Binding DataContext.IsImportSection,
+                                                     RelativeSource={RelativeSource AncestorType=Window},
+                                                     Converter={StaticResource BoolToVisibility}}" />
             <!-- 联机房间页 -->
             <views:MultiplayerPage Margin="26,22,26,14"
                                    Visibility="{Binding IsMultiplayerSection,
