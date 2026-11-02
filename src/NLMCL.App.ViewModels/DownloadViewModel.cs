@@ -183,6 +183,100 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _hasProgress;
 
+        // ── 筛选与安装弹层 ────────────────────────────────────────────────
+        public IReadOnlyList<string> FilterOptions { get; } = new[] { "全部", "正式版", "快照" };
+
+        [ObservableProperty]
+        private string _selectedFilter = "全部";
+
+        [ObservableProperty]
+        private string _searchText = string.Empty;
+
+        /// <summary>筛选后的列表（界面绑这个，不再绑 Versions）。</summary>
+        public ObservableCollection<VanillaVersion> FilteredVersions { get; } =
+            new ObservableCollection<VanillaVersion>();
+
+        partial void OnSelectedFilterChanged(string value) => ApplyFilter();
+
+        partial void OnSearchTextChanged(string value) => ApplyFilter();
+
+        /// <summary>按类型与关键字筛选；关键字不区分大小写。</summary>
+        public void ApplyFilter()
+        {
+            IEnumerable<VanillaVersion> query = Versions;
+
+            if (string.Equals(SelectedFilter, "正式版", StringComparison.Ordinal))
+            {
+                query = query.Where(version =>
+                    string.Equals(version.Type, "release", StringComparison.OrdinalIgnoreCase));
+            }
+            else if (string.Equals(SelectedFilter, "快照", StringComparison.Ordinal))
+            {
+                query = query.Where(version =>
+                    string.Equals(version.Type, "snapshot", StringComparison.OrdinalIgnoreCase));
+            }
+
+            string term = (SearchText ?? string.Empty).Trim();
+
+            if (term.Length > 0)
+            {
+                query = query.Where(version =>
+                    version.Id.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            FilteredVersions.Clear();
+
+            foreach (VanillaVersion version in query)
+            {
+                FilteredVersions.Add(version);
+            }
+        }
+
+        /// <summary>安装弹层是否打开（仿 PCL：点版本 → 弹层选加载器 → 装）。</summary>
+        [ObservableProperty]
+        private bool _isInstallPanelOpen;
+
+        /// <summary>弹层里要安装的版本。</summary>
+        [ObservableProperty]
+        private VanillaVersion? _installTarget;
+
+        public string InstallTargetLabel => InstallTarget?.Id ?? "未选择版本";
+
+        [RelayCommand]
+        public async Task OpenInstallAsync(VanillaVersion? version)
+        {
+            if (version == null)
+            {
+                return;
+            }
+
+            InstallTarget = version;
+            SelectedVersion = version;
+            OnPropertyChanged(nameof(InstallTargetLabel));
+            IsInstallPanelOpen = true;
+
+            if (IsFabricSelected)
+            {
+                await ReloadLoaderVersionsAsync().ConfigureAwait(true);
+            }
+        }
+
+        [RelayCommand]
+        public void CloseInstall()
+        {
+            IsInstallPanelOpen = false;
+        }
+
+        /// <summary>筛选按钮（全部 / 正式版 / 快照）。</summary>
+        [RelayCommand]
+        public void SelectFilter(string? filter)
+        {
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                SelectedFilter = filter!;
+            }
+        }
+
         /// <summary>拉取可下载版本列表。</summary>
         [RelayCommand]
         public async Task LoadVersionsAsync()
@@ -213,6 +307,8 @@ namespace NLMCL.App.ViewModels
                 // 默认选第一个正式版：清单按发布时间倒序，第一项通常是最新快照
                 SelectedVersion = Versions.FirstOrDefault(version => version.Type == "release")
                     ?? (Versions.Count > 0 ? Versions[0] : null);
+                ApplyFilter();
+
                 StatusText = Versions.Count == 0
                     ? "版本列表为空"
                     : "共 " + Versions.Count + " 个可下载版本";
@@ -236,7 +332,9 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            if (SelectedVersion == null)
+            VanillaVersion? target = InstallTarget ?? SelectedVersion;
+
+            if (target == null)
             {
                 StatusText = "请先选择一个版本";
                 return;
@@ -251,11 +349,11 @@ namespace NLMCL.App.ViewModels
             IsBusy = true;
             HasProgress = true;
             Progress = 0;
-            StatusText = "准备安装 " + SelectedVersion.Id;
+            StatusText = "准备安装 " + target!.Id;
 
             try
             {
-                InstallRequest request = new InstallRequest(TargetDirectory, SelectedVersion.Id);
+                InstallRequest request = new InstallRequest(TargetDirectory, target!.Id);
                 if (IsFabricSelected)
                 {
                     request.Loader = "fabric";
@@ -267,7 +365,11 @@ namespace NLMCL.App.ViewModels
                     .ConfigureAwait(true);
 
                 Progress = 100;
-                StatusText = "已安装 " + SelectedVersion.Id + " 到 " + TargetDirectory;
+                StatusText = "已安装 " + target!.Id + " 到 " + TargetDirectory;
+
+                await MarkInstalledFromCatalogAsync().ConfigureAwait(true);
+                ApplyFilter();
+                IsInstallPanelOpen = false;
 
                 InstallCompleted?.Invoke(this, EventArgs.Empty);
             }

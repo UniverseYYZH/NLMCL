@@ -73,6 +73,48 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Search_and_type_filter_narrow_the_list()
+        {
+            DownloadViewModel vm = new DownloadViewModel(
+                new EmptyProvider(), new NoopInstaller(), new AppPaths(@"C:\Temp\roaming"));
+
+            vm.Versions.Add(new VanillaVersion("1.21.1", "release", null));
+            vm.Versions.Add(new VanillaVersion("24w33a", "snapshot", null));
+
+            vm.ApplyFilter();
+            Assert.Equal(2, vm.FilteredVersions.Count);
+
+            vm.SearchText = "24w";
+            Assert.Single(vm.FilteredVersions);
+            Assert.Equal("24w33a", vm.FilteredVersions[0].Id);
+
+            vm.SearchText = string.Empty;
+            vm.SelectedFilter = "正式版";
+            Assert.Single(vm.FilteredVersions);
+            Assert.Equal("1.21.1", vm.FilteredVersions[0].Id);
+
+            vm.SelectedFilter = "快照";
+            Assert.Single(vm.FilteredVersions);
+            Assert.Equal("24w33a", vm.FilteredVersions[0].Id);
+        }
+
+        [Fact]
+        public async Task Opening_install_sets_target_and_shows_panel()
+        {
+            FakeLoaderCatalog catalog = new FakeLoaderCatalog();
+            DownloadViewModel vm = new DownloadViewModel(
+                new EmptyProvider(), new NoopInstaller(), new AppPaths(@"C:\Temp\roaming"), catalog);
+
+            VanillaVersion version = new VanillaVersion("1.21.1", "release", null);
+            vm.Versions.Add(version);
+
+            await vm.OpenInstallAsync(version);
+
+            Assert.True(vm.IsInstallPanelOpen);
+            Assert.Same(version, vm.InstallTarget);
+            Assert.Equal("1.21.1", vm.InstallTargetLabel);
+        }
+        [Fact]
         public void Mark_installed_flags_matching_versions()
         {
             DownloadViewModel vm = new DownloadViewModel(
