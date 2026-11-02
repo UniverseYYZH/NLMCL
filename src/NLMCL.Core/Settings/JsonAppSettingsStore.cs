@@ -35,7 +35,11 @@ namespace NLMCL.Core.Settings
                 return Task.FromResult(new AppSettings
                 {
                     GameDirectory = root.Value<string>("gameDirectory"),
-                    MicrosoftClientId = root.Value<string>("microsoftClientId")
+                    MicrosoftClientId = root.Value<string>("microsoftClientId"),
+                    Theme = root.Value<string>("theme") ?? "light",
+                    UiScale = root.Value<double?>("uiScale") ?? 1.0,
+                    DownloadThreads = root.Value<int?>("downloadThreads") ?? 6,
+                    DefaultMemoryMb = root.Value<int?>("defaultMemoryMb") ?? 2048
                 });
             }
             catch (JsonException)
@@ -77,7 +81,11 @@ namespace NLMCL.Core.Settings
             JObject root = new JObject
             {
                 ["gameDirectory"] = settings.GameDirectory,
-                ["microsoftClientId"] = settings.MicrosoftClientId
+                ["microsoftClientId"] = settings.MicrosoftClientId,
+                ["theme"] = settings.Theme,
+                ["uiScale"] = settings.UiScale,
+                ["downloadThreads"] = settings.DownloadThreads,
+                ["defaultMemoryMb"] = settings.DefaultMemoryMb
             };
 
             // 原子替换：先写临时文件，再换名。直接 WriteAllText 会在写到一半时被截断，

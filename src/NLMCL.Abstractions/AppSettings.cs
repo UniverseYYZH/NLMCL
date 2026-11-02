@@ -18,6 +18,18 @@ namespace NLMCL.Abstractions
         /// 环境变量 <c>NLMCL_MS_CLIENT_ID</c> 仍优先。
         /// </summary>
         public string? MicrosoftClientId { get; set; }
+
+        /// <summary>外观主题："light" 或 "dark"。</summary>
+        public string Theme { get; set; } = "light";
+
+        /// <summary>界面缩放（1.0 = 100%）。</summary>
+        public double UiScale { get; set; } = 1.0;
+
+        /// <summary>下载线程数（对应 PCL 的 ToolDownloadThread）。</summary>
+        public int DownloadThreads { get; set; } = 6;
+
+        /// <summary>新实例的默认内存（MB）。</summary>
+        public int DefaultMemoryMb { get; set; } = 2048;
     }
 
     /// <summary>应用设置的持久化。</summary>

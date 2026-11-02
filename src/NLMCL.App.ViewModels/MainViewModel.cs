@@ -50,6 +50,12 @@ namespace NLMCL.App.ViewModels
         /// <summary>确认框（删除快照这类不可撤销的操作）。null 时视为直接确认。</summary>
         private readonly IDialogService? _dialogs;
 
+        /// <summary>主题与缩放（App 层实现）。null 时设置页只保存、不生效。</summary>
+        private readonly IAppearance? _appearance;
+
+        /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
+        private bool _settingsLoaded;
+
 
         private bool _accountLoaded;
         private CancellationTokenSource? _scanCts;
@@ -73,7 +79,8 @@ namespace NLMCL.App.ViewModels
             IExternalAuthenticator? externalAuthenticator = null,
             IAuthlibInjector? authlibInjector = null,
             ISnapshotService? snapshotService = null,
-            IDialogService? dialogs = null)
+            IDialogService? dialogs = null,
+            IAppearance? appearance = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -92,6 +99,7 @@ namespace NLMCL.App.ViewModels
             _authlibInjector = authlibInjector;
             _snapshotService = snapshotService;
             _dialogs = dialogs;
+            _appearance = appearance;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -349,6 +357,83 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isMultiplayerSection;
 
+        /// <summary>当前显示「设置」页。</summary>
+        [ObservableProperty]
+        private bool _isSettingsSection;
+
+        // ── 设置页的选项（界面用字符串，存盘时换算）─────────────────────────
+        public IReadOnlyList<string> ThemeOptions { get; } = new[] { "浅色", "深色" };
+
+        public IReadOnlyList<string> ScaleOptions { get; } = new[] { "90%", "100%", "110%", "120%" };
+
+        [ObservableProperty]
+        private string _selectedTheme = "浅色";
+
+        [ObservableProperty]
+        private string _selectedScale = "100%";
+
+        partial void OnSelectedThemeChanged(string value)
+        {
+            if (!_settingsLoaded)
+            {
+                return;
+            }
+
+            _appearance?.ApplyTheme(ThemeFromText(value));
+            _ = SaveAppearanceAsync();
+        }
+
+        partial void OnSelectedScaleChanged(string value)
+        {
+            if (!_settingsLoaded)
+            {
+                return;
+            }
+
+            _appearance?.ApplyScale(ScaleFromText(value));
+            _ = SaveAppearanceAsync();
+        }
+
+
+        private static string ThemeFromText(string text)
+            => string.Equals(text, "深色", StringComparison.Ordinal) ? "dark" : "light";
+
+        private static string ThemeToText(string? theme)
+            => string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase) ? "深色" : "浅色";
+
+        private static double ScaleFromText(string text)
+        {
+            string digits = text.TrimEnd('%');
+            return double.TryParse(digits, out double value) && value > 0
+                ? value / 100.0
+                : 1.0;
+        }
+
+        private static string ScaleToText(double scale)
+        {
+            int percent = (int)Math.Round(scale * 100);
+            return percent + "%";
+        }
+
+        private async Task SaveAppearanceAsync()
+        {
+            try
+            {
+                AppSettings settings = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+
+                settings.Theme = ThemeFromText(SelectedTheme);
+                settings.UiScale = ScaleFromText(SelectedScale);
+
+                await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
+
+                StatusText = "设置已保存";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "保存设置失败：" + ex.Message;
+            }
+        }
+
         /// <summary>当前显示「启动与日志」页。</summary>
         [ObservableProperty]
         private bool _isLaunchSection;
@@ -377,6 +462,7 @@ namespace NLMCL.App.ViewModels
 
             IsLaunchSection = item.Section == ShellSection.Launch;
             IsMultiplayerSection = item.Section == ShellSection.Multiplayer;
+            IsSettingsSection = item.Section == ShellSection.Settings;
         }
 
         /// <summary>选择游戏目录（.minecraft 所在文件夹）。</summary>
@@ -844,6 +930,15 @@ namespace NLMCL.App.ViewModels
                         _microsoft.ClientId = settings.MicrosoftClientId;
                     }
                 }
+
+                // 设置页的当前值 + 立刻应用一次外观（窗口可能已经显示，DynamicResource 会即时刷新）
+                SelectedTheme = ThemeToText(settings.Theme);
+                SelectedScale = ScaleToText(settings.UiScale <= 0 ? 1.0 : settings.UiScale);
+
+                _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
+                _appearance?.ApplyScale(ScaleFromText(SelectedScale));
+
+                _settingsLoaded = true;
             }
             catch (Exception ex)
             {

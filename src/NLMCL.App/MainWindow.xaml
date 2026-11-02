@@ -47,8 +47,8 @@
                     <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="BorderBrush" Value="{StaticResource Primary}" />
-                                <Setter Property="Background" Value="{StaticResource PrimarySoft}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource Primary}" />
+                                <Setter Property="Background" Value="{DynamicResource PrimarySoft}" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
@@ -65,20 +65,20 @@
                     <Border Grid.Column="0" Width="38" Height="38" CornerRadius="8"
                             Margin="0,0,12,0"
                             VerticalAlignment="Center">
-                        <TextBlock Text="▣" FontSize="16" Foreground="{StaticResource Primary}"
+                        <TextBlock Text="▣" FontSize="16" Foreground="{DynamicResource Primary}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Border.Style>
                             <Style TargetType="Border">
-                                <Setter Property="Background" Value="{StaticResource PrimarySoft}" />
+                                <Setter Property="Background" Value="{DynamicResource PrimarySoft}" />
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Kind}" Value="Snapshot">
-                                        <Setter Property="Background" Value="{StaticResource SnapshotBg}" />
+                                        <Setter Property="Background" Value="{DynamicResource SnapshotBg}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="OldBeta">
-                                        <Setter Property="Background" Value="{StaticResource OldBg}" />
+                                        <Setter Property="Background" Value="{DynamicResource OldBg}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="OldAlpha">
-                                        <Setter Property="Background" Value="{StaticResource OldBg}" />
+                                        <Setter Property="Background" Value="{DynamicResource OldBg}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -88,16 +88,16 @@
                     <!-- 名称 / 日期 / 告警 -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                         <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Text}" />
+                                   Foreground="{DynamicResource Text}" />
                         <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
                             <TextBlock Text="{Binding ReleasedLabel}" FontSize="10.5"
-                                       Foreground="{StaticResource Muted}" />
+                                       Foreground="{DynamicResource Muted}" />
                             <TextBlock Text="{Binding BasedOn}" FontSize="10.5"
-                                       Foreground="{StaticResource Faint}" Margin="10,0,0,0"
+                                       Foreground="{DynamicResource Faint}" Margin="10,0,0,0"
                                        Visibility="{Binding HasBasedOn, Converter={StaticResource BoolToVisibility}}" />
                         </StackPanel>
                         <TextBlock Text="{Binding Warning}" FontSize="10.5" Margin="0,4,0,0"
-                                   Foreground="{StaticResource Amber}"
+                                   Foreground="{DynamicResource Amber}"
                                    Visibility="{Binding HasWarning, Converter={StaticResource BoolToVisibility}}" />
                     </StackPanel>
 
@@ -107,13 +107,13 @@
                             <Style TargetType="Border" BasedOn="{StaticResource Chip}">
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Kind}" Value="Snapshot">
-                                        <Setter Property="Background" Value="{StaticResource SnapshotBg}" />
+                                        <Setter Property="Background" Value="{DynamicResource SnapshotBg}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="OldBeta">
-                                        <Setter Property="Background" Value="{StaticResource OldBg}" />
+                                        <Setter Property="Background" Value="{DynamicResource OldBg}" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="OldAlpha">
-                                        <Setter Property="Background" Value="{StaticResource OldBg}" />
+                                        <Setter Property="Background" Value="{DynamicResource OldBg}" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -123,13 +123,13 @@
                                 <Style TargetType="TextBlock" BasedOn="{StaticResource ChipText}">
                                     <Style.Triggers>
                                         <DataTrigger Binding="{Binding Kind}" Value="Snapshot">
-                                            <Setter Property="Foreground" Value="{StaticResource Snapshot}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Snapshot}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Kind}" Value="OldBeta">
-                                            <Setter Property="Foreground" Value="{StaticResource Old}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Old}" />
                                         </DataTrigger>
                                         <DataTrigger Binding="{Binding Kind}" Value="OldAlpha">
-                                            <Setter Property="Foreground" Value="{StaticResource Old}" />
+                                            <Setter Property="Foreground" Value="{DynamicResource Old}" />
                                         </DataTrigger>
                                     </Style.Triggers>
                                 </Style>
@@ -137,7 +137,7 @@
                         </TextBlock>
                     </Border>
 
-                    <TextBlock Grid.Column="3" Text="›" FontSize="16" Foreground="{StaticResource Faint}"
+                    <TextBlock Grid.Column="3" Text="›" FontSize="16" Foreground="{DynamicResource Faint}"
                                VerticalAlignment="Center" />
                 </Grid>
             </Border>
@@ -153,7 +153,7 @@
         </Grid.ColumnDefinitions>
 
         <!-- ================= 侧栏 ================= -->
-        <Border Grid.Column="0" Background="{StaticResource SidebarBg}">
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBg}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -166,14 +166,14 @@
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="18,20,18,12">
                     <Border Width="40" Height="40" CornerRadius="9" Background="#F4FAF6">
                         <TextBlock Text="N" FontSize="20" FontWeight="Bold"
-                                   Foreground="{StaticResource Primary}"
+                                   Foreground="{DynamicResource Primary}"
                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="{Binding ProductName}" FontSize="15" FontWeight="Bold"
-                                   Foreground="{StaticResource SidebarText}" />
+                                   Foreground="{DynamicResource SidebarText}" />
                         <TextBlock Text="{Binding ProductTagline}" FontSize="9.5"
-                                   Foreground="{StaticResource SidebarMuted}" Margin="0,2,0,0" />
+                                   Foreground="{DynamicResource SidebarMuted}" Margin="0,2,0,0" />
                     </StackPanel>
                 </StackPanel>
 
@@ -191,18 +191,18 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Border Grid.Column="0" Width="28" Height="28" CornerRadius="14"
-                                Background="{StaticResource Primary}">
+                                Background="{DynamicResource Primary}">
                             <TextBlock Text="?" FontSize="12" Foreground="White"
                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
                             <TextBlock Text="{Binding AccountName}" FontSize="12"
-                                       Foreground="{StaticResource SidebarText}" FontWeight="SemiBold" />
+                                       Foreground="{DynamicResource SidebarText}" FontWeight="SemiBold" />
                             <TextBlock Text="{Binding AccountType}" FontSize="9.5"
-                                       Foreground="{StaticResource SidebarMuted}" Margin="0,1,0,0" />
+                                       Foreground="{DynamicResource SidebarMuted}" Margin="0,1,0,0" />
                         </StackPanel>
                         <TextBlock Grid.Column="2" Text="›" FontSize="15"
-                                   Foreground="{StaticResource SidebarMuted}" VerticalAlignment="Center" />
+                                   Foreground="{DynamicResource SidebarMuted}" VerticalAlignment="Center" />
                     </Grid>
                 </Border>
 
@@ -225,9 +225,9 @@
                 <!-- 页脚 -->
                 <StackPanel Grid.Row="3" Margin="20,10,20,16">
                     <TextBlock Text="{Binding StageLabel}" FontSize="9.5"
-                               Foreground="{StaticResource SidebarMuted}" />
+                               Foreground="{DynamicResource SidebarMuted}" />
                     <TextBlock Text="{Binding StageHint}" FontSize="9" Margin="0,3,0,0"
-                               Foreground="{StaticResource SidebarFaint}" TextWrapping="Wrap" />
+                               Foreground="{DynamicResource SidebarFaint}" TextWrapping="Wrap" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -254,17 +254,17 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
                     <TextBlock Text="本地版本库" FontSize="9.5"
-                               Foreground="{StaticResource Faint}" />
+                               Foreground="{DynamicResource Faint}" />
                     <TextBlock Text="游戏版本" FontSize="24" FontWeight="Bold"
-                               Foreground="{StaticResource Text}" Margin="0,2,0,0" />
+                               Foreground="{DynamicResource Text}" Margin="0,2,0,0" />
                     <TextBlock Text="扫描本地 .minecraft，选择版本并启动游戏"
-                               FontSize="11.5" Foreground="{StaticResource Muted}" Margin="0,5,0,0" />
+                               FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                    <Border Style="{StaticResource Chip}" Background="{StaticResource Surface}"
-                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1" Margin="0,0,10,0">
+                    <Border Style="{StaticResource Chip}" Background="{DynamicResource Surface}"
+                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,10,0">
                         <TextBlock Text="● 扫描只读" Style="{StaticResource ChipText}"
-                                   Foreground="{StaticResource Muted}" />
+                                   Foreground="{DynamicResource Muted}" />
                     </Border>
                     <Button Content="快照" Style="{StaticResource GhostButton}"
                             Padding="14,9" Margin="0,0,8,0"
@@ -284,19 +284,19 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Grid.Row="0" Text="游戏目录" FontSize="11"
-                               Foreground="{StaticResource Muted}" />
+                               Foreground="{DynamicResource Muted}" />
                     <Grid Grid.Row="1" Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" Background="{StaticResource Surface}"
-                                BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                        <Border Grid.Column="0" Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                 CornerRadius="7" Padding="10,7">
                             <TextBox Text="{Binding CurrentGameDirectory, UpdateSourceTrigger=PropertyChanged}"
                                      Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                     Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                                     Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
                         </Border>
                         <Button Grid.Column="1" Content="📁" Style="{StaticResource GhostButton}"
                                 Margin="8,0,0,0" Padding="10,7"
@@ -319,24 +319,24 @@
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0" Orientation="Horizontal">
                     <TextBlock Text="{Binding VersionCountLabel}" FontSize="11.5" FontWeight="SemiBold"
-                               Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                               Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
                     <Border Style="{StaticResource Chip}" Margin="10,0,0,0"
                             Visibility="{Binding HasRelease, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="{Binding ReleaseCountLabel}" Style="{StaticResource ChipText}" />
                     </Border>
-                    <Border Style="{StaticResource Chip}" Background="{StaticResource SnapshotBg}" Margin="6,0,0,0"
+                    <Border Style="{StaticResource Chip}" Background="{DynamicResource SnapshotBg}" Margin="6,0,0,0"
                             Visibility="{Binding HasSnapshot, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="{Binding SnapshotCountLabel}" Style="{StaticResource ChipText}"
-                                   Foreground="{StaticResource Snapshot}" />
+                                   Foreground="{DynamicResource Snapshot}" />
                     </Border>
-                    <Border Style="{StaticResource Chip}" Background="{StaticResource OldBg}" Margin="6,0,0,0"
+                    <Border Style="{StaticResource Chip}" Background="{DynamicResource OldBg}" Margin="6,0,0,0"
                             Visibility="{Binding HasOther, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="{Binding OtherCountLabel}" Style="{StaticResource ChipText}"
-                                   Foreground="{StaticResource Old}" />
+                                   Foreground="{DynamicResource Old}" />
                     </Border>
                 </StackPanel>
                 <TextBlock Grid.Column="2" Text="时间倒序" FontSize="10"
-                           Foreground="{StaticResource Faint}" VerticalAlignment="Center" />
+                           Foreground="{DynamicResource Faint}" VerticalAlignment="Center" />
             </Grid>
 
             <!-- 列表 / 空状态 -->
@@ -351,12 +351,12 @@
                         Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                         <TextBlock Text="没有找到可用的游戏版本" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Text}" HorizontalAlignment="Center" />
+                                   Foreground="{DynamicResource Text}" HorizontalAlignment="Center" />
                         <TextBlock Text="请确认 .minecraft 路径正确，或先安装一个版本。"
-                                   FontSize="11.5" Foreground="{StaticResource Muted}" Margin="0,8,0,0"
+                                   FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,8,0,0"
                                    HorizontalAlignment="Center" />
                         <TextBlock Text="这个目录下没有已安装的版本。"
-                                   FontSize="10.5" Foreground="{StaticResource Faint}" Margin="0,6,0,0"
+                                   FontSize="10.5" Foreground="{DynamicResource Faint}" Margin="0,6,0,0"
                                    HorizontalAlignment="Center" />
                     </StackPanel>
                 </Border>
@@ -377,33 +377,33 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0" Text="内存 (MB)" FontSize="10.5"
-                               Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
-                    <Border Grid.Column="1" Background="{StaticResource Surface}" Margin="8,0,0,0"
-                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
+                    <Border Grid.Column="1" Background="{DynamicResource Surface}" Margin="8,0,0,0"
+                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                             CornerRadius="6" Padding="8,4">
                         <TextBox Text="{Binding MemoryMb, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent" BorderThickness="0" FontSize="11"
-                                 Foreground="{StaticResource Text}" />
+                                 Foreground="{DynamicResource Text}" />
                     </Border>
 
                     <TextBlock Grid.Column="2" Text="Java" FontSize="10.5" Margin="14,0,0,0"
-                               Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
-                    <Border Grid.Column="3" Background="{StaticResource Surface}" Margin="8,0,0,0"
-                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
+                    <Border Grid.Column="3" Background="{DynamicResource Surface}" Margin="8,0,0,0"
+                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                             CornerRadius="6" Padding="8,4">
                         <TextBox Text="{Binding JavaPath, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent" BorderThickness="0" FontSize="11"
-                                 Foreground="{StaticResource Text}" />
+                                 Foreground="{DynamicResource Text}" />
                     </Border>
 
                     <TextBlock Grid.Column="4" Text="额外参数" FontSize="10.5" Margin="14,0,0,0"
-                               Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
-                    <Border Grid.Column="5" Background="{StaticResource Surface}" Margin="8,0,0,0"
-                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
+                    <Border Grid.Column="5" Background="{DynamicResource Surface}" Margin="8,0,0,0"
+                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                             CornerRadius="6" Padding="8,4">
                         <TextBox Text="{Binding ExtraArguments, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent" BorderThickness="0" FontSize="11"
-                                 Foreground="{StaticResource Text}" />
+                                 Foreground="{DynamicResource Text}" />
                     </Border>
 
                     <Button Grid.Column="6" Content="保存" Style="{StaticResource GhostButton}"
@@ -414,9 +414,70 @@
 
             <!-- 状态栏 -->
             <TextBlock Grid.Row="5" Text="{Binding StatusText}" FontSize="10.5"
-                       Foreground="{StaticResource Muted}" Margin="2,10,0,0" />
+                       Foreground="{DynamicResource Muted}" Margin="2,10,0,0" />
             </Grid>
 
+            <!-- 设置页 -->
+            <Grid Margin="26,22,26,14"
+                  Visibility="{Binding IsSettingsSection, Converter={StaticResource BoolToVisibility}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0">
+                    <TextBlock Text="设置" FontSize="9.5" Foreground="{DynamicResource Faint}" />
+                    <TextBlock Text="外观与运行" FontSize="24" FontWeight="Bold"
+                               Foreground="{DynamicResource Text}" Margin="0,2,0,0" />
+                    <TextBlock Text="改完立即生效，并写入 settings.json"
+                               FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
+                </StackPanel>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,18,0,0">
+                    <StackPanel>
+                        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10">
+                            <StackPanel>
+                                <TextBlock Text="外观" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Text}" />
+                                <Grid Margin="0,12,0,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="主题" FontSize="10.5"
+                                                   Foreground="{DynamicResource Muted}" />
+                                        <ComboBox ItemsSource="{Binding ThemeOptions}"
+                                                  SelectedItem="{Binding SelectedTheme}"
+                                                  Width="150" Margin="0,5,0,0" Padding="8,5"
+                                                  Background="{DynamicResource Surface}"
+                                                  Foreground="{DynamicResource Text}"
+                                                  BorderBrush="{DynamicResource BorderColor}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Margin="20,0,0,0">
+                                        <TextBlock Text="界面缩放" FontSize="10.5"
+                                                   Foreground="{DynamicResource Muted}" />
+                                        <ComboBox ItemsSource="{Binding ScaleOptions}"
+                                                  SelectedItem="{Binding SelectedScale}"
+                                                  Width="150" Margin="0,5,0,0" Padding="8,5"
+                                                  Background="{DynamicResource Surface}"
+                                                  Foreground="{DynamicResource Text}"
+                                                  BorderBrush="{DynamicResource BorderColor}" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="主题切换即时生效；缩放会把整个界面按比例放大/缩小（窗口尺寸不变）。"
+                                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                                           Margin="0,10,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <TextBlock Grid.Row="2" Text="{Binding StatusText}" FontSize="10.5"
+                           Foreground="{DynamicResource Muted}" Margin="2,10,0,0" />
+            </Grid>
             <!-- 联机房间页 -->
             <views:MultiplayerPage Margin="26,22,26,14"
                                    Visibility="{Binding IsMultiplayerSection,
@@ -440,33 +501,33 @@
               MouseLeftButtonDown="SnapshotOverlayClicked"
               Visibility="{Binding IsSnapshotPanelOpen, Converter={StaticResource BoolToVisibility}}">
             <Border Width="480" MaxHeight="560" VerticalAlignment="Center" HorizontalAlignment="Center"
-                    Background="{StaticResource Card}" CornerRadius="10"
-                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                    Background="{DynamicResource Card}" CornerRadius="10"
+                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                     Padding="16,14">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock Text="实例快照" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                                   Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
                         <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Style="{StaticResource GhostButton}" Padding="9,1" FontSize="11"
                                 Click="CloseSnapshotOverlay" />
                     </Grid>
                     <TextBlock DockPanel.Dock="Top"
                                Text="备份 存档 / config / options.txt。回滚前会自动再存一份当前状态，不会丢东西。"
-                               FontSize="9.5" Foreground="{StaticResource Faint}"
+                               FontSize="9.5" Foreground="{DynamicResource Faint}"
                                TextWrapping="Wrap" Margin="0,0,0,10" />
 
                     <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,10,0,0">
-                        <Border Background="{StaticResource Surface}"
-                                BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                        <Border Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                 CornerRadius="6" Padding="8,4" Width="250">
                             <Grid>
                                 <TextBlock Text="备注（例如：装 mod 前）" FontSize="10.5" Margin="1,0,0,0"
-                                           Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                           Foreground="{DynamicResource Faint}" IsHitTestVisible="False"
                                            Visibility="{Binding SnapshotNote, Converter={StaticResource EmptyToVisibility}}" />
                                 <TextBox Text="{Binding SnapshotNote, UpdateSourceTrigger=PropertyChanged}"
                                          Background="Transparent" BorderThickness="0" FontSize="10.5"
-                                         Foreground="{StaticResource Text}" />
+                                         Foreground="{DynamicResource Text}" />
                             </Grid>
                         </Border>
                         <Button Content="新建快照" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0"
@@ -501,10 +562,10 @@
                                         </Grid.ColumnDefinitions>
                                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding Title}" FontSize="11.5" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource Text}"
+                                                       Foreground="{DynamicResource Text}"
                                                        TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{Binding Summary}" FontSize="9.5"
-                                                       Foreground="{StaticResource Faint}" Margin="0,2,0,0" />
+                                                       Foreground="{DynamicResource Faint}" Margin="0,2,0,0" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                             <Button Content="恢复" Style="{StaticResource GhostButton}"
@@ -532,13 +593,13 @@
               MouseLeftButtonDown="AccountOverlayClicked"
               Visibility="{Binding IsAccountPopupOpen, Converter={StaticResource BoolToVisibility}}">
             <Border Width="420" MaxHeight="620" VerticalAlignment="Center" HorizontalAlignment="Center"
-                    Background="{StaticResource Card}" CornerRadius="10"
-                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                    Background="{DynamicResource Card}" CornerRadius="10"
+                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                     Padding="16,14">
                 <DockPanel>
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBlock Text="登录账号" FontSize="14" FontWeight="SemiBold"
-                                   Foreground="{StaticResource Text}" VerticalAlignment="Center" />
+                                   Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
                         <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Style="{StaticResource GhostButton}" Padding="9,1" FontSize="11"
                                 Click="CloseAccountOverlay" />
@@ -547,20 +608,20 @@
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,0,4,0">
                             <TextBlock Text="离线登录" FontSize="11.5" FontWeight="SemiBold"
-                                       Foreground="{StaticResource Text}" />
+                                       Foreground="{DynamicResource Text}" />
                             <TextBlock Text="名字决定离线 UUID"
-                                       FontSize="9.5" Foreground="{StaticResource Faint}"
+                                       FontSize="9.5" Foreground="{DynamicResource Faint}"
                                        Margin="0,3,0,8" TextWrapping="Wrap" />
-                            <Border Background="{StaticResource Surface}"
-                                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                            <Border Background="{DynamicResource Surface}"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,5">
                                 <Grid>
                                     <TextBlock Text="玩家名（离线）" FontSize="11.5" Margin="1,0,0,0"
-                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Foreground="{DynamicResource Faint}" IsHitTestVisible="False"
                                                Visibility="{Binding PlayerNameInput, Converter={StaticResource EmptyToVisibility}}" />
                                     <TextBox Text="{Binding PlayerNameInput, UpdateSourceTrigger=PropertyChanged}"
                                              Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                             Foreground="{StaticResource Text}" />
+                                             Foreground="{DynamicResource Text}" />
                                 </Grid>
                             </Border>
                             <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
@@ -575,76 +636,76 @@
                             </StackPanel>
 
                             <!-- 设备码：让用户照着输入到浏览器 -->
-                            <Border Background="{StaticResource PrimarySoft}" CornerRadius="6"
+                            <Border Background="{DynamicResource PrimarySoft}" CornerRadius="6"
                                     Padding="8,6" Margin="0,8,0,0"
                                     Visibility="{Binding IsMicrosoftSigningIn, Converter={StaticResource BoolToVisibility}}">
                                 <StackPanel>
                                     <TextBlock Text="在浏览器里输入这个码" FontSize="9.5"
-                                               Foreground="{StaticResource Muted}" />
+                                               Foreground="{DynamicResource Muted}" />
                                     <TextBlock Text="{Binding DeviceCodeText}" FontSize="17"
-                                               FontWeight="Bold" Foreground="{StaticResource Primary}"
+                                               FontWeight="Bold" Foreground="{DynamicResource Primary}"
                                                Margin="0,2,0,0" />
                                 </StackPanel>
                             </Border>
 
                             <!-- 微软登录的 Azure 应用 ID -->
-                            <Border Background="{StaticResource BorderColor}" Height="1" Margin="0,12,0,10" />
+                            <Border Background="{DynamicResource BorderColor}" Height="1" Margin="0,12,0,10" />
                             <TextBlock Text="微软登录需要 Azure 应用 ID（client id）"
-                                       FontSize="9.5" Foreground="{StaticResource Faint}"
+                                       FontSize="9.5" Foreground="{DynamicResource Faint}"
                                        Margin="0,0,0,4" TextWrapping="Wrap" />
-                            <Border Background="{StaticResource Surface}"
-                                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                            <Border Background="{DynamicResource Surface}"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,5">
                                 <Grid>
                                     <TextBlock Text="Azure 应用 (客户端) ID" FontSize="10.5" Margin="1,0,0,0"
-                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Foreground="{DynamicResource Faint}" IsHitTestVisible="False"
                                                Visibility="{Binding MicrosoftClientId, Converter={StaticResource EmptyToVisibility}}" />
                                     <TextBox Text="{Binding MicrosoftClientId, UpdateSourceTrigger=PropertyChanged}"
                                              Background="Transparent" BorderThickness="0" FontSize="10.5"
-                                             Foreground="{StaticResource Text}" />
+                                             Foreground="{DynamicResource Text}" />
                                 </Grid>
                             </Border>
 
                             <!-- 外置登录：MUA 联合认证 / Blessing Skin 皮肤站 -->
-                            <Border Background="{StaticResource BorderColor}" Height="1" Margin="0,12,0,10" />
+                            <Border Background="{DynamicResource BorderColor}" Height="1" Margin="0,12,0,10" />
                             <TextBlock Text="外置登录（MUA 联合认证 / 皮肤站）"
-                                       FontSize="9.5" Foreground="{StaticResource Faint}"
+                                       FontSize="9.5" Foreground="{DynamicResource Faint}"
                                        Margin="0,0,0,4" TextWrapping="Wrap" />
-                            <Border Background="{StaticResource Surface}"
-                                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                            <Border Background="{DynamicResource Surface}"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,4">
                                 <Grid>
                                     <TextBlock Text="认证服务器地址（Yggdrasil）" FontSize="10" Margin="1,0,0,0"
-                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Foreground="{DynamicResource Faint}" IsHitTestVisible="False"
                                                Visibility="{Binding ExternalServer, Converter={StaticResource EmptyToVisibility}}" />
                                     <TextBox Text="{Binding ExternalServer, UpdateSourceTrigger=PropertyChanged}"
                                              Background="Transparent" BorderThickness="0" FontSize="10"
-                                             Foreground="{StaticResource Text}" />
+                                             Foreground="{DynamicResource Text}" />
                                 </Grid>
                             </Border>
-                            <Border Background="{StaticResource Surface}" Margin="0,4,0,0"
-                                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                            <Border Background="{DynamicResource Surface}" Margin="0,4,0,0"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,4">
                                 <Grid>
                                     <TextBlock Text="账号（邮箱或用户名）" FontSize="10.5" Margin="1,0,0,0"
-                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Foreground="{DynamicResource Faint}" IsHitTestVisible="False"
                                                Visibility="{Binding ExternalUserName, Converter={StaticResource EmptyToVisibility}}" />
                                     <TextBox Text="{Binding ExternalUserName, UpdateSourceTrigger=PropertyChanged}"
                                              Background="Transparent" BorderThickness="0" FontSize="10.5"
-                                             Foreground="{StaticResource Text}" />
+                                             Foreground="{DynamicResource Text}" />
                                 </Grid>
                             </Border>
-                            <Border Background="{StaticResource Surface}" Margin="0,4,0,0"
-                                    BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                            <Border Background="{DynamicResource Surface}" Margin="0,4,0,0"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                     CornerRadius="6" Padding="8,4">
                                 <Grid>
                                     <TextBlock Text="密码" FontSize="10.5" Margin="1,0,0,0"
-                                               Foreground="{StaticResource Faint}" IsHitTestVisible="False"
+                                               Foreground="{DynamicResource Faint}" IsHitTestVisible="False"
                                                Visibility="{Binding ExternalPassword, Converter={StaticResource EmptyToVisibility}}" />
                                     <PasswordBox x:Name="ExternalPasswordBox"
                                                  PasswordChanged="ExternalPasswordChanged"
                                                  Background="Transparent" BorderThickness="0" FontSize="10.5"
-                                                 Foreground="{StaticResource Text}" />
+                                                 Foreground="{DynamicResource Text}" />
                                 </Grid>
                             </Border>
                             <Button Content="外置登录" Style="{StaticResource GhostButton}"

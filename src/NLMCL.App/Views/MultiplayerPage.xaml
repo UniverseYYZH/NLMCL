@@ -25,18 +25,18 @@
         <!-- 标题 -->
         <StackPanel Grid.Row="0">
             <TextBlock Text="联机房间" FontSize="24" FontWeight="Bold"
-                       Foreground="{StaticResource Text}" />
+                       Foreground="{DynamicResource Text}" />
             <TextBlock Text="同一局域网内直接连：一方在游戏里「对局域网开放」，另一方填地址加入"
-                       FontSize="11.5" Foreground="{StaticResource Muted}" Margin="0,5,0,0" />
+                       FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
         </StackPanel>
 
         <!-- 我的房间 -->
         <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,16,0,0">
             <StackPanel>
                 <TextBlock Text="① 我开房" FontSize="12" FontWeight="SemiBold"
-                           Foreground="{StaticResource Text}" />
+                           Foreground="{DynamicResource Text}" />
                 <TextBlock Text="游戏里按 Esc →「对局域网开放」，把聊天栏显示的端口填进来"
-                           FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,4,0,10" />
+                           FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,4,0,10" />
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -48,22 +48,22 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0" Text="端口" FontSize="10.5"
-                               Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
-                    <Border Grid.Column="1" Background="{StaticResource Surface}" Margin="8,0,0,0"
-                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
+                    <Border Grid.Column="1" Background="{DynamicResource Surface}" Margin="8,0,0,0"
+                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                             CornerRadius="6" Padding="8,5">
                         <TextBox Text="{Binding MyPort, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                 Foreground="{StaticResource Text}" />
+                                 Foreground="{DynamicResource Text}" />
                     </Border>
 
                     <Button Grid.Column="2" Content="生成地址" Style="{StaticResource GhostButton}"
                             Margin="8,0,0,0" Command="{Binding RefreshMyAddressCommand}" />
 
-                    <Border Grid.Column="3" Background="{StaticResource PrimarySoft}" Margin="12,0,0,0"
+                    <Border Grid.Column="3" Background="{DynamicResource PrimarySoft}" Margin="12,0,0,0"
                             CornerRadius="6" Padding="12,6">
                         <TextBlock Text="{Binding MyAddress}" FontSize="14" FontWeight="Bold"
-                                   Foreground="{StaticResource Primary}"
+                                   Foreground="{DynamicResource Primary}"
                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     </Border>
 
@@ -78,9 +78,9 @@
         <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,12,0,0">
             <StackPanel>
                 <TextBlock Text="② 我加入" FontSize="12" FontWeight="SemiBold"
-                           Foreground="{StaticResource Text}" />
+                           Foreground="{DynamicResource Text}" />
                 <TextBlock Text="填对方给你的地址（形如 10.21.3.9:54321），会先探测端口再启动"
-                           FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,4,0,10" />
+                           FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,4,0,10" />
 
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -88,12 +88,12 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0" Background="{StaticResource Surface}"
-                            BorderBrush="{StaticResource BorderColor}" BorderThickness="1"
+                    <Border Grid.Column="0" Background="{DynamicResource Surface}"
+                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                             CornerRadius="6" Padding="10,6">
                         <TextBox Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}"
                                  Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                 Foreground="{StaticResource Text}" />
+                                 Foreground="{DynamicResource Text}" />
                     </Border>
 
                     <Button Grid.Column="1" Content="▶  连接并启动" Style="{StaticResource PrimaryButton}"
@@ -109,8 +109,8 @@
                 VerticalAlignment="Top">
             <StackPanel>
                 <TextBlock Text="校园网提示" FontSize="11.5" FontWeight="SemiBold"
-                           Foreground="{StaticResource Text}" />
-                <TextBlock FontSize="10.5" Foreground="{StaticResource Muted}" Margin="0,6,0,0"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,6,0,0"
                            TextWrapping="Wrap" LineHeight="18">
                     <Run Text="· 同一个 WiFi / 同一网段：直接填地址即可，通常能连。" />
                     <LineBreak />
@@ -124,6 +124,6 @@
         </Border>
 
         <TextBlock Grid.Row="4" Text="{Binding StatusText}" FontSize="10.5"
-                   Foreground="{StaticResource Muted}" Margin="2,10,0,0" TextWrapping="Wrap" />
+                   Foreground="{DynamicResource Muted}" Margin="2,10,0,0" TextWrapping="Wrap" />
     </Grid>
 </UserControl>

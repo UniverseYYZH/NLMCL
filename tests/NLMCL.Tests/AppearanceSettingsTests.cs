@@ -1,0 +1,86 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using NLMCL.Abstractions;
+using NLMCL.App.ViewModels;
+using NLMCL.Core;
+using Xunit;
+
+namespace NLMCL.Tests
+{
+    /// <summary>设置页：外观（主题/缩放）在启动时应用并随修改保存。</summary>
+    public class AppearanceSettingsTests
+    {
+        private sealed class FakeAppearance : IAppearance
+        {
+            public string? Theme { get; private set; }
+
+            public double Scale { get; private set; } = 1.0;
+
+            public void ApplyTheme(string theme) => Theme = theme;
+
+            public void ApplyScale(double scale) => Scale = scale;
+        }
+
+        private sealed class EmptyCatalog : IVersionCatalog
+        {
+            public Task<System.Collections.Generic.IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
+                string minecraftDirectory, CancellationToken cancellationToken)
+                => Task.FromResult<System.Collections.Generic.IReadOnlyList<MinecraftVersion>>(
+                    Array.Empty<MinecraftVersion>());
+        }
+
+        [Fact]
+        public async Task Applies_saved_theme_and_scale_on_initialize()
+        {
+            TestSupport.FakeAppSettings store = new TestSupport.FakeAppSettings
+            {
+                Current = new AppSettings
+                {
+                    Theme = "dark",
+                    UiScale = 1.1,
+                    DownloadThreads = 4,
+                    DefaultMemoryMb = 4096
+                }
+            };
+
+            FakeAppearance appearance = new FakeAppearance();
+            MainViewModel vm = TestSupport.CreateMain(
+                new EmptyCatalog(), new AppPaths(@"C:\Temp\roaming"),
+                appearance: appearance, appSettings: store);
+
+            await vm.InitializeAsync();
+
+            Assert.Equal("dark", appearance.Theme);
+            Assert.Equal(1.1, appearance.Scale, 3);
+
+            Assert.Equal("深色", vm.SelectedTheme);
+            Assert.Equal("110%", vm.SelectedScale);
+        }
+
+        [Fact]
+        public async Task Changing_theme_applies_it_and_persists()
+        {
+            TestSupport.FakeAppSettings store = new TestSupport.FakeAppSettings();
+            FakeAppearance appearance = new FakeAppearance();
+
+            MainViewModel vm = TestSupport.CreateMain(
+                new EmptyCatalog(), new AppPaths(@"C:\Temp\roaming"),
+                appearance: appearance, appSettings: store);
+
+            await vm.InitializeAsync();
+
+            vm.SelectedTheme = "深色";
+            await Task.Delay(50);
+
+            Assert.Equal("dark", appearance.Theme);
+            Assert.Equal("dark", store.Current.Theme);
+
+            vm.SelectedScale = "120%";
+            await Task.Delay(50);
+
+            Assert.Equal(1.2, appearance.Scale, 3);
+            Assert.Equal(1.2, store.Current.UiScale, 3);
+        }
+    }
+}

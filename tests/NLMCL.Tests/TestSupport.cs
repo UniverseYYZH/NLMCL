@@ -299,7 +299,9 @@ namespace NLMCL.Tests
             IJavaLocator? javaLocator = null,
             IGameSessionLauncher? sessionLauncher = null,
             ISnapshotService? snapshotService = null,
-            IDialogService? dialogs = null)
+            IDialogService? dialogs = null,
+            IAppearance? appearance = null,
+            IAppSettingsStore? appSettings = null)
         {
             return new MainViewModel(
                 catalog,
@@ -314,11 +316,12 @@ namespace NLMCL.Tests
                 new FakeNetwork(),
                 new FakeClipboard(),
                 new FakeFolderPicker(),
-                new FakeAppSettings(),
+                (appSettings ?? new FakeAppSettings()),
                 javaInstaller: null,
                 sessionLauncher: sessionLauncher,
                 snapshotService: snapshotService,
-                dialogs: dialogs);
+                dialogs: dialogs,
+                appearance: appearance);
         }
     }
 }
