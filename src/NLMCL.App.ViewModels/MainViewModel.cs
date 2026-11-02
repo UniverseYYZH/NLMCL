@@ -56,6 +56,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
+        /// <summary>缩放滑块的防抖令牌（拖动中不断取消上一次）。</summary>
+        private CancellationTokenSource? _scaleDebounce;
+
 
         private bool _accountLoaded;
         private CancellationTokenSource? _scanCts;
@@ -393,8 +396,34 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            _appearance?.ApplyScale(value / 100.0);
-            _ = SaveAppearanceAsync();
+            // 拖动滑块时不能每变一次就重排窗口：缩放会改变控件尺寸，
+            // 滑块自己也会跟着缩放，鼠标下的位置一变就来回弹（窗口抖动）。
+            // 这里做防抖——停手 250ms 后再真正缩放并保存。
+            _scaleDebounce?.Cancel();
+            CancellationTokenSource source = new CancellationTokenSource();
+            _scaleDebounce = source;
+
+            _ = ApplyScaleDebouncedAsync(value, source.Token);
+        }
+
+        private async Task ApplyScaleDebouncedAsync(double percent, CancellationToken token)
+        {
+            try
+            {
+                await Task.Delay(250, token).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            if (token.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _appearance?.ApplyScale(percent / 100.0);
+            await SaveAppearanceAsync().ConfigureAwait(true);
         }
 
 

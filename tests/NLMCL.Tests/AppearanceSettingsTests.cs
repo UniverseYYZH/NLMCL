@@ -71,13 +71,13 @@ namespace NLMCL.Tests
             await vm.InitializeAsync();
 
             vm.SelectedTheme = "深色";
-            await Task.Delay(50);
+            await Task.Delay(500);
 
             Assert.Equal("dark", appearance.Theme);
             Assert.Equal("dark", store.Current.Theme);
 
             vm.UiScalePercent = 120;
-            await Task.Delay(50);
+            await Task.Delay(500); // 缩放有 250ms 防抖
 
             Assert.Equal(1.2, appearance.Scale, 3);
             Assert.Equal(1.2, store.Current.UiScale, 3);
