@@ -47,6 +47,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>实例快照（saves / config / options.txt）。null 时按钮提示不可用。</summary>
         private readonly ISnapshotService? _snapshotService;
 
+        /// <summary>确认框（删除快照这类不可撤销的操作）。null 时视为直接确认。</summary>
+        private readonly IDialogService? _dialogs;
+
 
         private bool _accountLoaded;
         private CancellationTokenSource? _scanCts;
@@ -69,7 +72,8 @@ namespace NLMCL.App.ViewModels
             IGameSessionLauncher? sessionLauncher = null,
             IExternalAuthenticator? externalAuthenticator = null,
             IAuthlibInjector? authlibInjector = null,
-            ISnapshotService? snapshotService = null)
+            ISnapshotService? snapshotService = null,
+            IDialogService? dialogs = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -87,6 +91,7 @@ namespace NLMCL.App.ViewModels
             _externalAuthenticator = externalAuthenticator;
             _authlibInjector = authlibInjector;
             _snapshotService = snapshotService;
+            _dialogs = dialogs;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -757,6 +762,16 @@ namespace NLMCL.App.ViewModels
         {
             if (_snapshotService == null || snapshot == null)
             {
+                return;
+            }
+
+            // 删除不可撤销：先确认。没有对话框端口时按"确认"处理（单测/降级）
+            if (_dialogs != null && !_dialogs.Confirm(
+                    "删除快照",
+                    "确定删除快照「" + snapshot.Title + "」吗？\n\n"
+                    + snapshot.Summary + "\n删除后无法恢复（不影响游戏存档本身）。"))
+            {
+                StatusText = "已取消删除。";
                 return;
             }
 

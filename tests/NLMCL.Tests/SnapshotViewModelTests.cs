@@ -48,6 +48,24 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class FakeDialogs : IDialogService
+        {
+            public FakeDialogs(bool answer)
+            {
+                Answer = answer;
+            }
+
+            public bool Answer { get; }
+
+            public int Calls { get; private set; }
+
+            public bool Confirm(string title, string message)
+            {
+                Calls++;
+                return Answer;
+            }
+        }
+
         private sealed class OneVersionCatalog : IVersionCatalog
         {
             public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
@@ -69,6 +87,29 @@ namespace NLMCL.Tests
 
             Assert.False(vm.IsSnapshotPanelOpen);
             Assert.Contains("点选一个版本", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Deleting_asks_for_confirmation_and_cancel_keeps_the_snapshot()
+        {
+            FakeSnapshots snapshots = new FakeSnapshots();
+            snapshots.Items.Add(new SnapshotInfo(
+                "s1", "1.20.1", "1.20.1", "别删我", DateTimeOffset.Now, 1024, 1, new[] { "saves" }));
+
+            FakeDialogs dialogs = new FakeDialogs(false);
+            MainViewModel vm = TestSupport.CreateMain(
+                new OneVersionCatalog(), new AppPaths(@"C:\Temp\roaming"),
+                snapshotService: snapshots, dialogs: dialogs);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.OpenSnapshotsAsync();
+
+            await vm.DeleteSnapshotAsync(vm.Snapshots[0]);
+
+            Assert.Equal(1, dialogs.Calls);
+            Assert.Single(snapshots.Items);
+            Assert.Contains("已取消", vm.StatusText);
         }
 
         [Fact]

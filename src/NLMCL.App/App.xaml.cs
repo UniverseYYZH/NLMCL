@@ -118,6 +118,7 @@ namespace NLMCL.App
                 new OAuthDownloadService(sp.GetRequiredService<IDownloadService>())));
             services.AddSingleton<IAuthlibInjector, AuthlibInjectorProvider>();
             services.AddSingleton<ISnapshotService, SnapshotService>();
+            services.AddSingleton<IDialogService, Services.MessageBoxDialogService>();
 
             // PCL 适配层（VB 程序集只在这里被引用）
             services.AddSingleton<IVersionCatalog, PclVersionCatalog>();
