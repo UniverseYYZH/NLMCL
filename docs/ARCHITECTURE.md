@@ -142,6 +142,7 @@
 5. **XAML 冒烟测试不验证绑定表达式的运行时求值**（未 Show 窗口时绑定可能延迟），只验证 XAML 可加载与 DataContext 装配。视觉回归靠 `RenderSnapshotTests` 产出的 PNG 人工比对，还没有像素级自动断言。
 
 > 迁移范围与逐模块去向见 [MIGRATION-MAP.md](MIGRATION-MAP.md)。
+> 新人上手、以及「只审不写」的读码顺序见 [READING-GUIDE.md](READING-GUIDE.md)。
 
 ---
 
