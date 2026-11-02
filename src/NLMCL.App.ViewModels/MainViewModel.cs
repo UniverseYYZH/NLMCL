@@ -362,15 +362,16 @@ namespace NLMCL.App.ViewModels
         private bool _isSettingsSection;
 
         // ── 设置页的选项（界面用字符串，存盘时换算）─────────────────────────
-        public IReadOnlyList<string> ThemeOptions { get; } = new[] { "浅色", "深色" };
-
-        public IReadOnlyList<string> ScaleOptions { get; } = new[] { "90%", "100%", "110%", "120%" };
+        public IReadOnlyList<string> ThemeOptions { get; } = new[] { "浅色", "深色", "跟随系统" };
 
         [ObservableProperty]
         private string _selectedTheme = "浅色";
 
+        /// <summary>界面缩放（百分比，滑块 80–150）。</summary>
         [ObservableProperty]
-        private string _selectedScale = "100%";
+        private double _uiScalePercent = 100;
+
+        public string UiScaleText => (int)Math.Round(UiScalePercent) + "%";
 
         partial void OnSelectedThemeChanged(string value)
         {
@@ -383,37 +384,42 @@ namespace NLMCL.App.ViewModels
             _ = SaveAppearanceAsync();
         }
 
-        partial void OnSelectedScaleChanged(string value)
+        partial void OnUiScalePercentChanged(double value)
         {
+            OnPropertyChanged(nameof(UiScaleText));
+
             if (!_settingsLoaded)
             {
                 return;
             }
 
-            _appearance?.ApplyScale(ScaleFromText(value));
+            _appearance?.ApplyScale(value / 100.0);
             _ = SaveAppearanceAsync();
         }
 
 
         private static string ThemeFromText(string text)
-            => string.Equals(text, "深色", StringComparison.Ordinal) ? "dark" : "light";
+        {
+            if (string.Equals(text, "深色", StringComparison.Ordinal))
+            {
+                return "dark";
+            }
+
+            return string.Equals(text, "跟随系统", StringComparison.Ordinal) ? "system" : "light";
+        }
 
         private static string ThemeToText(string? theme)
-            => string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase) ? "深色" : "浅色";
-
-        private static double ScaleFromText(string text)
         {
-            string digits = text.TrimEnd('%');
-            return double.TryParse(digits, out double value) && value > 0
-                ? value / 100.0
-                : 1.0;
+            if (string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase))
+            {
+                return "深色";
+            }
+
+            return string.Equals(theme, "system", StringComparison.OrdinalIgnoreCase) ? "跟随系统" : "浅色";
         }
 
-        private static string ScaleToText(double scale)
-        {
-            int percent = (int)Math.Round(scale * 100);
-            return percent + "%";
-        }
+        private static double ClampPercent(double percent)
+            => Math.Max(80, Math.Min(150, Math.Round(percent)));
 
         private async Task SaveAppearanceAsync()
         {
@@ -422,7 +428,7 @@ namespace NLMCL.App.ViewModels
                 AppSettings settings = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
 
                 settings.Theme = ThemeFromText(SelectedTheme);
-                settings.UiScale = ScaleFromText(SelectedScale);
+                settings.UiScale = ClampPercent(UiScalePercent) / 100.0;
 
                 await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
 
@@ -933,10 +939,10 @@ namespace NLMCL.App.ViewModels
 
                 // 设置页的当前值 + 立刻应用一次外观（窗口可能已经显示，DynamicResource 会即时刷新）
                 SelectedTheme = ThemeToText(settings.Theme);
-                SelectedScale = ScaleToText(settings.UiScale <= 0 ? 1.0 : settings.UiScale);
+                UiScalePercent = ClampPercent(settings.UiScale <= 0 ? 100 : settings.UiScale * 100);
 
                 _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
-                _appearance?.ApplyScale(ScaleFromText(SelectedScale));
+                _appearance?.ApplyScale(UiScalePercent / 100.0);
 
                 _settingsLoaded = true;
             }

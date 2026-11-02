@@ -55,7 +55,7 @@ namespace NLMCL.Tests
             Assert.Equal(1.1, appearance.Scale, 3);
 
             Assert.Equal("深色", vm.SelectedTheme);
-            Assert.Equal("110%", vm.SelectedScale);
+            Assert.Equal(110, vm.UiScalePercent, 3);
         }
 
         [Fact]
@@ -76,7 +76,7 @@ namespace NLMCL.Tests
             Assert.Equal("dark", appearance.Theme);
             Assert.Equal("dark", store.Current.Theme);
 
-            vm.SelectedScale = "120%";
+            vm.UiScalePercent = 120;
             await Task.Delay(50);
 
             Assert.Equal(1.2, appearance.Scale, 3);

@@ -1,6 +1,7 @@
 using System;
 using System.Windows;
 using System.Windows.Media;
+using Microsoft.Win32;
 using NLMCL.Abstractions;
 
 namespace NLMCL.App.Services
@@ -10,14 +11,31 @@ namespace NLMCL.App.Services
     ///
     /// 主题：Design.xaml 提供浅色默认值；深色时把 Dark.xaml 追加到窗口的资源字典末尾
     /// （后加入的同名键生效）。界面里所有颜色都用 DynamicResource 引用，所以能即时刷新。
+    /// "system" 读注册表的 AppsUseLightTheme，并监听系统的主题切换事件实时跟随。
     /// 缩放：直接给窗口内容加 LayoutTransform，不改窗口尺寸。
     /// </summary>
     public sealed class AppearanceService : IAppearance
     {
         private const string DarkDictionary = "Themes/Dark.xaml";
 
+        private const string PersonalizeKey =
+            @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
+
+        private string _theme = "light";
+
+        public AppearanceService()
+        {
+            // 系统切换浅色/深色时，如果当前是"跟随系统"就立刻跟上
+            SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        }
+
         public void ApplyTheme(string theme)
         {
+            _theme = string.IsNullOrWhiteSpace(theme) ? "light" : theme.Trim();
+
+            bool dark = string.Equals(_theme, "dark", StringComparison.OrdinalIgnoreCase)
+                || (string.Equals(_theme, "system", StringComparison.OrdinalIgnoreCase) && IsSystemDark());
+
             Window? window = Application.Current?.MainWindow;
             if (window == null)
             {
@@ -26,7 +44,6 @@ namespace NLMCL.App.Services
 
             var dictionaries = window.Resources.MergedDictionaries;
 
-            // 先摘掉旧的深色字典（可能还没有）
             for (int i = dictionaries.Count - 1; i >= 0; i--)
             {
                 string? source = dictionaries[i].Source?.OriginalString;
@@ -36,7 +53,7 @@ namespace NLMCL.App.Services
                 }
             }
 
-            if (!string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase))
+            if (!dark)
             {
                 return;
             }
@@ -55,7 +72,7 @@ namespace NLMCL.App.Services
                 return;
             }
 
-            double clamped = Math.Max(0.7, Math.Min(1.5, scale));
+            double clamped = Math.Max(0.7, Math.Min(1.6, scale));
 
             if (Math.Abs(clamped - 1.0) < 0.001)
             {
@@ -64,6 +81,36 @@ namespace NLMCL.App.Services
             }
 
             root.LayoutTransform = new ScaleTransform(clamped, clamped);
+        }
+
+        private void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+        {
+            if (!string.Equals(_theme, "system", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            Application? app = Application.Current;
+            if (app == null)
+            {
+                return;
+            }
+
+            app.Dispatcher.BeginInvoke(new Action(() => ApplyTheme("system")));
+        }
+
+        /// <summary>Windows 的"应用模式"是否为深色（0 = 深色）。</summary>
+        internal static bool IsSystemDark()
+        {
+            try
+            {
+                object? value = Registry.GetValue(PersonalizeKey, "AppsUseLightTheme", 1);
+                return value is int i && i == 0;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
     }
 }
