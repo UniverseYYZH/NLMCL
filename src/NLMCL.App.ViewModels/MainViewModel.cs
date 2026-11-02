@@ -44,6 +44,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>authlib-injector（外置登录启动所需）。null 时外置账号无法启动。</summary>
         private readonly IAuthlibInjector? _authlibInjector;
 
+        /// <summary>实例快照（saves / config / options.txt）。null 时按钮提示不可用。</summary>
+        private readonly ISnapshotService? _snapshotService;
+
 
         private bool _accountLoaded;
         private CancellationTokenSource? _scanCts;
@@ -65,7 +68,8 @@ namespace NLMCL.App.ViewModels
             IJavaRuntimeInstaller? javaInstaller = null,
             IGameSessionLauncher? sessionLauncher = null,
             IExternalAuthenticator? externalAuthenticator = null,
-            IAuthlibInjector? authlibInjector = null)
+            IAuthlibInjector? authlibInjector = null,
+            ISnapshotService? snapshotService = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -82,6 +86,7 @@ namespace NLMCL.App.ViewModels
             _sessionLauncher = sessionLauncher;
             _externalAuthenticator = externalAuthenticator;
             _authlibInjector = authlibInjector;
+            _snapshotService = snapshotService;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -232,6 +237,21 @@ namespace NLMCL.App.ViewModels
 
         [ObservableProperty]
         private bool _isExternalSigningIn;
+
+        /// <summary>快照面板是否打开。</summary>
+        [ObservableProperty]
+        private bool _isSnapshotPanelOpen;
+
+        /// <summary>新建快照的备注。</summary>
+        [ObservableProperty]
+        private string _snapshotNote = string.Empty;
+
+        [ObservableProperty]
+        private bool _isSnapshotBusy;
+
+        /// <summary>当前版本的快照列表（按时间倒序）。</summary>
+        public System.Collections.ObjectModel.ObservableCollection<SnapshotInfo> Snapshots { get; }
+            = new System.Collections.ObjectModel.ObservableCollection<SnapshotInfo>();
 
 
         /// <summary>登录状态文案。</summary>
@@ -638,6 +658,147 @@ namespace NLMCL.App.ViewModels
             finally
             {
                 IsExternalSigningIn = false;
+            }
+        }
+
+        /// <summary>打开快照面板，并加载当前版本的快照列表。</summary>
+        [RelayCommand]
+        public async Task OpenSnapshotsAsync()
+        {
+            if (_snapshotService == null)
+            {
+                StatusText = "快照服务不可用。";
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在列表里点选一个版本，再查看它的快照。";
+                return;
+            }
+
+            IsSnapshotPanelOpen = true;
+            await ReloadSnapshotsAsync().ConfigureAwait(true);
+        }
+
+        [RelayCommand]
+        public void CloseSnapshots()
+        {
+            IsSnapshotPanelOpen = false;
+        }
+
+        /// <summary>把当前实例的存档/配置/选项存一份。</summary>
+        [RelayCommand]
+        public async Task CreateSnapshotAsync()
+        {
+            if (_snapshotService == null || SelectedVersion == null)
+            {
+                return;
+            }
+
+            IsSnapshotBusy = true;
+            StatusText = "正在创建快照…";
+
+            try
+            {
+                SnapshotInfo info = await _snapshotService.CreateAsync(
+                    CurrentGameDirectory, SelectedVersion.FolderName, SnapshotNote, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                SnapshotNote = string.Empty;
+                await ReloadSnapshotsAsync().ConfigureAwait(true);
+
+                StatusText = "已创建快照：" + info.Title + "（" + info.SizeText + "）";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "创建快照失败：" + ex.Message;
+            }
+            finally
+            {
+                IsSnapshotBusy = false;
+            }
+        }
+
+        /// <summary>回滚到某个快照（服务内部会先自动备份当前状态）。</summary>
+        [RelayCommand]
+        public async Task RestoreSnapshotAsync(SnapshotInfo? snapshot)
+        {
+            if (_snapshotService == null || snapshot == null || SelectedVersion == null)
+            {
+                return;
+            }
+
+            IsSnapshotBusy = true;
+            StatusText = "正在回滚到「" + snapshot.Title + "」…";
+
+            try
+            {
+                await _snapshotService
+                    .RestoreAsync(snapshot, CurrentGameDirectory, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                await ReloadSnapshotsAsync().ConfigureAwait(true);
+
+                StatusText = "已回滚到「" + snapshot.Title + "」，回滚前的状态已自动备份。";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "回滚失败：" + ex.Message;
+            }
+            finally
+            {
+                IsSnapshotBusy = false;
+            }
+        }
+
+        [RelayCommand]
+        public async Task DeleteSnapshotAsync(SnapshotInfo? snapshot)
+        {
+            if (_snapshotService == null || snapshot == null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _snapshotService.DeleteAsync(snapshot.Id, CancellationToken.None).ConfigureAwait(true);
+                await ReloadSnapshotsAsync().ConfigureAwait(true);
+
+                StatusText = "已删除快照：" + snapshot.Title;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "删除快照失败：" + ex.Message;
+            }
+        }
+
+        private async Task ReloadSnapshotsAsync()
+        {
+            if (_snapshotService == null)
+            {
+                return;
+            }
+
+            IReadOnlyList<SnapshotInfo> list = await _snapshotService
+                .ListAsync(CancellationToken.None)
+                .ConfigureAwait(true);
+
+            Snapshots.Clear();
+
+            foreach (SnapshotInfo item in list)
+            {
+                // 只显示当前实例的快照：别的版本的数据目录不同，回滚过来没有意义
+                if (SelectedVersion == null
+                    || string.Equals(item.FolderName, SelectedVersion.FolderName, StringComparison.OrdinalIgnoreCase))
+                {
+                    Snapshots.Add(item);
+                }
+            }
+
+            if (Snapshots.Count == 0)
+            {
+                StatusText = "这个版本还没有快照。";
             }
         }
 

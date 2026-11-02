@@ -12,6 +12,7 @@ using NLMCL.Core.Accounts;
 using NLMCL.Core.Installing;
 using NLMCL.Core.Networking;
 using NLMCL.Core.Settings;
+using NLMCL.Core.Snapshots;
 
 namespace NLMCL.App
 {
@@ -116,6 +117,7 @@ namespace NLMCL.App
             services.AddSingleton<IExternalAuthenticator>(sp => new YggdrasilAuthenticator(
                 new OAuthDownloadService(sp.GetRequiredService<IDownloadService>())));
             services.AddSingleton<IAuthlibInjector, AuthlibInjectorProvider>();
+            services.AddSingleton<ISnapshotService, SnapshotService>();
 
             // PCL 适配层（VB 程序集只在这里被引用）
             services.AddSingleton<IVersionCatalog, PclVersionCatalog>();

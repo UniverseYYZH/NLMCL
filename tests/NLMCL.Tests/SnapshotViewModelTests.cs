@@ -1,0 +1,99 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using NLMCL.Abstractions;
+using NLMCL.App.ViewModels;
+using NLMCL.Core;
+using Xunit;
+
+namespace NLMCL.Tests
+{
+    /// <summary>快照面板的 ViewModel 行为（真正的文件操作在 SnapshotServiceTests 里覆盖）。</summary>
+    public class SnapshotViewModelTests
+    {
+        private sealed class FakeSnapshots : ISnapshotService
+        {
+            public List<SnapshotInfo> Items { get; } = new List<SnapshotInfo>();
+
+            public int CreateCalls { get; private set; }
+
+            public Task<IReadOnlyList<SnapshotInfo>> ListAsync(CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<SnapshotInfo>>(new List<SnapshotInfo>(Items));
+
+            public Task<SnapshotInfo> CreateAsync(
+                string minecraftDirectory, string versionFolder, string note, CancellationToken cancellationToken)
+            {
+                CreateCalls++;
+                SnapshotInfo info = new SnapshotInfo(
+                    "snap-" + CreateCalls,
+                    versionFolder,
+                    versionFolder,
+                    note,
+                    DateTimeOffset.Now,
+                    1024,
+                    3,
+                    new[] { "saves" });
+                Items.Insert(0, info);
+                return Task.FromResult(info);
+            }
+
+            public Task RestoreAsync(SnapshotInfo snapshot, string minecraftDirectory, CancellationToken cancellationToken)
+                => Task.CompletedTask;
+
+            public Task DeleteAsync(string snapshotId, CancellationToken cancellationToken)
+            {
+                Items.RemoveAll(item => item.Id == snapshotId);
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class OneVersionCatalog : IVersionCatalog
+        {
+            public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
+                string minecraftDirectory, CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<MinecraftVersion>>(new[]
+                {
+                    new MinecraftVersion("1.20.1", "1.20.1", VersionKind.Release, null)
+                });
+        }
+
+        [Fact]
+        public async Task Opening_without_a_selected_version_explains_what_to_do()
+        {
+            FakeSnapshots snapshots = new FakeSnapshots();
+            MainViewModel vm = TestSupport.CreateMain(
+                new OneVersionCatalog(), new AppPaths(@"C:\Temp\roaming"), snapshotService: snapshots);
+
+            await vm.OpenSnapshotsAsync();
+
+            Assert.False(vm.IsSnapshotPanelOpen);
+            Assert.Contains("点选一个版本", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Creating_a_snapshot_refreshes_the_list()
+        {
+            FakeSnapshots snapshots = new FakeSnapshots();
+            MainViewModel vm = TestSupport.CreateMain(
+                new OneVersionCatalog(), new AppPaths(@"C:\Temp\roaming"), snapshotService: snapshots);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+
+            await vm.OpenSnapshotsAsync();
+            Assert.True(vm.IsSnapshotPanelOpen);
+
+            vm.SnapshotNote = "装 mod 前";
+            await vm.CreateSnapshotAsync();
+
+            Assert.Equal(1, snapshots.CreateCalls);
+            Assert.Single(vm.Snapshots);
+            Assert.Equal("装 mod 前", vm.Snapshots[0].Note);
+            Assert.Contains("已创建快照", vm.StatusText);
+
+            await vm.DeleteSnapshotAsync(vm.Snapshots[0]);
+            Assert.Empty(vm.Snapshots);
+        }
+    }
+}

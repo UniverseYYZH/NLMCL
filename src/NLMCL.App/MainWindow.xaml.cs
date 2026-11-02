@@ -52,5 +52,19 @@ namespace NLMCL.App
         {
             _viewModel.IsAccountPopupOpen = false;
         }
+
+        /// <summary>点遮罩空白处关闭快照面板。</summary>
+        private void SnapshotOverlayClicked(object sender, MouseButtonEventArgs e)
+        {
+            if (ReferenceEquals(e.OriginalSource, sender))
+            {
+                _viewModel.CloseSnapshotsCommand.Execute(null);
+            }
+        }
+
+        private void CloseSnapshotOverlay(object sender, RoutedEventArgs e)
+        {
+            _viewModel.CloseSnapshotsCommand.Execute(null);
+        }
     }
 }

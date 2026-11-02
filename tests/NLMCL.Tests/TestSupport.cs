@@ -297,7 +297,8 @@ namespace NLMCL.Tests
             IVersionCatalog catalog,
             IAppPaths paths,
             IJavaLocator? javaLocator = null,
-            IGameSessionLauncher? sessionLauncher = null)
+            IGameSessionLauncher? sessionLauncher = null,
+            ISnapshotService? snapshotService = null)
         {
             return new MainViewModel(
                 catalog,
@@ -314,7 +315,8 @@ namespace NLMCL.Tests
                 new FakeFolderPicker(),
                 new FakeAppSettings(),
                 javaInstaller: null,
-                sessionLauncher: sessionLauncher);
+                sessionLauncher: sessionLauncher,
+                snapshotService: snapshotService);
         }
     }
 }
