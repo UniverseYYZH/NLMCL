@@ -164,6 +164,68 @@ namespace NLMCL.Core.Installing
             }
         }
 
+        /// <summary>单文件下载超时；超时直接放弃这个请求（底层可能还不受控），避免拖死整个安装。</summary>
+        private static readonly TimeSpan PerFileTimeout = TimeSpan.FromSeconds(45);
+
+        private async Task DownloadOnceAsync(string url, string target, CancellationToken cancellationToken)
+        {
+            Task download = _download.DownloadFileAsync(url, target, cancellationToken);
+
+            Task finished = await Task.WhenAny(download, Task.Delay(PerFileTimeout, cancellationToken))
+                .ConfigureAwait(false);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+
+            if (!ReferenceEquals(finished, download))
+            {
+                // 观察掉被放弃的任务，避免未处理异常
+                _ = download.ContinueWith(task => _ = task.Exception,
+                    TaskContinuationOptions.OnlyOnFaulted);
+
+                throw new TimeoutException("下载超时（" + (int)PerFileTimeout.TotalSeconds + " 秒）：" + url);
+            }
+
+            await download.ConfigureAwait(false);
+        }
+
+        private static void TryDeleteFile(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        /// <summary>把超时/失败的 URL 记到临时文件，方便定位是哪一类资源在拖慢。</summary>
+        private static void LogSlowFile(string url, string reason)
+        {
+            try
+            {
+                string path = Path.Combine(Path.GetTempPath(), "nlmcl-install-slow.log");
+                string line = DateTime.Now.ToString("HH:mm:ss") + "  " + reason + "  " + url
+                    + Environment.NewLine;
+                lock (typeof(VanillaVersionInstaller))
+                {
+                    File.AppendAllText(path, line);
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
+
         /// <summary>文件已存在且哈希匹配时直接跳过；否则下载到临时文件、校验后再替换。</summary>
         private async Task EnsureFileAsync(RemoteFile file, CancellationToken cancellationToken)
         {
@@ -182,7 +244,34 @@ namespace NLMCL.Core.Installing
 
             try
             {
-                await _download.DownloadFileAsync(file.Url, temporary, cancellationToken).ConfigureAwait(false);
+                // 单个文件有超时：ModNet 在某些网络/镜像状态下会挂住不返回，
+                // 并发下几个挂住的请求会把整个安装拖死（实测停在同一进度不动）。
+                for (int attempt = 1; ; attempt++)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        await DownloadOnceAsync(file.Url, temporary, cancellationToken).ConfigureAwait(false);
+                        break;
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        TryDeleteFile(temporary);
+                        LogSlowFile(file.Url, "第 " + attempt + " 次失败：" + ex.Message);
+
+                        if (attempt >= 2)
+                        {
+                            throw new InvalidOperationException(
+                                "下载失败（已重试）：" + file.Url + " —— " + ex.Message, ex);
+                        }
+                    }
+                }
+
                 cancellationToken.ThrowIfCancellationRequested();
 
                 if (!string.IsNullOrEmpty(file.Sha1))
