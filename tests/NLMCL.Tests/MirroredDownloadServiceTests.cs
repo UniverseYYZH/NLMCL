@@ -64,6 +64,8 @@ namespace NLMCL.Tests
             "https://bmclapi2.bangbang93.com/assets/ab/abcdef")]
         [InlineData("https://libraries.minecraft.net/org/ow2/asm/asm/9.6/asm-9.6.jar",
             "https://bmclapi2.bangbang93.com/maven/org/ow2/asm/asm/9.6/asm-9.6.jar")]
+        [InlineData("https://meta.fabricmc.net/v2/versions/loader/1.21.2",
+            "https://bmclapi2.bangbang93.com/fabric-meta/v2/versions/loader/1.21.2")]
         public void Rewrites_known_mojang_hosts(string official, string expected)
         {
             Assert.Equal(expected, MojangMirror.TryRewrite(official));
@@ -72,8 +74,8 @@ namespace NLMCL.Tests
         [Fact]
         public void Leaves_unknown_hosts_alone()
         {
-            // Fabric meta 不在镜像范围内：硬改只会 404
-            Assert.Null(MojangMirror.TryRewrite("https://meta.fabricmc.net/v2/versions/loader/1.20.1"));
+            // Fabric 的 maven 没有可用镜像：必须原样走官方，硬改会 403
+            Assert.Null(MojangMirror.TryRewrite("https://maven.fabricmc.net/net/fabricmc/intermediary/1.21.2/intermediary-1.21.2.jar"));
             Assert.Null(MojangMirror.TryRewrite("not a url"));
         }
 

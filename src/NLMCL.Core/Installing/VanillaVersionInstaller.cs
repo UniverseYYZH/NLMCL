@@ -164,31 +164,90 @@ namespace NLMCL.Core.Installing
             }
         }
 
-        /// <summary>单文件下载超时；超时直接放弃这个请求（底层可能还不受控），避免拖死整个安装。</summary>
-        private static readonly TimeSpan PerFileTimeout = TimeSpan.FromSeconds(45);
+        /// <summary>文件连续多久没有变大就认为连接已死（不是"慢"，是"停"）。</summary>
+        private const int StallSeconds = 30;
 
+        /// <summary>单文件最长下载时间，超长说明这条连接彻底不行了。</summary>
+        private const int TotalSeconds = 600;
+
+        /// <summary>
+        /// 下载单个文件，用"停滞检测"代替固定超时：
+        /// Fabric 的 maven 在国内没有镜像，慢是常态；固定 45 秒会把还在传的文件误杀，
+        /// 而真正的死连接特征是**大小不再增长**。两个条件分开判断。
+        /// </summary>
         private async Task DownloadOnceAsync(string url, string target, CancellationToken cancellationToken)
         {
-            Task download = _download.DownloadFileAsync(url, target, cancellationToken);
-
-            Task finished = await Task.WhenAny(download, Task.Delay(PerFileTimeout, cancellationToken))
-                .ConfigureAwait(false);
-
-            if (cancellationToken.IsCancellationRequested)
+            using (CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
-                throw new OperationCanceledException(cancellationToken);
+                Task download = _download.DownloadFileAsync(url, target, timeout.Token);
+
+                DateTime started = DateTime.UtcNow;
+                DateTime lastGrowth = started;
+                long lastSize = -1;
+
+                while (true)
+                {
+                    Task finished = await Task.WhenAny(download, Task.Delay(2000, cancellationToken))
+                        .ConfigureAwait(false);
+
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (ReferenceEquals(finished, download))
+                    {
+                        break;
+                    }
+
+                    long size = 0;
+                    try
+                    {
+                        if (File.Exists(target))
+                        {
+                            size = new FileInfo(target).Length;
+                        }
+                    }
+                    catch (IOException)
+                    {
+                    }
+
+                    DateTime now = DateTime.UtcNow;
+
+                    if (size != lastSize)
+                    {
+                        lastSize = size;
+                        lastGrowth = now;
+                    }
+
+                    if ((now - lastGrowth).TotalSeconds >= StallSeconds)
+                    {
+                        Abandon(download, timeout);
+                        throw new TimeoutException(
+                            "下载停滞 " + StallSeconds + " 秒（已下载 " + size + " 字节）：" + url);
+                    }
+
+                    if ((now - started).TotalSeconds >= TotalSeconds)
+                    {
+                        Abandon(download, timeout);
+                        throw new TimeoutException("下载超过 " + TotalSeconds + " 秒：" + url);
+                    }
+                }
+
+                await download.ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>放弃一个卡住的任务：请求取消（底层未必听），并观察掉可能的异常。</summary>
+        private static void Abandon(Task download, CancellationTokenSource timeout)
+        {
+            try
+            {
+                timeout.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
             }
 
-            if (!ReferenceEquals(finished, download))
-            {
-                // 观察掉被放弃的任务，避免未处理异常
-                _ = download.ContinueWith(task => _ = task.Exception,
-                    TaskContinuationOptions.OnlyOnFaulted);
-
-                throw new TimeoutException("下载超时（" + (int)PerFileTimeout.TotalSeconds + " 秒）：" + url);
-            }
-
-            await download.ConfigureAwait(false);
+            _ = download.ContinueWith(task => _ = task.Exception,
+                TaskContinuationOptions.OnlyOnFaulted);
         }
 
         private static void TryDeleteFile(string path)
@@ -264,7 +323,7 @@ namespace NLMCL.Core.Installing
                         TryDeleteFile(temporary);
                         LogSlowFile(file.Url, "第 " + attempt + " 次失败：" + ex.Message);
 
-                        if (attempt >= 2)
+                        if (attempt >= 3)
                         {
                             throw new InvalidOperationException(
                                 "下载失败（已重试）：" + file.Url + " —— " + ex.Message, ex);

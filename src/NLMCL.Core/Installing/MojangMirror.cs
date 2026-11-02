@@ -51,6 +51,13 @@ namespace NLMCL.Core.Installing
                 return MirrorBase + "/maven" + path;
             }
 
+            // Fabric 的 meta（加载器列表、profile JSON）：镜像按 /fabric-meta/<路径> 代理
+            // 注意 maven.fabricmc.net **没有**镜像，bmclapi 对 /maven/net/fabricmc 返回 403
+            if (host == "meta.fabricmc.net")
+            {
+                return MirrorBase + "/fabric-meta" + path;
+            }
+
             return null;
         }
     }

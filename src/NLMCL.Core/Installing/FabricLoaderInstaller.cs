@@ -212,7 +212,11 @@ namespace NLMCL.Core.Installing
 
                 try
                 {
-                    await _download.DownloadFileAsync(file.Url, tempPath, cancellationToken).ConfigureAwait(false);
+                    // Fabric 的 maven 没有国内镜像，普通下载会因超时/连接假死失败。
+                    // 用带停滞检测的封装：只要文件还在变大就继续等，连续 30 秒不涨才重试。
+                    await ResilientDownload
+                        .DownloadAsync(_download, file.Url, tempPath, cancellationToken)
+                        .ConfigureAwait(false);
 
                     if (!string.IsNullOrEmpty(file.Sha1))
                     {
