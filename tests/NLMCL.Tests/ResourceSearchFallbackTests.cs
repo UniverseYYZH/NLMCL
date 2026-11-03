@@ -68,6 +68,61 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Translator_parses_english_result()
+        {
+            const string json = @"{ ""responseData"": { ""translatedText"": ""Glowing Weapon"" }, ""responseStatus"": 200 }";
+            Assert.Equal("Glowing Weapon", MyMemoryTranslator.Parse(json, "发光武器"));
+        }
+
+        [Fact]
+        public void Translator_rejects_unchanged_or_chinese_output()
+        {
+            Assert.Null(MyMemoryTranslator.Parse(
+                @"{ ""responseData"": { ""translatedText"": ""发光武器"" } }", "发光武器"));
+            Assert.Null(MyMemoryTranslator.Parse(@"{ ""responseData"": { } }", "发光武器"));
+            Assert.Null(MyMemoryTranslator.Parse("not json", "发光武器"));
+        }
+
+        private sealed class RecordingCatalog : IResourceCatalog
+        {
+            public string? LastQuery { get; private set; }
+
+            public Task<IReadOnlyList<ResourceSummary>> SearchAsync(
+                ResourceQuery query, CancellationToken cancellationToken)
+            {
+                LastQuery = query.Text;
+                return Task.FromResult<IReadOnlyList<ResourceSummary>>(new[]
+                {
+                    new ResourceSummary("x", "x", "X", "x", null, null, 1, ResourceKind.Mod)
+                });
+            }
+
+            public Task<IReadOnlyList<ResourceFile>> GetFilesAsync(
+                string projectId, ResourceKind kind, string? gameVersion, string? loader,
+                CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ResourceFile>>(Array.Empty<ResourceFile>());
+        }
+
+        private sealed class FixedTranslator : ITranslator
+        {
+            public Task<string?> TranslateToEnglishAsync(string text, CancellationToken cancellationToken)
+                => Task.FromResult<string?>("Yes Steve Model");
+        }
+
+        [Fact]
+        public async Task Chinese_query_is_translated_before_search()
+        {
+            RecordingCatalog catalog = new RecordingCatalog();
+            ResourceViewModel vm = new ResourceViewModel(catalog, new NoopInstaller(), new FixedTranslator());
+            vm.SearchText = "某个中文名";
+            vm.SelectedKind = "模组";
+
+            await vm.SearchAsync();
+
+            Assert.Equal("Yes Steve Model", catalog.LastQuery);
+            Assert.Contains("已翻译为", vm.StatusText);
+        }
+        [Fact]
         public async Task Ignores_version_filter_when_nothing_matches()
         {
             VersionSensitiveCatalog catalog = new VersionSensitiveCatalog();

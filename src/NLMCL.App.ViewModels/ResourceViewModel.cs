@@ -21,10 +21,16 @@ namespace NLMCL.App.ViewModels
         private readonly IResourceCatalog _catalog;
         private readonly IResourceInstaller _installer;
 
-        public ResourceViewModel(IResourceCatalog catalog, IResourceInstaller installer)
+        private readonly ITranslator? _translator;
+
+        public ResourceViewModel(
+            IResourceCatalog catalog,
+            IResourceInstaller installer,
+            ITranslator? translator = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
+            _translator = translator;
         }
 
         public IReadOnlyList<string> KindOptions { get; } = new[] { "模组", "资源包", "光影", "数据包" };
@@ -87,6 +93,19 @@ namespace NLMCL.App.ViewModels
                 {
                     text = alias;
                     note = "（按英文名 " + alias + " 搜索）";
+                }
+                else if (_translator != null && NLMCL.Core.Resources.ChineseAliases.ContainsChinese(text))
+                {
+                    // 别名表命中不了的中文名，交给翻译接口兜底
+                    string? translated = await _translator
+                        .TranslateToEnglishAsync(text, CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    if (!string.IsNullOrWhiteSpace(translated))
+                    {
+                        text = translated!;
+                        note = "（已翻译为 " + translated + " 搜索）";
+                    }
                 }
 
                 string? gameVersion = string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim();

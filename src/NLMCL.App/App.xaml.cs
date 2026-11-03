@@ -123,6 +123,8 @@ namespace NLMCL.App
             services.AddSingleton<ISnapshotService, SnapshotService>();
             services.AddSingleton<IResourceCatalog, ModrinthCatalog>();
             services.AddSingleton<IResourceInstaller, ResourceInstaller>();
+            // 中文查询兜底翻译（Modrinth 只有英文元数据）
+            services.AddSingleton<ITranslator, MyMemoryTranslator>();
             services.AddSingleton<IDialogService, Services.MessageBoxDialogService>();
 
             // PCL 适配层（VB 程序集只在这里被引用）
