@@ -126,7 +126,8 @@ namespace NLMCL.App.ViewModels
             IServerBookmarkStore? bookmarks = null,
             IServerPinger? pinger = null,
             ModsViewModel? mods = null,
-            IVersionRepairer? repairer = null)
+            IVersionRepairer? repairer = null,
+            ICrashAnalyzer? crashAnalyzer = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -165,6 +166,7 @@ namespace NLMCL.App.ViewModels
 
 
             Console = console ?? throw new ArgumentNullException(nameof(console));
+            Console.CrashAnalyzer = crashAnalyzer;
 
             CurrentGameDirectory = paths.DefaultMinecraftDirectory;
 

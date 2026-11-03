@@ -24,6 +24,7 @@ Minecraft Java 版启动器（Windows / .NET Framework 4.8 / WPF）。
 | 联机扫描 | ✅ | 组播发现 + SLP 在线人数；二维码待补 |
 | Mod 管理 | ✅ | 列表 / 启用禁用 / 删除 / Modrinth 更新检查 |
 | 版本修复 | ✅ | 缺客户端 JAR / 库时一键从镜像补齐 |
+| 崩溃分析 | ✅ | 读崩溃报告/latest.log，匹配 14 类错误并指出可疑模组 |
 
 ## 快速开始
 

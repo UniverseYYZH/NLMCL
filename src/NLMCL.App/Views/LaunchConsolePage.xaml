@@ -41,6 +41,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -67,6 +68,9 @@
                         IsEnabled="{Binding IsRunning}" />
                 <Button Content="清空" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
                         Command="{Binding ClearCommand}" />
+                <Button Content="崩溃分析" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                        ToolTip="读取崩溃报告 / latest.log，指出可疑原因"
+                        Command="{Binding AnalyzeCrashCommand}" />
             </StackPanel>
         </Grid>
 
@@ -104,8 +108,19 @@
             </Grid>
         </Border>
 
+        <!-- 崩溃分析结果 -->
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,0,0,10"
+                Visibility="{Binding HasAnalysis, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <TextBlock Text="崩溃分析" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="{Binding AnalysisText}" FontSize="11" Margin="0,6,0,0"
+                           Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
+                           FontFamily="Consolas" />
+            </StackPanel>
+        </Border>
         <!-- 日志区 -->
-        <Border Grid.Row="2" Background="#101A16" CornerRadius="10" Padding="12,10">
+        <Border Grid.Row="3" Background="#101A16" CornerRadius="10" Padding="12,10">
             <Grid>
                 <ScrollViewer x:Name="LogScroll" VerticalScrollBarVisibility="Auto">
                     <ItemsControl ItemsSource="{Binding Lines}"

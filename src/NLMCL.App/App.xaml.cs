@@ -130,6 +130,7 @@ namespace NLMCL.App
             services.AddSingleton<IServerBookmarkStore, Core.Servers.ServerBookmarkStore>();
             services.AddSingleton<IModManager, Core.Mods.ModManager>();
             services.AddSingleton<IVersionRepairer, Core.Repair.VersionRepairer>();
+            services.AddSingleton<ICrashAnalyzer, Core.Crash.CrashAnalyzer>();
             services.AddSingleton<IModUpdateChecker, Core.Mods.ModrinthUpdateChecker>();
             services.AddSingleton<IServerPinger, Core.Lan.ServerListPing>();
             services.AddSingleton<ILanScanner, Core.Lan.LanScanner>();
