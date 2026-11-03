@@ -1,0 +1,52 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace NLMCL.Abstractions
+{
+    /// <summary>当前账号的皮肤信息。</summary>
+    public sealed class SkinInfo
+    {
+        public SkinInfo(string playerName, string? skinUrl, string model, string source)
+        {
+            PlayerName = playerName ?? string.Empty;
+            SkinUrl = skinUrl;
+            Model = model ?? "default";
+            Source = source ?? string.Empty;
+        }
+
+        public string PlayerName { get; }
+
+        /// <summary>皮肤 PNG 的直链；没有皮肤时为 null。</summary>
+        public string? SkinUrl { get; }
+
+        /// <summary>default（经典）或 slim（纤细）。</summary>
+        public string Model { get; }
+
+        /// <summary>皮肤来源（认证服务器地址或 Minecraft Services）。</summary>
+        public string Source { get; }
+
+        public string ModelLabel => string.Equals(Model, "slim", StringComparison.OrdinalIgnoreCase)
+            ? "纤细（Alex）"
+            : "经典（Steve）";
+
+        public string Summary => PlayerName + " · " + ModelLabel;
+    }
+
+    /// <summary>
+    /// 皮肤读取：向账号所属的认证服务器要 profile，解析 textures 属性里的皮肤地址。
+    ///
+    /// 注意：皮肤**不是启动器能改的**——它由认证服务器（或 Mojang）按账号下发，
+    /// 游戏客户端通过 authlib-injector / 会话服务器拿到。启动器只做预览与保存。
+    /// </summary>
+    public interface ISkinService
+    {
+        Task<SkinInfo?> GetAsync(Account account, CancellationToken cancellationToken);
+
+        /// <summary>把皮肤 PNG 存到本地皮肤目录，返回文件路径。</summary>
+        Task<string> SaveAsync(SkinInfo skin, CancellationToken cancellationToken);
+
+        /// <summary>把皮肤 PNG 下载到指定路径（预览用）。</summary>
+        Task SavePreviewAsync(string url, string targetPath, CancellationToken cancellationToken);
+    }
+}

@@ -517,6 +517,12 @@
                                 Visibility="{Binding DataContext.IsImportSection,
                                                      RelativeSource={RelativeSource AncestorType=Window},
                                                      Converter={StaticResource BoolToVisibility}}" />
+            <!-- 皮肤页 -->
+            <views:SkinPage Margin="26,22,26,14"
+                            DataContext="{Binding Skin}"
+                            Visibility="{Binding DataContext.IsSkinSection,
+                                                 RelativeSource={RelativeSource AncestorType=Window},
+                                                 Converter={StaticResource BoolToVisibility}}" />
             <!-- 联机房间页 -->
             <views:MultiplayerPage Margin="26,22,26,14"
                                    Visibility="{Binding IsMultiplayerSection,

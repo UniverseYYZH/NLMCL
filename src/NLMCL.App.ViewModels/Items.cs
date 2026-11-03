@@ -15,7 +15,9 @@ namespace NLMCL.App.ViewModels
         LanScan = 4,
         Snapshot = 5,
         Import = 6,
-        Settings = 7
+        Settings = 7,
+
+        Skin = 8
     }
 
     /// <summary>

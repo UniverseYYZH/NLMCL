@@ -59,6 +59,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>在线资源搜索与安装（Modrinth）。</summary>
         private readonly ResourceViewModel? _resource;
 
+        /// <summary>皮肤预览。</summary>
+        private readonly SkinViewModel? _skin;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -97,7 +100,8 @@ namespace NLMCL.App.ViewModels
             IDialogService? dialogs = null,
             IAppearance? appearance = null,
             IDownloadTuning? downloadTuning = null,
-            ResourceViewModel? resource = null)
+            ResourceViewModel? resource = null,
+            SkinViewModel? skin = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -119,6 +123,7 @@ namespace NLMCL.App.ViewModels
             _appearance = appearance;
             _downloadTuning = downloadTuning;
             _resource = resource;
+            _skin = skin;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -139,11 +144,12 @@ namespace NLMCL.App.ViewModels
             NavigationItem settings = new NavigationItem("设置", "外观 / Java / 下载", ShellSection.Settings);
             NavigationItem downloadNav = new NavigationItem("版本下载", "原版与加载器", ShellSection.Download);
             NavigationItem import = new NavigationItem("导入资源", "mod 与整合包", ShellSection.Import);
+            NavigationItem skinNav = new NavigationItem("皮肤", "预览与保存", ShellSection.Skin);
 
             NavigationGroups = new ReadOnlyCollection<NavigationGroup>(new List<NavigationGroup>
             {
                 new NavigationGroup("工作区", new[] { versions, consoleNav, multiplayer, snapshot, lanScan, settings }),
-                new NavigationGroup("工具", new[] { downloadNav, import })
+                new NavigationGroup("工具", new[] { downloadNav, import, skinNav })
             });
 
             SelectSection(versions);
@@ -383,6 +389,13 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isImportSection;
 
+        /// <summary>皮肤页的视图模型（可能为 null）。</summary>
+        public SkinViewModel? Skin => _skin;
+
+        /// <summary>当前显示「皮肤」页。</summary>
+        [ObservableProperty]
+        private bool _isSkinSection;
+
         /// <summary>当前显示「设置」页。</summary>
         [ObservableProperty]
         private bool _isSettingsSection;
@@ -583,6 +596,12 @@ namespace NLMCL.App.ViewModels
             IsMultiplayerSection = item.Section == ShellSection.Multiplayer;
             IsSettingsSection = item.Section == ShellSection.Settings;
             IsImportSection = item.Section == ShellSection.Import;
+            IsSkinSection = item.Section == ShellSection.Skin;
+
+            if (IsSkinSection)
+            {
+                _skin?.SetAccount(Account);
+            }
 
             if (IsImportSection && _resource != null)
             {
