@@ -72,6 +72,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <Border Grid.Column="0" Background="{DynamicResource Surface}"
@@ -110,6 +111,11 @@
                 <Button Grid.Column="4" Content="搜索" Style="{StaticResource PrimaryButton}"
                         Margin="8,0,0,0" Padding="16,7" Command="{Binding SearchCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+
+                <Button Grid.Column="5" Content="导入整合包" Style="{StaticResource GhostButton}"
+                        Margin="8,0,0,0" Padding="12,7"
+                        Command="{Binding ImportModpackCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
             </Grid>
         </Border>
 
@@ -134,7 +140,12 @@
             </ListBox.ItemContainerStyle>
         </ListBox>
 
-        <TextBlock Grid.Row="3" Text="{Binding StatusText}" FontSize="11"
-                   Foreground="{DynamicResource Muted}" Margin="2,10,0,0" TextWrapping="Wrap" />
+        <StackPanel Grid.Row="3" Margin="2,10,0,0">
+            <ProgressBar Height="4" Minimum="0" Maximum="100" Value="{Binding Progress}"
+                         Foreground="{DynamicResource Primary}" Background="{DynamicResource Surface}"
+                         Visibility="{Binding HasProgress, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock Text="{Binding StatusText}" FontSize="11"
+                       Foreground="{DynamicResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap" />
+        </StackPanel>
     </Grid>
 </UserControl>

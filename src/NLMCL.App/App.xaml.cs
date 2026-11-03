@@ -104,6 +104,7 @@ namespace NLMCL.App
             services.AddSingleton<ILocalNetworkInfo, LocalNetworkInfo>();
             services.AddSingleton<IClipboard, Services.WpfClipboard>();
             services.AddSingleton<IFolderPicker, Services.WinFormsFolderPicker>();
+            services.AddSingleton<IFilePicker, Services.WinFormsFilePicker>();
             // ViewModel 不引用 WPF，需要封送到 UI 线程时走这个端口
             services.AddSingleton<IUiDispatcher, Services.WpfUiDispatcher>();
             // 主题 / 缩放：同样只在 App 层碰 WPF
@@ -149,6 +150,7 @@ namespace NLMCL.App
             services.AddSingleton<INeoForgeCatalog, NeoForgeCatalog>();
             services.AddSingleton<ILoaderInstaller, ForgeLoaderInstaller>();
             services.AddSingleton<IProcessRunner, Services.ProcessRunner>();
+            services.AddSingleton<IModpackInstaller, ModpackInstaller>();
             services.AddSingleton<IDownloadTuning, PclDownloadTuning>();
             services.AddSingleton<IJavaLocator, PclJavaLocator>();
             services.AddSingleton<IJavaRuntimeInstaller, JavaRuntimeInstaller>();

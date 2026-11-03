@@ -23,14 +23,24 @@ namespace NLMCL.App.ViewModels
 
         private readonly ITranslator? _translator;
 
+        private readonly IFilePicker? _filePicker;
+        private readonly IModpackInstaller? _modpackInstaller;
+        private readonly IJavaLocator? _javaLocator;
+
         public ResourceViewModel(
             IResourceCatalog catalog,
             IResourceInstaller installer,
-            ITranslator? translator = null)
+            ITranslator? translator = null,
+            IFilePicker? filePicker = null,
+            IModpackInstaller? modpackInstaller = null,
+            IJavaLocator? javaLocator = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
             _translator = translator;
+            _filePicker = filePicker;
+            _modpackInstaller = modpackInstaller;
+            _javaLocator = javaLocator;
         }
 
         public IReadOnlyList<string> KindOptions { get; } = new[] { "模组", "资源包", "光影", "数据包" };
@@ -57,6 +67,13 @@ namespace NLMCL.App.ViewModels
 
         [ObservableProperty]
         private bool _isBusy;
+
+        /// <summary>整合包安装进度 0–100。</summary>
+        [ObservableProperty]
+        private double _progress;
+
+        [ObservableProperty]
+        private bool _hasProgress;
 
         /// <summary>当前实例所在的 .minecraft 与版本目录（由主界面设置）。</summary>
         public string MinecraftDirectory { get; set; } = string.Empty;
@@ -270,6 +287,100 @@ namespace NLMCL.App.ViewModels
             }
 
             return matches[matches.Count - 1].Value;
+        }
+
+        /// <summary>导入 .mrpack：读索引 → 装加载器 → 建隔离实例 → 落 mods/overrides。</summary>
+        [RelayCommand]
+        public async Task ImportModpackAsync()
+        {
+            if (_filePicker == null || _modpackInstaller == null)
+            {
+                StatusText = "整合包导入不可用。";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(MinecraftDirectory))
+            {
+                StatusText = "请先在「本地版本」选一个实例，再导入整合包（决定装到哪个 .minecraft）。";
+                return;
+            }
+
+            string? path = _filePicker.PickFile(
+                "选择 Modrinth 整合包", "Modrinth 整合包 (*.mrpack)|*.mrpack|所有文件 (*.*)|*.*");
+
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            IsBusy = true;
+            HasProgress = true;
+            Progress = 0;
+
+            try
+            {
+                ModpackInfo info = await _modpackInstaller
+                    .ReadAsync(path!, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                StatusText = "准备安装「" + info.Name + "」（" + info.Summary + "）…";
+
+                string java = ResolveJava(info.MinecraftVersion);
+
+                string versionId = await _modpackInstaller
+                    .InstallAsync(path!, MinecraftDirectory, java, new InlineProgress(ApplyProgress), CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                Progress = 100;
+                StatusText = "已创建实例「" + versionId + "」，去「本地版本」里启动它。";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "导入失败：" + ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        private void ApplyProgress(InstallProgress value)
+        {
+            Progress = value.Percent;
+            StatusText = value.Stage;
+        }
+
+        /// <summary>Forge/NeoForge 安装器需要 Java；Fabric 其实不需要，但统一挑一个更省事。</summary>
+        private string ResolveJava(string minecraftVersion)
+        {
+            if (_javaLocator == null)
+            {
+                return string.Empty;
+            }
+
+            IReadOnlyList<JavaRuntime> javas = _javaLocator
+                .FindInstalledAsync(CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            int required = DownloadViewModel.RequiredJavaFor(minecraftVersion);
+
+            JavaRuntime? java = NLMCL.Core.Installing.JavaRequirements.Pick(javas, required)
+                ?? NLMCL.Core.Installing.JavaRequirements.Pick(javas, null);
+
+            return java?.ExecutablePath ?? string.Empty;
+        }
+
+        private sealed class InlineProgress : IProgress<InstallProgress>
+        {
+            private readonly Action<InstallProgress> _apply;
+
+            public InlineProgress(Action<InstallProgress> apply)
+            {
+                _apply = apply;
+            }
+
+            public void Report(InstallProgress value) => _apply(value);
         }
 
         internal static ResourceKind KindOf(string text)
