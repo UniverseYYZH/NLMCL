@@ -53,6 +53,12 @@ namespace NLMCL.Abstractions
         Task<IReadOnlyList<LoaderBuild>> GetBuildsAsync(string minecraftVersion, CancellationToken cancellationToken);
     }
 
+    /// <summary>NeoForge 构建列表（版本号形如 21.1.80，前两段编码了 Minecraft 版本）。</summary>
+    public interface INeoForgeCatalog
+    {
+        Task<IReadOnlyList<LoaderBuild>> GetBuildsAsync(string minecraftVersion, CancellationToken cancellationToken);
+    }
+
     /// <summary>
     /// Forge / NeoForge 安装。
     ///
@@ -65,6 +71,15 @@ namespace NLMCL.Abstractions
     {
         /// <summary>返回安装后版本目录的名称（例如 1.20.1-forge-47.4.27）。</summary>
         Task<string> InstallForgeAsync(
+            string minecraftVersion,
+            string loaderVersion,
+            string minecraftDirectory,
+            string javaExecutable,
+            IProgress<InstallProgress>? progress,
+            CancellationToken cancellationToken);
+
+        /// <summary>NeoForge 安装；安装器与 Forge 同源，只是 maven 与版本命名不同。</summary>
+        Task<string> InstallNeoForgeAsync(
             string minecraftVersion,
             string loaderVersion,
             string minecraftDirectory,

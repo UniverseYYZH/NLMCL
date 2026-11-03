@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,17 +10,20 @@ using NLMCL.Abstractions;
 namespace NLMCL.Core.Installing
 {
     /// <summary>
-    /// Forge 客户端安装：下载官方安装器 jar，然后 <c>java -jar installer --installClient &lt;目录&gt;</c>。
+    /// Forge / NeoForge 客户端安装：下载官方安装器 jar，然后
+    /// <c>java -jar installer --installClient &lt;目录&gt;</c>。
     ///
     /// 侦察实测（1.20.1 + Forge 47.4.27）：154 秒装完，产物是
-    /// <c>versions\1.20.1-forge-47.4.27\1.20.1-forge-47.4.27.json</c> 与 libraries。
+    /// <c>versions\1.20.1-forge-47.4.27\</c> 与 libraries。
     ///
     /// 唯一前置：目标目录里必须有 <c>launcher_profiles.json</c>，否则安装器会报
     /// "There is no Minecraft launcher profile ... you need to run the launcher first"。
     /// </summary>
     public sealed class ForgeLoaderInstaller : ILoaderInstaller
     {
-        public const string MavenBase = "https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge";
+        public const string ForgeMavenBase = "https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge";
+
+        public const string NeoForgeMavenBase = "https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge";
 
         private readonly IDownloadService _download;
         private readonly IProcessRunner _process;
@@ -36,13 +41,9 @@ namespace NLMCL.Core.Installing
                 : cacheDirectory!;
         }
 
-        public async Task<string> InstallForgeAsync(
-            string minecraftVersion,
-            string loaderVersion,
-            string minecraftDirectory,
-            string javaExecutable,
-            IProgress<InstallProgress>? progress,
-            CancellationToken cancellationToken)
+        public Task<string> InstallForgeAsync(
+            string minecraftVersion, string loaderVersion, string minecraftDirectory,
+            string javaExecutable, IProgress<InstallProgress>? progress, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(minecraftVersion))
             {
@@ -54,23 +55,53 @@ namespace NLMCL.Core.Installing
                 throw new ArgumentException("Forge 版本为空。", nameof(loaderVersion));
             }
 
-            if (string.IsNullOrWhiteSpace(javaExecutable))
+            string id = minecraftVersion.Trim() + "-forge-" + loaderVersion.Trim();
+            string artifact = minecraftVersion.Trim() + "-" + loaderVersion.Trim();
+            string url = ForgeMavenBase + "/" + artifact + "/forge-" + artifact + "-installer.jar";
+
+            return InstallCoreAsync(id, url, "Forge", minecraftDirectory, javaExecutable, progress, cancellationToken);
+        }
+
+        public Task<string> InstallNeoForgeAsync(
+            string minecraftVersion, string loaderVersion, string minecraftDirectory,
+            string javaExecutable, IProgress<InstallProgress>? progress, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(loaderVersion))
             {
-                throw new InvalidOperationException("没有可用的 Java，无法运行 Forge 安装器。");
+                throw new ArgumentException("NeoForge 版本为空。", nameof(loaderVersion));
             }
 
-            string id = minecraftVersion.Trim() + "-forge-" + loaderVersion.Trim();
+            string version = loaderVersion.Trim();
+            string id = "neoforge-" + version;
+            string url = NeoForgeMavenBase + "/" + version + "/neoforge-" + version + "-installer.jar";
 
-            progress?.Report(new InstallProgress("准备 Forge " + loaderVersion, 2, 0));
+            return InstallCoreAsync(id, url, "NeoForge", minecraftDirectory, javaExecutable, progress, cancellationToken);
+        }
 
-            string jar = await EnsureInstallerAsync(id, minecraftVersion.Trim(), loaderVersion.Trim(), cancellationToken).ConfigureAwait(false);
+        private async Task<string> InstallCoreAsync(
+            string id,
+            string installerUrl,
+            string displayName,
+            string minecraftDirectory,
+            string javaExecutable,
+            IProgress<InstallProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(javaExecutable))
+            {
+                throw new InvalidOperationException("没有可用的 Java，无法运行 " + displayName + " 安装器。");
+            }
+
+            progress?.Report(new InstallProgress("准备 " + displayName + " " + id, 2, 0));
+
+            string jar = await EnsureInstallerAsync(id, installerUrl, cancellationToken).ConfigureAwait(false);
 
             Directory.CreateDirectory(minecraftDirectory);
             EnsureLauncherProfiles(minecraftDirectory);
 
-            progress?.Report(new InstallProgress("运行 Forge 安装器（需要几分钟）", 10, 0));
+            progress?.Report(new InstallProgress("运行 " + displayName + " 安装器（需要几分钟）", 10, 0));
 
-            int lines = 0;
+            int reported = 0;
 
             ProcessResult result = await _process.RunAsync(
                 javaExecutable,
@@ -78,8 +109,14 @@ namespace NLMCL.Core.Installing
                 minecraftDirectory,
                 line =>
                 {
-                    lines++;
-                    int percent = Math.Min(95, 10 + lines / 4);
+                    // 安装器输出很杂（skip: false / Patching ...），只把关键行推到界面
+                    if (!ShouldReport(line))
+                    {
+                        return;
+                    }
+
+                    reported++;
+                    int percent = Math.Min(95, 10 + reported / 3);
                     progress?.Report(new InstallProgress("安装中：" + Shorten(line), percent, 0));
                 },
                 cancellationToken).ConfigureAwait(false);
@@ -89,23 +126,26 @@ namespace NLMCL.Core.Installing
             if (result.ExitCode != 0)
             {
                 throw new InvalidOperationException(
-                    "Forge 安装器退出码 " + result.ExitCode + "。输出尾部：\n" + Tail(result.Output));
+                    displayName + " 安装器退出码 " + result.ExitCode + "。输出尾部：\n" + Tail(result.Output));
             }
 
-            string versionJson = Path.Combine(minecraftDirectory, "versions", id, id + ".json");
+            // NeoForge 的版本目录名与 id 未必一致，装完直接扫一遍最新产物更可靠
+            string? installed = FindInstalledVersion(minecraftDirectory, id);
 
-            if (!File.Exists(versionJson))
+            if (installed == null)
             {
-                throw new InvalidOperationException("安装器没有生成版本 JSON：" + versionJson);
+                throw new InvalidOperationException(
+                    "安装器没有生成版本 JSON（期望 " + id + "）。输出尾部：\n" + Tail(result.Output));
             }
 
-            progress?.Report(new InstallProgress("Forge 安装完成", 100, 0));
+            progress?.Report(new InstallProgress(displayName + " 安装完成", 100, 0));
 
-            return id;
+            return installed;
         }
 
-        /// <summary>安装器 jar 下载到临时目录；已存在就复用（同版本重装不必再下 8 MB）。</summary>
-        private async Task<string> EnsureInstallerAsync(string id, string minecraftVersion, string loaderVersion, CancellationToken cancellationToken)
+        /// <summary>安装器 jar 下载到缓存目录；缓存必须是真正的 jar（PK 头）才复用。</summary>
+        private async Task<string> EnsureInstallerAsync(
+            string id, string installerUrl, CancellationToken cancellationToken)
         {
             Directory.CreateDirectory(_cacheDirectory);
 
@@ -120,12 +160,12 @@ namespace NLMCL.Core.Installing
             // 只校验体积是不够的：一个 2MB 的全零文件同样能通过 ">1MB" 检查。
             TryDelete(path);
 
-            // 注意 Maven 布局：目录是 {mc}-{forge}，文件名才是 forge-{mc}-{forge}-installer.jar
-            // （id 里的 "forge-" 只用于版本目录名，不能直接拼进 maven 路径）
-            string artifact = minecraftVersion + "-" + loaderVersion;
-            string url = MavenBase + "/" + artifact + "/forge-" + artifact + "-installer.jar";
+            await _download.DownloadFileAsync(installerUrl, path, cancellationToken).ConfigureAwait(false);
 
-            await _download.DownloadFileAsync(url, path, cancellationToken).ConfigureAwait(false);
+            if (!IsValidJar(path))
+            {
+                throw new InvalidOperationException("下载到的安装器不是有效 jar：" + installerUrl);
+            }
 
             return path;
         }
@@ -151,21 +191,56 @@ namespace NLMCL.Core.Installing
             }
         }
 
-        private static void TryDelete(string path)
+        /// <summary>哪些输出行值得显示：下载、补丁、安装、注入、错误。</summary>
+        internal static bool ShouldReport(string? line)
         {
-            try
+            if (string.IsNullOrWhiteSpace(line))
             {
-                if (File.Exists(path))
-                {
-                    File.Delete(path);
-                }
+                return false;
             }
-            catch (IOException)
+
+            string text = line!.Trim();
+
+            if (text.Length < 3)
             {
+                return false;
             }
-            catch (UnauthorizedAccessException)
+
+            string[] keywords =
             {
+                "Downloading", "Downloaded", "Patching", "Extracting", "Installing", "Building",
+                "Injecting", "Processors", "ERROR", "Exception", "Failed", "fail",
+                "Successfully installed", "done"
+            };
+
+            return keywords.Any(keyword => text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        /// <summary>在 versions 下找刚生成的版本目录（NeoForge 的目录名未必等于预期 id）。</summary>
+        internal static string? FindInstalledVersion(string minecraftDirectory, string expectedId)
+        {
+            string versions = Path.Combine(minecraftDirectory, "versions");
+
+            if (!Directory.Exists(versions))
+            {
+                return null;
             }
+
+            string expectedJson = Path.Combine(versions, expectedId, expectedId + ".json");
+            if (File.Exists(expectedJson))
+            {
+                return expectedId;
+            }
+
+            // 退路：名字里含 neoforge/forge 且最近修改的那个
+            string token = expectedId.Contains("neoforge") ? "neoforge" : "forge";
+
+            return Directory.GetDirectories(versions)
+                .Where(dir => Path.GetFileName(dir).IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0)
+                .Where(dir => File.Exists(Path.Combine(dir, Path.GetFileName(dir) + ".json")))
+                .OrderByDescending(dir => Directory.GetLastWriteTime(dir))
+                .Select(Path.GetFileName)
+                .FirstOrDefault();
         }
 
         /// <summary>安装器要求目录里已有启动器配置；没有就写一个最小的。</summary>
@@ -182,6 +257,23 @@ namespace NLMCL.Core.Installing
                 path,
                 "{\"profiles\":{},\"selectedProfile\":\"\",\"clientToken\":\"\"}",
                 new UTF8Encoding(false));
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         private static string Shorten(string line)

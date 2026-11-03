@@ -23,6 +23,7 @@ namespace NLMCL.App.ViewModels
         private readonly IFabricLoaderCatalog? _loaderCatalog;
         private readonly IVersionCatalog? _catalog;
         private readonly IForgeCatalog? _forgeCatalog;
+        private readonly INeoForgeCatalog? _neoForgeCatalog;
         private readonly ILoaderInstaller? _forgeInstaller;
         private readonly IJavaLocator? _javaLocator;
 
@@ -34,7 +35,8 @@ namespace NLMCL.App.ViewModels
             IVersionCatalog? catalog = null,
             IForgeCatalog? forgeCatalog = null,
             ILoaderInstaller? forgeInstaller = null,
-            IJavaLocator? javaLocator = null)
+            IJavaLocator? javaLocator = null,
+            INeoForgeCatalog? neoForgeCatalog = null)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
@@ -44,6 +46,7 @@ namespace NLMCL.App.ViewModels
             _forgeCatalog = forgeCatalog;
             _forgeInstaller = forgeInstaller;
             _javaLocator = javaLocator;
+            _neoForgeCatalog = neoForgeCatalog;
 
             TargetDirectory = paths.DefaultMinecraftDirectory;
         }
@@ -64,7 +67,7 @@ namespace NLMCL.App.ViewModels
         /// <summary>可选加载器。空串表示原版。</summary>
 
 
-        public IReadOnlyList<string> Loaders { get; } = new[] { "原版", "Fabric", "Forge" };
+        public IReadOnlyList<string> Loaders { get; } = new[] { "原版", "Fabric", "Forge", "NeoForge" };
 
 
 
@@ -88,8 +91,10 @@ namespace NLMCL.App.ViewModels
 
         public bool IsForgeSelected => string.Equals(SelectedLoader, "Forge", StringComparison.OrdinalIgnoreCase);
 
+        public bool IsNeoForgeSelected => string.Equals(SelectedLoader, "NeoForge", StringComparison.OrdinalIgnoreCase);
+
         /// <summary>Fabric 与 Forge 都需要选加载器版本，原版不用。</summary>
-        public bool IsLoaderVersionVisible => IsFabricSelected || IsForgeSelected;
+        public bool IsLoaderVersionVisible => IsFabricSelected || IsForgeSelected || IsNeoForgeSelected;
 
 
 
@@ -99,6 +104,7 @@ namespace NLMCL.App.ViewModels
         {
             OnPropertyChanged(nameof(IsFabricSelected));
             OnPropertyChanged(nameof(IsForgeSelected));
+            OnPropertyChanged(nameof(IsNeoForgeSelected));
             OnPropertyChanged(nameof(IsLoaderVersionVisible));
 
             if (IsLoaderVersionVisible)
@@ -127,17 +133,34 @@ namespace NLMCL.App.ViewModels
             {
                 IReadOnlyList<string> versions;
 
-                if (IsForgeSelected)
+                if (IsForgeSelected || IsNeoForgeSelected)
                 {
-                    if (_forgeCatalog == null)
-                    {
-                        StatusText = "Forge 列表不可用";
-                        return;
-                    }
+                    IReadOnlyList<LoaderBuild> builds;
 
-                    IReadOnlyList<LoaderBuild> builds = await _forgeCatalog
-                        .GetBuildsAsync(SelectedVersion.Id, CancellationToken.None)
-                        .ConfigureAwait(true);
+                    if (IsNeoForgeSelected)
+                    {
+                        if (_neoForgeCatalog == null)
+                        {
+                            StatusText = "NeoForge 列表不可用";
+                            return;
+                        }
+
+                        builds = await _neoForgeCatalog
+                            .GetBuildsAsync(SelectedVersion.Id, CancellationToken.None)
+                            .ConfigureAwait(true);
+                    }
+                    else
+                    {
+                        if (_forgeCatalog == null)
+                        {
+                            StatusText = "Forge 列表不可用";
+                            return;
+                        }
+
+                        builds = await _forgeCatalog
+                            .GetBuildsAsync(SelectedVersion.Id, CancellationToken.None)
+                            .ConfigureAwait(true);
+                    }
 
                     versions = builds.Select(build => build.Version).ToList();
                 }
@@ -395,9 +418,9 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                if (IsForgeSelected)
+                if (IsForgeSelected || IsNeoForgeSelected)
                 {
-                    await InstallForgeAsync(target!).ConfigureAwait(true);
+                    await InstallModdedLoaderAsync(target!).ConfigureAwait(true);
                 }
                 else
                 {
@@ -437,11 +460,17 @@ namespace NLMCL.App.ViewModels
         }
 
         /// <summary>Forge 走安装器 jar：需要挑一个能跑安装器的 Java。</summary>
-        private async Task InstallForgeAsync(VanillaVersion target)
+        private async Task InstallModdedLoaderAsync(VanillaVersion target)
         {
             if (_forgeInstaller == null || _javaLocator == null)
             {
-                throw new InvalidOperationException("Forge 安装不可用（未装配安装器或 Java 探测）。");
+                throw new InvalidOperationException("加载器安装不可用（未装配安装器或 Java 探测）。");
+            }
+
+            if (string.IsNullOrWhiteSpace(LoaderVersion))
+            {
+                throw new InvalidOperationException(
+                    "该游戏版本没有可用的 " + SelectedLoader + " 版本；换一个游戏版本或加载器再试。");
             }
 
             IReadOnlyList<JavaRuntime> javas = await _javaLocator
@@ -458,15 +487,17 @@ namespace NLMCL.App.ViewModels
                 throw new InvalidOperationException("没有可用的 Java，无法运行 Forge 安装器。");
             }
 
-            string installedId = await _forgeInstaller
-                .InstallForgeAsync(
-                    target.Id,
-                    LoaderVersion,
-                    TargetDirectory,
-                    java.ExecutablePath,
-                    new InlineProgress(ApplyProgress),
-                    CancellationToken.None)
-                .ConfigureAwait(true);
+            string installedId = IsNeoForgeSelected
+                ? await _forgeInstaller
+                    .InstallNeoForgeAsync(
+                        target.Id, LoaderVersion, TargetDirectory, java.ExecutablePath,
+                        new InlineProgress(ApplyProgress), CancellationToken.None)
+                    .ConfigureAwait(true)
+                : await _forgeInstaller
+                    .InstallForgeAsync(
+                        target.Id, LoaderVersion, TargetDirectory, java.ExecutablePath,
+                        new InlineProgress(ApplyProgress), CancellationToken.None)
+                    .ConfigureAwait(true);
 
             Progress = 100;
             StatusText = "已安装 " + installedId + " 到 " + TargetDirectory

@@ -146,6 +146,7 @@ namespace NLMCL.App
             services.AddSingleton<IVersionListProvider, MojangVersionListProvider>();
             services.AddSingleton<IFabricLoaderCatalog, FabricLoaderVersionCatalog>();
             services.AddSingleton<IForgeCatalog, ForgeCatalog>();
+            services.AddSingleton<INeoForgeCatalog, NeoForgeCatalog>();
             services.AddSingleton<ILoaderInstaller, ForgeLoaderInstaller>();
             services.AddSingleton<IProcessRunner, Services.ProcessRunner>();
             services.AddSingleton<IDownloadTuning, PclDownloadTuning>();

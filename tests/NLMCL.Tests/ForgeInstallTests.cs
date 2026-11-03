@@ -70,8 +70,13 @@ namespace NLMCL.Tests
                 LastUrl = url;
                 Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
 
-                // 安装器体积判断要求 > 1MB，这里写 2MB 占位
-                File.WriteAllBytes(localPath, new byte[2 * 1024 * 1024]);
+                // 安装器要求 > 1MB 且是合法 jar（PK 魔数），这里造一个 2MB 的假 jar
+                byte[] fake = new byte[2 * 1024 * 1024];
+                fake[0] = 0x50;
+                fake[1] = 0x4B;
+                fake[2] = 0x03;
+                fake[3] = 0x04;
+                File.WriteAllBytes(localPath, fake);
                 return Task.CompletedTask;
             }
         }
