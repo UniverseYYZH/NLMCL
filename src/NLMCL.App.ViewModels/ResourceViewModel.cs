@@ -78,15 +78,22 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                ResourceQuery query = new ResourceQuery(SearchText, KindOf(SelectedKind))
-                {
-                    GameVersion = string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim(),
-                    Loader = LoaderOf(SelectedLoader)
-                };
+                // Modrinth 只有英文元数据：中文名先按别名换成英文再搜
+                string text = SearchText;
+                string? alias = NLMCL.Core.Resources.ChineseAliases.TryMap(text);
+                string note = string.Empty;
 
-                IReadOnlyList<ResourceSummary> found = await _catalog
-                    .SearchAsync(query, CancellationToken.None)
-                    .ConfigureAwait(true);
+                if (alias != null && !string.Equals(alias, text, StringComparison.OrdinalIgnoreCase))
+                {
+                    text = alias;
+                    note = "（按英文名 " + alias + " 搜索）";
+                }
+
+                string? gameVersion = string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim();
+                string? loader = LoaderOf(SelectedLoader);
+
+                (IReadOnlyList<ResourceSummary> found, string relaxed) = await SearchWithFallbackAsync(
+                    text, gameVersion, loader).ConfigureAwait(true);
 
                 Results.Clear();
                 foreach (ResourceSummary item in found)
@@ -94,9 +101,14 @@ namespace NLMCL.App.ViewModels
                     Results.Add(item);
                 }
 
-                StatusText = found.Count == 0
-                    ? "没有找到匹配的资源"
-                    : "找到 " + found.Count + " 个结果";
+                if (found.Count == 0)
+                {
+                    StatusText = "没有找到匹配的资源" + note
+                        + "。可以试试英文名，或去掉游戏版本/加载器筛选。";
+                    return;
+                }
+
+                StatusText = "找到 " + found.Count + " 个结果" + note + relaxed;
             }
             catch (Exception ex)
             {
@@ -106,6 +118,55 @@ namespace NLMCL.App.ViewModels
             {
                 IsBusy = false;
             }
+        }
+
+        /// <summary>
+        /// 搜索并按需放宽条件：
+        /// 先「版本 + 加载器」；0 条则去掉加载器；仍然 0 条则去掉版本。
+        ///
+        /// 为什么必须这样：很多模组只更新到某个旧版本（例如 Yes Steve Model 只到 1.20.1），
+        /// 用户当前实例是 1.21.2 时，带版本筛就永远搜不到。
+        /// </summary>
+        public async Task<(IReadOnlyList<ResourceSummary> Found, string Relaxed)> SearchWithFallbackAsync(
+            string text, string? gameVersion, string? loader)
+        {
+            ResourceKind kind = KindOf(SelectedKind);
+
+            var attempts = new (string? Version, string? Loader, string Note)[]
+            {
+                (gameVersion, loader, string.Empty),
+                (gameVersion, null, "（已忽略加载器筛选）"),
+                (null, null, "（已忽略版本与加载器筛选）")
+            };
+
+            IReadOnlyList<ResourceSummary> last = Array.Empty<ResourceSummary>();
+            (string? Version, string? Loader)? previous = null;
+
+            foreach ((string? version, string? currentLoader, string note) in attempts)
+            {
+                // 条件没变化就别重复请求（例如本来就没选加载器）
+                if (previous != null && previous.Value.Version == version && previous.Value.Loader == currentLoader)
+                {
+                    continue;
+                }
+
+                previous = (version, currentLoader);
+
+                ResourceQuery query = new ResourceQuery(text, kind)
+                {
+                    GameVersion = version,
+                    Loader = currentLoader
+                };
+
+                last = await _catalog.SearchAsync(query, CancellationToken.None).ConfigureAwait(true);
+
+                if (last.Count > 0)
+                {
+                    return (last, note);
+                }
+            }
+
+            return (last, string.Empty);
         }
 
         [RelayCommand]
