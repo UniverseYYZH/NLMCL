@@ -459,7 +459,7 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>联机诊断输出（多行文本）。</summary>
         [ObservableProperty]
-        private string _diagnosticsText = string.Empty;
+        private string _diagnosticsText = "点上方「诊断」按钮，结果会显示在这里。";
 
         /// <summary>账号头像（头部正面 PNG 路径）；没有皮肤时为 null。</summary>
         [ObservableProperty]
