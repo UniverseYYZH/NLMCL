@@ -99,7 +99,17 @@ namespace NLMCL.Core.Installing
             Directory.CreateDirectory(minecraftDirectory);
             EnsureLauncherProfiles(minecraftDirectory);
 
-            progress?.Report(new InstallProgress("运行 " + displayName + " 安装器（需要几分钟）", 10, 0));
+            // 官方安装器只认自己的 maven（--mirror 是赞助商镜像，不改下载地址），
+            // 所以先把库从国内镜像预置好；安装器看到本地已有文件就跳过下载。
+            progress?.Report(new InstallProgress("预置 " + displayName + " 库", 8, 0));
+
+            LoaderLibrarySeeder seeder = new LoaderLibrarySeeder(_download);
+            int seeded = await seeder
+                .SeedAsync(jar, minecraftDirectory, progress, cancellationToken)
+                .ConfigureAwait(false);
+
+            progress?.Report(new InstallProgress(
+                "运行 " + displayName + " 安装器（已预置 " + seeded + " 个库，需要几分钟）", 25, 0));
 
             int reported = 0;
 
@@ -125,6 +135,13 @@ namespace NLMCL.Core.Installing
 
             if (result.ExitCode != 0)
             {
+                if (result.Output.IndexOf("These libraries failed to download", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    throw new InvalidOperationException(
+                        displayName + " 安装器缺少部分库（国内镜像也没有）。通常是网络问题，换时间重试或在设置里调大下载线程。\n输出尾部：\n"
+                        + Tail(result.Output));
+                }
+
                 throw new InvalidOperationException(
                     displayName + " 安装器退出码 " + result.ExitCode + "。输出尾部：\n" + Tail(result.Output));
             }
