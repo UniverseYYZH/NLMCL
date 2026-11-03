@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
+using MeloongCore;
 using NLMCL.Abstractions;
 
 namespace NLMCL.Core.Installing
@@ -37,6 +38,9 @@ namespace NLMCL.Core.Installing
         private readonly IDownloadService _download;
         private readonly IVersionInstaller _versions;
         private readonly ILoaderInstaller _loaders;
+
+        /// <summary>并发下载的文件数（整合包文件多，串行会慢到不可用）。</summary>
+        public int Parallelism { get; set; } = 8;
 
         public ModpackInstaller(
             IDownloadService download, IVersionInstaller versions, ILoaderInstaller loaders)
@@ -87,36 +91,104 @@ namespace NLMCL.Core.Installing
             string versionId = CreateVersionDirectory(minecraftDirectory, info, loaderVersionId);
 
             // 2) 下载包内文件（mods / config / resourcepacks …）
+            //    并发 + 停滞检测 + 已有文件跳过：整合包动辄 200+ 文件，
+            //    串行直连 cdn.modrinth.com 又慢又容易整体失败。
             IReadOnlyList<JToken> files = (index["files"] as JArray)?.ToList() ?? new List<JToken>();
-            int indexFile = 0;
+            string instanceDirectory = Path.Combine(minecraftDirectory, "versions", versionId);
 
-            foreach (JToken file in files)
+            int total = 0;
+            int completed = 0;
+            List<string> failures = new List<string>();
+            object gate = new object();
+
+            using (SemaphoreSlim slots = new SemaphoreSlim(Parallelism))
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                List<Task> tasks = new List<Task>();
 
-                if (string.Equals(file.SelectToken("env.client")?.Value<string>(), "unsupported",
-                        StringComparison.OrdinalIgnoreCase))
+                foreach (JToken file in files)
                 {
-                    continue;
+                    if (string.Equals(file.SelectToken("env.client")?.Value<string>(), "unsupported",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string? relative = file.Value<string>("path");
+                    string? url = (file["downloads"] as JArray)?.FirstOrDefault()?.Value<string>();
+
+                    if (string.IsNullOrWhiteSpace(relative) || string.IsNullOrWhiteSpace(url))
+                    {
+                        continue;
+                    }
+
+                    total++;
+
+                    string captured = relative!;
+                    string capturedUrl = url!;
+                    string? expectedSha1 = file.SelectToken("hashes.sha1")?.Value<string>();
+
+                    await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        try
+                        {
+                            string target = SafeCombine(instanceDirectory, captured);
+
+                            if (!IsFileUpToDate(target, expectedSha1))
+                            {
+                                await ResilientDownload
+                                    .DownloadAsync(_download, capturedUrl, target, cancellationToken, attempts: 3)
+                                    .ConfigureAwait(false);
+
+                                if (!string.IsNullOrEmpty(expectedSha1))
+                                {
+                                    string actual = CryptographyUtils.ComputeFileHash(
+                                        target, CryptographyUtils.HashMethod.Sha1);
+
+                                    if (!string.Equals(actual, expectedSha1, StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        throw new InvalidDataException("校验失败：" + captured);
+                                    }
+                                }
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            lock (gate)
+                            {
+                                failures.Add(captured + "（" + ex.Message + "）");
+                            }
+                        }
+                        finally
+                        {
+                            int done;
+                            lock (gate)
+                            {
+                                done = ++completed;
+                            }
+
+                            int percent = 30 + (int)(55.0 * done / Math.Max(1, total));
+                            progress?.Report(new InstallProgress(
+                                "下载包内文件 " + done + "/" + total, percent, 0));
+
+                            slots.Release();
+                        }
+                    }, cancellationToken));
                 }
 
-                string? relative = file.Value<string>("path");
-                string? url = (file["downloads"] as JArray)?.FirstOrDefault()?.Value<string>();
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
 
-                if (string.IsNullOrWhiteSpace(relative) || string.IsNullOrWhiteSpace(url))
-                {
-                    continue;
-                }
-
-                indexFile++;
-
-                int percent = 30 + (int)(55.0 * indexFile / Math.Max(1, files.Count));
-                progress?.Report(new InstallProgress(
-                    "下载包内文件 " + indexFile + "/" + files.Count + "：" + Path.GetFileName(relative!), percent, 0));
-
-                string target = SafeCombine(Path.Combine(minecraftDirectory, "versions", versionId), relative!);
-
-                await _download.DownloadFileAsync(url!, target, cancellationToken).ConfigureAwait(false);
+            if (failures.Count > 0)
+            {
+                string sample = string.Join("\n", failures.Take(5));
+                throw new InvalidOperationException(
+                    "有 " + failures.Count + " 个文件下载失败（已下载的文件会保留，重试会跳过）：\n" + sample);
             }
 
             // 3) overrides：整体铺到实例目录
@@ -326,6 +398,30 @@ namespace NLMCL.Core.Installing
             int files = (index["files"] as JArray)?.Count ?? 0;
 
             return new ModpackInfo(name, versionId, minecraft!, loader, loaderVersion, files);
+        }
+
+        /// <summary>已存在且 sha1 匹配就跳过（重试/断点续传）。</summary>
+        internal static bool IsFileUpToDate(string path, string? expectedSha1)
+        {
+            if (!File.Exists(path) || new FileInfo(path).Length == 0)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(expectedSha1))
+            {
+                return true;
+            }
+
+            try
+            {
+                string actual = CryptographyUtils.ComputeFileHash(path, CryptographyUtils.HashMethod.Sha1);
+                return string.Equals(actual, expectedSha1, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (IOException)
+            {
+                return false;
+            }
         }
 
         /// <summary>把 overrides/ 下的内容铺到实例目录（挡住路径穿越）。</summary>
