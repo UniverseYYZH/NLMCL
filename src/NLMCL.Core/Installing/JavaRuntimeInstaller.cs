@@ -55,14 +55,10 @@ namespace NLMCL.Core.Installing
 
             progress?.Report(new InstallProgress("读取 Java 运行时清单", 2, 0));
 
-            string index = await _download
-                .GetStringAsync(ManifestUrl, cancellationToken)
-                .ConfigureAwait(false);
+            string index = await GetTextAsync(ManifestUrl, cancellationToken).ConfigureAwait(false);
 
             string manifestUrl = ResolvePlatformManifest(index, component);
-            string manifest = await _download
-                .GetStringAsync(manifestUrl, cancellationToken)
-                .ConfigureAwait(false);
+            string manifest = await GetTextAsync(manifestUrl, cancellationToken).ConfigureAwait(false);
 
             List<RuntimeFile> files = ParseFiles(manifest);
             if (files.Count == 0)
@@ -181,31 +177,55 @@ namespace NLMCL.Core.Installing
 
             try
             {
-                try
+                // Java 运行时的文件在 piston-data，ModNet 在这种网络上会挂住；
+                // 直接用流式下载器，并优先走 BMCLAPI 镜像。
+                string? mirrored = MojangMirror.TryRewrite(file.Url);
+                Exception? firstError = null;
+
+                if (mirrored != null)
                 {
-                    await _download.DownloadFileAsync(file.Url, temp, cancellationToken).ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception first)
-                {
-                    // 兜底：ModNet 失败时改用 HttpClient 流式下载（带重试）
-                    if (File.Exists(temp))
+                    try
                     {
+                        await _files.DownloadAsync(mirrored, temp, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        firstError = ex;
                         TryDelete(temp);
                     }
+                }
 
+                if (!File.Exists(temp) || new FileInfo(temp).Length == 0)
+                {
                     try
                     {
                         await _files.DownloadAsync(file.Url, temp, cancellationToken).ConfigureAwait(false);
                     }
                     catch (Exception second)
                     {
-                        throw new InvalidOperationException(
-                            "下载 Java 运行时文件失败：" + file.RelativePath
-                            + "（ModNet：" + first.Message + "；备用下载：" + second.Message + "）", second);
+                        // 最后再试一次 ModNet（它有多镜像；部分网络下反而它能通）
+                        try
+                        {
+                            await _download.DownloadFileAsync(file.Url, temp, cancellationToken)
+                                .ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+                        catch (Exception third)
+                        {
+                            throw new InvalidOperationException(
+                                "下载 Java 运行时文件失败：" + file.RelativePath
+                                + "（镜像：" + (firstError?.Message ?? "-")
+                                + "；直连：" + second.Message
+                                + "；ModNet：" + third.Message + "）",
+                                third);
+                        }
                     }
                 }
 
@@ -239,6 +259,49 @@ namespace NLMCL.Core.Installing
                 {
                 }
             }
+        }
+
+        /// <summary>取清单文本：先 ModNet（45 秒超时），失败走镜像再走直连。</summary>
+        private async Task<string> GetTextAsync(string url, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using (CancellationTokenSource timeout =
+                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    timeout.CancelAfter(TimeSpan.FromSeconds(45));
+
+                    return await _download.GetStringAsync(url, timeout.Token).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 继续往下试
+            }
+
+            string? mirrored = MojangMirror.TryRewrite(url);
+
+            if (mirrored != null)
+            {
+                try
+                {
+                    return await _files.GetStringAsync(mirrored, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    // 回落到官方地址
+                }
+            }
+
+            return await _files.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
         }
 
         private static void TryDelete(string path)

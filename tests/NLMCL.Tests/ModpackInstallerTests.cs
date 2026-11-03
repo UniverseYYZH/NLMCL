@@ -143,6 +143,9 @@ namespace NLMCL.Tests
                 File.WriteAllText(targetPath, "fake");
                 return Task.CompletedTask;
             }
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+                => Task.FromResult("{}");
         }
 
         private sealed class FakeVersions : IVersionInstaller

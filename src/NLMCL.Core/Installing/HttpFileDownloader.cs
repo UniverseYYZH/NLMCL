@@ -117,6 +117,50 @@ namespace NLMCL.Core.Installing
             }
         }
 
+        /// <summary>取文本（清单用）：走同一个 HttpClient，带超时与重试。</summary>
+        public async Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+        {
+            Exception? last = null;
+
+            for (int attempt = 1; attempt <= Attempts; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                using (CancellationTokenSource timeout =
+                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    timeout.CancelAfter(TimeSpan.FromSeconds(60));
+
+                    try
+                    {
+                        using (HttpResponseMessage response = await Client
+                            .GetAsync(url, HttpCompletionOption.ResponseContentRead, timeout.Token)
+                            .ConfigureAwait(false))
+                        {
+                            response.EnsureSuccessStatusCode();
+
+                            return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        }
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        last = ex;
+
+                        if (attempt < Attempts)
+                        {
+                            await Task.Delay(400 * attempt, cancellationToken).ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
+
+            throw new InvalidOperationException("下载文本失败：" + url + " —— " + last?.Message, last);
+        }
+
         private static void TryDelete(string path)
         {
             try

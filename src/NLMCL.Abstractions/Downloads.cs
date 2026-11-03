@@ -16,6 +16,9 @@ namespace NLMCL.Abstractions
     public interface IFileDownloader
     {
         Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken);
+
+        /// <summary>取文本（清单、元数据）。</summary>
+        Task<string> GetStringAsync(string url, CancellationToken cancellationToken);
     }
 
     /// <summary>
