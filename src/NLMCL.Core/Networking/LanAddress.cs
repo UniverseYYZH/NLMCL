@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -162,38 +162,50 @@ namespace NLMCL.Core.Networking
             return candidates.FirstOrDefault();
         }
 
-        public async Task<bool> IsPortOpenAsync(string host, int port, CancellationToken cancellationToken)        {
+        public async Task<bool> IsPortOpenAsync(string host, int port, CancellationToken cancellationToken)
+        {
             if (string.IsNullOrWhiteSpace(host) || port < 1 || port > 65535)
             {
                 return false;
             }
 
-            using (TcpClient client = new TcpClient())
+            // 校园网首次连接常卡在 ARP/DNS：1.5 秒会误判，这里给 3 秒并试两次。
+            for (int attempt = 1; attempt <= 2; attempt++)
             {
-                try
+                using (TcpClient client = new TcpClient())
                 {
-                    Task connect = client.ConnectAsync(host, port);
-                    Task finished = await Task.WhenAny(
-                        connect,
-                        Task.Delay(TimeSpan.FromSeconds(1.5), cancellationToken)).ConfigureAwait(false);
-
-                    if (finished != connect)
+                    try
                     {
-                        return false; // 超时
-                    }
+                        Task connect = client.ConnectAsync(host, port);
+                        Task finished = await Task.WhenAny(
+                            connect,
+                            Task.Delay(TimeSpan.FromSeconds(3), cancellationToken)).ConfigureAwait(false);
 
-                    await connect.ConfigureAwait(false);
-                    return client.Connected;
-                }
-                catch (SocketException)
-                {
-                    return false;
-                }
-                catch (ObjectDisposedException)
-                {
-                    return false;
+                        if (finished != connect)
+                        {
+                            continue; // 超时，再试一次
+                        }
+
+                        await connect.ConfigureAwait(false);
+
+                        if (client.Connected)
+                        {
+                            return true;
+                        }
+                    }
+                    catch (SocketException)
+                    {
+                        // 连接被拒/不可达：立刻失败，不再重试
+                        return false;
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                        return false;
+                    }
                 }
             }
+
+            return false;
         }
 
         /// <summary>

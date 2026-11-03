@@ -161,10 +161,16 @@
                                  Foreground="{DynamicResource Text}" />
                     </Border>
 
-                    <Button Grid.Column="1" Content="▶  连接并启动" Style="{StaticResource PrimaryButton}"
-                            Margin="8,0,0,0" Padding="16,8"
-                            Command="{Binding ConnectToLanCommand}"
-                            IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                        <Button Content="▶  连接并启动" Style="{StaticResource PrimaryButton}"
+                                Padding="16,8"
+                                Command="{Binding ConnectToLanCommand}"
+                                IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                        <Button Content="跳过探测启动" Style="{StaticResource GhostButton}"
+                                Margin="6,0,0,0" Padding="12,8" ToolTip="端口探测失败时仍强制启动"
+                                Command="{Binding ForceConnectCommand}"
+                                IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                    </StackPanel>
                 </Grid>
             </StackPanel>
         </Border>

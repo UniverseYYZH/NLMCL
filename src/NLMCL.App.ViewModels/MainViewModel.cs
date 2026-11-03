@@ -733,6 +733,31 @@ namespace NLMCL.App.ViewModels
             StatusText = "已复制：" + MyAddress;
         }
 
+        /// <summary>探测失败时的退路：不探测，直接带 --server 启动，让游戏自己报结果。</summary>
+        [RelayCommand]
+        public async Task ForceConnectAsync()
+        {
+            if (IsLaunching)
+            {
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在「本地版本」里选一个版本";
+                return;
+            }
+
+            if (!LanAddress.TryParse(ServerAddress, out string host, out int port, out string? error))
+            {
+                StatusText = error ?? "联机地址格式不对";
+                return;
+            }
+
+            StatusText = "跳过端口探测，直接启动并连接 " + host + ":" + port + " …";
+
+            await LaunchCoreAsync(host + ":" + port).ConfigureAwait(true);
+        }
         /// <summary>载入常用服务器（首次运行会写入「方块宁理」三条线路）。</summary>
         private async Task LoadServersAsync()
         {
