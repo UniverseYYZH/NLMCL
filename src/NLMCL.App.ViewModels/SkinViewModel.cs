@@ -102,14 +102,12 @@ namespace NLMCL.App.ViewModels
                     File.Delete(preview);
                 }
 
-                await DownloadPreviewAsync(skin.SkinUrl, preview).ConfigureAwait(true);
+                await _skins.SavePreviewAsync(skin.SkinUrl, preview, CancellationToken.None).ConfigureAwait(true);
 
-                // 同一个路径重复设置时 WPF 不刷新，换个名字绕过图片缓存
-                string unique = Path.Combine(
-                    Path.GetTempPath(), "nlmcl-skin-" + DateTime.Now.Ticks + ".png");
-
-                File.Move(preview, unique);
-                PreviewPath = unique;
+                // 渲染成纸娃娃立绘（贴图展开图看着奇怪，立绘更像"人物"）
+                PreviewPath = await _skins
+                    .CreatePreviewAsync(preview, CancellationToken.None)
+                    .ConfigureAwait(true);
 
                 StatusText = "皮肤来源：" + skin.Source;
             }
@@ -148,7 +146,9 @@ namespace NLMCL.App.ViewModels
                     .ConfigureAwait(true);
 
                 _current = null;
-                PreviewPath = saved;
+                PreviewPath = await _skins
+                    .CreatePreviewAsync(saved, CancellationToken.None)
+                    .ConfigureAwait(true);
                 ModelText = "本地皮肤";
                 StatusText = "本地皮肤：" + saved;
             }
@@ -178,12 +178,6 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        /// <summary>预览下载走皮肤服务自己的下载实现（避免和账号令牌逻辑耦合）。</summary>
-        private async Task DownloadPreviewAsync(string url, string target)
-        {
-            // SkinService 的 SaveAsync 会落到皮肤目录；这里只要能拿到图，复用它的下载端口不方便，
-            // 因此直接用一个小工具方法：通过 ISkinService 保存到临时目录。
-            await _skins.SavePreviewAsync(url, target, CancellationToken.None).ConfigureAwait(true);
-        }
+
     }
 }

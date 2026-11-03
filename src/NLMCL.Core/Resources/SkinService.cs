@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using NLMCL.Abstractions;
+using NLMCL.Core.Skins;
 
 namespace NLMCL.Core.Resources
 {
@@ -116,6 +117,17 @@ namespace NLMCL.Core.Resources
             File.Copy(sourcePath, target, overwrite: true);
 
             return Task.FromResult(target);
+        }
+
+        public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
+        {
+            string output = Path.Combine(
+                Path.GetTempPath(),
+                "nlmcl-skin-doll-" + DateTime.Now.Ticks + ".png");
+
+            SkinPreviewRenderer.RenderPaperDoll(skinPngPath, output, 8);
+
+            return Task.FromResult(output);
         }
 
         /// <summary>PNG 魔数：89 50 4E 47 0D 0A 1A 0A。只认 PNG，避免把 jpg 改名混进来。</summary>

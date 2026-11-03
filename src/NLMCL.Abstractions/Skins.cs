@@ -54,5 +54,8 @@ namespace NLMCL.Abstractions
         /// 离线账号没有服务器皮肤，用它自娱自乐或做素材检查。
         /// </summary>
         Task<string> ImportLocalAsync(string sourcePath, string playerName, CancellationToken cancellationToken);
+
+        /// <summary>把皮肤 PNG 渲染成纸娃娃立绘（供界面预览），返回渲染后的文件路径。</summary>
+        Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken);
     }
 }

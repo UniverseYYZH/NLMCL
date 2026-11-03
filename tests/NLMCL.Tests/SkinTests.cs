@@ -110,8 +110,62 @@ namespace NLMCL.Tests
             public Task<string> ImportLocalAsync(
                 string sourcePath, string playerName, CancellationToken cancellationToken)
                 => Task.FromResult(sourcePath);
+
+            public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
+                => Task.FromResult(skinPngPath);
         }
 
+        [Fact]
+        public void Renderer_builds_a_paper_doll()
+        {
+            string artifacts = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts");
+            Directory.CreateDirectory(artifacts);
+
+            string source = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "notch.png");
+
+            Assert.True(File.Exists(source), "缺少测试皮肤素材：" + source);
+
+            string output = Path.Combine(artifacts, "skin-doll.png");
+
+            NLMCL.Core.Skins.SkinPreviewRenderer.RenderPaperDoll(source, output, 8);
+
+            using (System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(output))
+            {
+                Assert.Equal(128, bitmap.Width);
+                Assert.Equal(256, bitmap.Height);
+            }
+        }
+
+        [Fact]
+        public void Renderer_handles_modern_64x64_skin()
+        {
+            string artifacts = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts");
+            Directory.CreateDirectory(artifacts);
+
+            string source = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
+            string output = Path.Combine(artifacts, "skin-doll-modern.png");
+
+            NLMCL.Core.Skins.SkinPreviewRenderer.RenderPaperDoll(source, output, 8);
+
+            using (System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(output))
+            {
+                Assert.Equal(128, bitmap.Width);
+                Assert.Equal(256, bitmap.Height);
+
+                // 头部中央不该是全透明：说明确实画上了东西
+                System.Drawing.Color center = bitmap.GetPixel(64, 32);
+                Assert.True(center.A > 0, "头部区域没有绘制内容");
+            }
+        }
+
+        [Fact]
+        public void Renderer_fails_on_missing_file()
+        {
+            Assert.Throws<FileNotFoundException>(() =>
+                NLMCL.Core.Skins.SkinPreviewRenderer.RenderPaperDoll(
+                    Path.Combine(Path.GetTempPath(), "nope-" + Guid.NewGuid().ToString("N") + ".png"),
+                    Path.Combine(Path.GetTempPath(), "out.png")));
+        }
         [Fact]
         public void Png_header_is_required_for_local_skin()
         {
@@ -161,6 +215,9 @@ namespace NLMCL.Tests
             public Task<string> ImportLocalAsync(
                 string sourcePath, string playerName, CancellationToken cancellationToken)
                 => Task.FromResult(@"C:\skins\copied.png");
+
+            public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
+                => Task.FromResult(@"C:\skins\doll.png");
         }
 
         [Fact]
@@ -171,7 +228,7 @@ namespace NLMCL.Tests
             await vm.PickLocalAsync();
 
             Assert.True(vm.HasPreview);
-            Assert.Equal(@"C:\skins\copied.png", vm.PreviewPath);
+            Assert.Equal(@"C:\skins\doll.png", vm.PreviewPath);
             Assert.Equal("本地皮肤", vm.ModelText);
             Assert.Contains("本地皮肤", vm.StatusText);
         }
