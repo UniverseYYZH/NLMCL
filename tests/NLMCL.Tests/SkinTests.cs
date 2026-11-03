@@ -298,6 +298,26 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Auto_rotation_advances_yaw_and_can_be_toggled()
+        {
+            SkinViewModel vm = new SkinViewModel(new FakeSkinService());
+
+            double before = vm.Yaw;
+
+            vm.AutoRotateStep();
+
+            Assert.True(vm.Yaw > before || vm.Yaw < before, "自动旋转应改变角度");
+
+            vm.ToggleAutoRotate();
+            Assert.False(vm.IsAutoRotating);
+
+            double stopped = vm.Yaw;
+            vm.AutoRotateStep();
+
+            Assert.Equal(stopped, vm.Yaw);
+        }
+
+        [Fact]
         public void Without_account_the_page_says_so()
         {
             SkinViewModel vm = new SkinViewModel(new FakeSkinService());

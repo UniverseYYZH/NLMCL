@@ -130,7 +130,7 @@ namespace NLMCL.Core.Resources
             return Task.FromResult(output);
         }
 
-        public Task<string> Create3DPreviewAsync(
+        public async Task<string> Create3DPreviewAsync(
             string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
             CancellationToken cancellationToken)
         {
@@ -138,9 +138,12 @@ namespace NLMCL.Core.Resources
                 Path.GetTempPath(),
                 "nlmcl-skin-3d-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
 
-            SkinRender3D.Render(skinPngPath, output, 384, yawDegrees, pitchDegrees, slim);
+            // 光栅化是 CPU 密集的（320² × 2×2 超采样），放到线程池，避免自动旋转时卡 UI
+            await Task.Run(
+                () => SkinRender3D.Render(skinPngPath, output, 320, yawDegrees, pitchDegrees, slim),
+                cancellationToken).ConfigureAwait(false);
 
-            return Task.FromResult(output);
+            return output;
         }
 
         public async Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)

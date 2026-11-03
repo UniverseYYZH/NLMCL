@@ -50,6 +50,12 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private double _yaw = 28;
 
+        /// <summary>是否轻微自动旋转。</summary>
+        [ObservableProperty]
+        private bool _isAutoRotating = true;
+
+        private bool _rendering;
+
         /// <summary>俯仰角（度）。</summary>
         [ObservableProperty]
         private double _pitch = 8;
@@ -189,6 +195,21 @@ namespace NLMCL.App.ViewModels
         }
 
         [RelayCommand]
+        public void ToggleAutoRotate() => IsAutoRotating = !IsAutoRotating;
+
+        /// <summary>自动旋转的一小步（由页面计时器驱动，约 6°/秒）。</summary>
+        public void AutoRotateStep()
+        {
+            if (!IsAutoRotating)
+            {
+                return;
+            }
+
+            Yaw = Normalize(Yaw + 0.8);
+            _ = RenderAsync();
+        }
+
+        [RelayCommand]
         public void RotateLeft() => RotateBy(-20);
 
         [RelayCommand]
@@ -211,10 +232,12 @@ namespace NLMCL.App.ViewModels
 
         private async Task RenderAsync()
         {
-            if (string.IsNullOrEmpty(_skinPng))
+            if (string.IsNullOrEmpty(_skinPng) || _rendering)
             {
                 return;
             }
+
+            _rendering = true;
 
             try
             {
@@ -225,6 +248,10 @@ namespace NLMCL.App.ViewModels
             catch (Exception ex)
             {
                 StatusText = "渲染失败：" + ex.Message;
+            }
+            finally
+            {
+                _rendering = false;
             }
         }
 
