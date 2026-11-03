@@ -62,6 +62,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>皮肤预览。</summary>
         private readonly SkinViewModel? _skin;
 
+        /// <summary>局域网扫描。</summary>
+        private readonly LanScanViewModel? _lanScan;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -101,7 +104,8 @@ namespace NLMCL.App.ViewModels
             IAppearance? appearance = null,
             IDownloadTuning? downloadTuning = null,
             ResourceViewModel? resource = null,
-            SkinViewModel? skin = null)
+            SkinViewModel? skin = null,
+            LanScanViewModel? lanScan = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -124,6 +128,7 @@ namespace NLMCL.App.ViewModels
             _downloadTuning = downloadTuning;
             _resource = resource;
             _skin = skin;
+            _lanScan = lanScan;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -140,7 +145,7 @@ namespace NLMCL.App.ViewModels
             NavigationItem consoleNav = new NavigationItem("启动与日志", "多实例控制台", ShellSection.Launch);
             NavigationItem multiplayer = new NavigationItem("联机房间", "局域网与直连", ShellSection.Multiplayer);
             NavigationItem snapshot = new NavigationItem("实例快照", "备份存档与配置", ShellSection.Snapshot);
-            NavigationItem lanScan = new NavigationItem("局域网扫描", "发现附近的房间", ShellSection.LanScan);
+            NavigationItem lanScanNav = new NavigationItem("局域网扫描", "发现附近的房间", ShellSection.LanScan);
             NavigationItem settings = new NavigationItem("设置", "外观 / Java / 下载", ShellSection.Settings);
             NavigationItem downloadNav = new NavigationItem("版本下载", "原版与加载器", ShellSection.Download);
             NavigationItem import = new NavigationItem("导入资源", "mod 与整合包", ShellSection.Import);
@@ -148,7 +153,7 @@ namespace NLMCL.App.ViewModels
 
             NavigationGroups = new ReadOnlyCollection<NavigationGroup>(new List<NavigationGroup>
             {
-                new NavigationGroup("工作区", new[] { versions, consoleNav, multiplayer, snapshot, lanScan, settings }),
+                new NavigationGroup("工作区", new[] { versions, consoleNav, multiplayer, snapshot, lanScanNav, settings }),
                 new NavigationGroup("工具", new[] { downloadNav, import, skinNav })
             });
 
@@ -396,6 +401,13 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isSkinSection;
 
+        /// <summary>局域网扫描页的视图模型（可能为 null）。</summary>
+        public LanScanViewModel? LanScan => _lanScan;
+
+        /// <summary>当前显示「局域网扫描」页。</summary>
+        [ObservableProperty]
+        private bool _isLanScanSection;
+
         /// <summary>当前显示「设置」页。</summary>
         [ObservableProperty]
         private bool _isSettingsSection;
@@ -597,6 +609,7 @@ namespace NLMCL.App.ViewModels
             IsSettingsSection = item.Section == ShellSection.Settings;
             IsImportSection = item.Section == ShellSection.Import;
             IsSkinSection = item.Section == ShellSection.Skin;
+            IsLanScanSection = item.Section == ShellSection.LanScan;
 
             if (IsSkinSection)
             {

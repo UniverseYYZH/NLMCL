@@ -127,6 +127,8 @@ namespace NLMCL.App
             // 中文查询兜底翻译（Modrinth 只有英文元数据）
             services.AddSingleton<ITranslator, MyMemoryTranslator>();
             services.AddSingleton<ISkinService, SkinService>();
+            services.AddSingleton<IServerPinger, Core.Lan.ServerListPing>();
+            services.AddSingleton<ILanScanner, Core.Lan.LanScanner>();
             services.AddSingleton<IDialogService, Services.MessageBoxDialogService>();
 
             // PCL 适配层（VB 程序集只在这里被引用）
@@ -163,6 +165,7 @@ namespace NLMCL.App
             services.AddSingleton<DownloadViewModel>();
             services.AddSingleton<ResourceViewModel>();
             services.AddSingleton<SkinViewModel>();
+            services.AddSingleton<LanScanViewModel>();
             services.AddSingleton<LaunchConsoleViewModel>();
             services.AddTransient<MainViewModel>();
             services.AddTransient<MainWindow>();

@@ -517,6 +517,12 @@
                                 Visibility="{Binding DataContext.IsImportSection,
                                                      RelativeSource={RelativeSource AncestorType=Window},
                                                      Converter={StaticResource BoolToVisibility}}" />
+            <!-- 局域网扫描页 -->
+            <views:LanScanPage Margin="26,22,26,14"
+                               DataContext="{Binding LanScan}"
+                               Visibility="{Binding DataContext.IsLanScanSection,
+                                                    RelativeSource={RelativeSource AncestorType=Window},
+                                                    Converter={StaticResource BoolToVisibility}}" />
             <!-- 皮肤页 -->
             <views:SkinPage Margin="26,22,26,14"
                             DataContext="{Binding Skin}"
