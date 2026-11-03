@@ -9,7 +9,7 @@ using NLMCL.Abstractions;
 namespace NLMCL.App.ViewModels
 {
     /// <summary>
-    /// 「皮肤」页：显示当前账号由认证服务器下发的皮肤（预览 + 保存到本地）。
+    /// 「皮肤」页：显示当前账号由认证服务器下发的皮肤，并渲染成 3D 立绘。
     ///
     /// 皮肤本身**不能在这里改**——它属于账号，由皮肤站/Mojang 下发；
     /// 游戏里生效靠 authlib-injector（外置登录）或正版会话。
@@ -21,6 +21,8 @@ namespace NLMCL.App.ViewModels
 
         private Account? _account;
         private SkinInfo? _current;
+        private string? _skinPng;
+        private bool _slim;
 
         public SkinViewModel(ISkinService skins, IFilePicker? filePicker = null)
         {
@@ -31,7 +33,7 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string _statusText = "未登录。登录账号后这里会显示皮肤。";
 
-        /// <summary>预览图（本地临时 PNG 路径）。</summary>
+        /// <summary>3D 渲染结果（本地 PNG 路径）。</summary>
         [ObservableProperty]
         private string? _previewPath;
 
@@ -43,6 +45,14 @@ namespace NLMCL.App.ViewModels
 
         [ObservableProperty]
         private bool _isBusy;
+
+        /// <summary>水平转角（度）。</summary>
+        [ObservableProperty]
+        private double _yaw = 28;
+
+        /// <summary>俯仰角（度）。</summary>
+        [ObservableProperty]
+        private double _pitch = 8;
 
         public bool HasPreview => !string.IsNullOrEmpty(PreviewPath);
 
@@ -65,6 +75,7 @@ namespace NLMCL.App.ViewModels
             if (_account == null)
             {
                 _current = null;
+                _skinPng = null;
                 PreviewPath = null;
                 ModelText = string.Empty;
                 StatusText = "未登录。登录账号后这里会显示皮肤。";
@@ -95,21 +106,18 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
-                string preview = Path.Combine(Path.GetTempPath(), "nlmcl-skin-preview.png");
+                string source = Path.Combine(
+                    Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
 
-                if (File.Exists(preview))
-                {
-                    File.Delete(preview);
-                }
-
-                await _skins.SavePreviewAsync(skin.SkinUrl, preview, CancellationToken.None).ConfigureAwait(true);
-
-                // 渲染成纸娃娃立绘（贴图展开图看着奇怪，立绘更像"人物"）
-                PreviewPath = await _skins
-                    .CreatePreviewAsync(preview, CancellationToken.None)
+                await _skins.SavePreviewAsync(skin.SkinUrl, source, CancellationToken.None)
                     .ConfigureAwait(true);
 
-                StatusText = "皮肤来源：" + skin.Source;
+                _skinPng = source;
+                _slim = string.Equals(skin.Model, "slim", StringComparison.OrdinalIgnoreCase);
+
+                await RenderAsync().ConfigureAwait(true);
+
+                StatusText = "皮肤来源：" + skin.Source + " · 拖动图片可旋转";
             }
             catch (Exception ex)
             {
@@ -146,11 +154,13 @@ namespace NLMCL.App.ViewModels
                     .ConfigureAwait(true);
 
                 _current = null;
-                PreviewPath = await _skins
-                    .CreatePreviewAsync(saved, CancellationToken.None)
-                    .ConfigureAwait(true);
+                _skinPng = saved;
+                _slim = false;
+
+                await RenderAsync().ConfigureAwait(true);
+
                 ModelText = "本地皮肤";
-                StatusText = "本地皮肤：" + saved;
+                StatusText = "本地皮肤：" + saved + " · 拖动图片可旋转";
             }
             catch (Exception ex)
             {
@@ -178,6 +188,51 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        [RelayCommand]
+        public void RotateLeft() => RotateBy(-20);
 
+        [RelayCommand]
+        public void RotateRight() => RotateBy(20);
+
+        [RelayCommand]
+        public async Task ResetView()
+        {
+            Yaw = 28;
+            Pitch = 8;
+            await RenderAsync().ConfigureAwait(true);
+        }
+
+        /// <summary>拖动预览图时由页面调用（正数向右转）。</summary>
+        public void RotateBy(double degrees)
+        {
+            Yaw = Normalize(Yaw + degrees);
+            _ = RenderAsync();
+        }
+
+        private async Task RenderAsync()
+        {
+            if (string.IsNullOrEmpty(_skinPng))
+            {
+                return;
+            }
+
+            try
+            {
+                PreviewPath = await _skins
+                    .Create3DPreviewAsync(_skinPng!, Yaw, Pitch, _slim, CancellationToken.None)
+                    .ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "渲染失败：" + ex.Message;
+            }
+        }
+
+        private static double Normalize(double degrees)
+        {
+            double value = degrees % 360;
+
+            return value < 0 ? value + 360 : value;
+        }
     }
 }

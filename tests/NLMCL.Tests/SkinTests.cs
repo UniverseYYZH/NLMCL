@@ -113,6 +113,14 @@ namespace NLMCL.Tests
 
             public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
                 => Task.FromResult(skinPngPath);
+
+            public Task<string> Create3DPreviewAsync(
+                string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
+                CancellationToken cancellationToken)
+                => Task.FromResult(skinPngPath);
+
+            public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
+                => Task.FromResult<string?>(null);
         }
 
         [Fact]
@@ -155,6 +163,54 @@ namespace NLMCL.Tests
                 // 头部中央不该是全透明：说明确实画上了东西
                 System.Drawing.Color center = bitmap.GetPixel(64, 32);
                 Assert.True(center.A > 0, "头部区域没有绘制内容");
+            }
+        }
+
+        [Fact]
+        public void Avatar_renderer_crops_the_head()
+        {
+            string artifacts = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts");
+            Directory.CreateDirectory(artifacts);
+
+            string source = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
+            string output = Path.Combine(artifacts, "avatar.png");
+
+            NLMCL.Core.Skins.SkinAvatarRenderer.RenderHead(source, output, 8);
+
+            using (System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(output))
+            using (System.Drawing.Bitmap skin = new System.Drawing.Bitmap(source))
+            {
+                Assert.Equal(64, bitmap.Width);
+                Assert.Equal(64, bitmap.Height);
+
+                // 左上角对应头部贴图的 (8,8)，颜色应一致
+                System.Drawing.Color expected = skin.GetPixel(8, 8);
+                System.Drawing.Color actual = bitmap.GetPixel(0, 0);
+
+                Assert.Equal(expected.R, actual.R);
+                Assert.Equal(expected.G, actual.G);
+                Assert.Equal(expected.B, actual.B);
+            }
+        }
+
+        [Fact]
+        public void Renderer_builds_a_3d_view()
+        {
+            string artifacts = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts");
+            Directory.CreateDirectory(artifacts);
+
+            string source = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
+            string output = Path.Combine(artifacts, "skin-3d.png");
+
+            NLMCL.Core.Skins.SkinRender3D.Render(source, output, 384, 28, 8, slim: false);
+
+            using (System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(output))
+            {
+                Assert.Equal(384, bitmap.Width);
+                Assert.Equal(384, bitmap.Height);
+
+                // 画面中央应该有人物（非全透明）
+                Assert.True(bitmap.GetPixel(192, 192).A > 0 || bitmap.GetPixel(192, 150).A > 0);
             }
         }
 
@@ -218,6 +274,14 @@ namespace NLMCL.Tests
 
             public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
                 => Task.FromResult(@"C:\skins\doll.png");
+
+            public Task<string> Create3DPreviewAsync(
+                string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
+                CancellationToken cancellationToken)
+                => Task.FromResult(@"C:\skins\3d.png");
+
+            public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
+                => Task.FromResult<string?>(@"C:\skins\avatar.png");
         }
 
         [Fact]
@@ -228,7 +292,7 @@ namespace NLMCL.Tests
             await vm.PickLocalAsync();
 
             Assert.True(vm.HasPreview);
-            Assert.Equal(@"C:\skins\doll.png", vm.PreviewPath);
+            Assert.Equal(@"C:\skins\3d.png", vm.PreviewPath);
             Assert.Equal("本地皮肤", vm.ModelText);
             Assert.Contains("本地皮肤", vm.StatusText);
         }

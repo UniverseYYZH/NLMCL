@@ -57,5 +57,13 @@ namespace NLMCL.Abstractions
 
         /// <summary>把皮肤 PNG 渲染成纸娃娃立绘（供界面预览），返回渲染后的文件路径。</summary>
         Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken);
+
+        /// <summary>3D 预览：把皮肤渲染成带朝向的立体立绘，返回渲染后的文件路径。</summary>
+        Task<string> Create3DPreviewAsync(
+            string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
+            CancellationToken cancellationToken);
+
+        /// <summary>账号头像（头部正面 + 帽子层），没有皮肤时返回 null。</summary>
+        Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken);
     }
 }

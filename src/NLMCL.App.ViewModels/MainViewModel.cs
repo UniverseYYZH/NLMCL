@@ -65,6 +65,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>局域网扫描。</summary>
         private readonly LanScanViewModel? _lanScan;
 
+        /// <summary>皮肤服务（取账号头像用；可能为 null）。</summary>
+        private readonly ISkinService? _skins;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -105,7 +108,8 @@ namespace NLMCL.App.ViewModels
             IDownloadTuning? downloadTuning = null,
             ResourceViewModel? resource = null,
             SkinViewModel? skin = null,
-            LanScanViewModel? lanScan = null)
+            LanScanViewModel? lanScan = null,
+            ISkinService? skins = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -129,6 +133,7 @@ namespace NLMCL.App.ViewModels
             _resource = resource;
             _skin = skin;
             _lanScan = lanScan;
+            _skins = skins;
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -309,7 +314,28 @@ namespace NLMCL.App.ViewModels
             // 侧栏卡片直接显示名字与类型：在这里同步，避免出现两份状态。
             AccountName = value == null ? "未登录" : value.Name;
             AccountType = value == null ? "点击登录账号" : value.TypeLabel;
+
+            _ = LoadAvatarAsync(value);
         }
+        /// <summary>拉取账号头像（头部正面）。失败就算了，侧栏继续显示 "?"。</summary>
+        private async Task LoadAvatarAsync(Account? account)
+        {
+            if (_skins == null || account == null)
+            {
+                AvatarPath = null;
+                return;
+            }
+
+            try
+            {
+                AvatarPath = await _skins.GetAvatarAsync(account, CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception)
+            {
+                AvatarPath = null;
+            }
+        }
+
 
         /// <summary>账号弹层是否展开。</summary>
         [ObservableProperty]
@@ -407,6 +433,17 @@ namespace NLMCL.App.ViewModels
         /// <summary>当前显示「局域网扫描」页。</summary>
         [ObservableProperty]
         private bool _isLanScanSection;
+
+        /// <summary>账号头像（头部正面 PNG 路径）；没有皮肤时为 null。</summary>
+        [ObservableProperty]
+        private string? _avatarPath;
+
+        public bool HasAvatar => !string.IsNullOrEmpty(AvatarPath);
+
+        partial void OnAvatarPathChanged(string? value)
+        {
+            OnPropertyChanged(nameof(HasAvatar));
+        }
 
         /// <summary>当前显示「设置」页。</summary>
         [ObservableProperty]

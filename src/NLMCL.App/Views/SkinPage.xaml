@@ -23,7 +23,7 @@
 
         <StackPanel Grid.Row="0">
             <TextBlock Text="皮肤" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource Text}" />
-            <TextBlock Text="皮肤由账号所属的认证服务器下发；这里只做预览与保存"
+            <TextBlock Text="3D 预览；皮肤由账号所属的认证服务器下发，这里只做展示与保存"
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
         </StackPanel>
 
@@ -35,15 +35,29 @@
                 <TextBlock Text="{Binding ModelText}" FontSize="11"
                            Foreground="{DynamicResource Muted}" Margin="0,4,0,0" />
 
-                <Border Width="256" Height="256" Margin="0,14,0,0" CornerRadius="8"
+                <Border Width="320" Height="320" Margin="0,14,0,0" CornerRadius="10"
                         Background="{DynamicResource Surface}"
                         BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                        ClipToBounds="True"
                         Visibility="{Binding HasPreview, Converter={StaticResource BoolToVisibility}}">
                     <Image Source="{Binding PreviewPath}" Stretch="Uniform"
-                           RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           MouseLeftButtonDown="OnPreviewMouseDown"
+                           MouseLeftButtonUp="OnPreviewMouseUp"
+                           MouseMove="OnPreviewMouseMove"
+                           Cursor="SizeWE" />
                 </Border>
 
                 <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <Button Content="◀ 左转" Style="{StaticResource GhostButton}" Padding="12,7"
+                            Command="{Binding RotateLeftCommand}" />
+                    <Button Content="右转 ▶" Style="{StaticResource GhostButton}" Padding="12,7"
+                            Margin="6,0,0,0" Command="{Binding RotateRightCommand}" />
+                    <Button Content="复位" Style="{StaticResource GhostButton}" Padding="12,7"
+                            Margin="6,0,0,0" Command="{Binding ResetViewCommand}" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                     <Button Content="刷新" Style="{StaticResource GhostButton}" Padding="14,7"
                             Command="{Binding RefreshCommand}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />

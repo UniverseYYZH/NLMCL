@@ -130,6 +130,41 @@ namespace NLMCL.Core.Resources
             return Task.FromResult(output);
         }
 
+        public Task<string> Create3DPreviewAsync(
+            string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
+            CancellationToken cancellationToken)
+        {
+            string output = Path.Combine(
+                Path.GetTempPath(),
+                "nlmcl-skin-3d-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
+
+            SkinRender3D.Render(skinPngPath, output, 384, yawDegrees, pitchDegrees, slim);
+
+            return Task.FromResult(output);
+        }
+
+        public async Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
+        {
+            SkinInfo? skin = await GetAsync(account, cancellationToken).ConfigureAwait(false);
+
+            if (skin == null || string.IsNullOrWhiteSpace(skin.SkinUrl))
+            {
+                return null;
+            }
+
+            string source = Path.Combine(
+                Path.GetTempPath(), "nlmcl-skin-src-" + SafeName(account.Name) + ".png");
+
+            await _download.DownloadFileAsync(skin.SkinUrl!, source, cancellationToken).ConfigureAwait(false);
+
+            string avatar = Path.Combine(
+                Path.GetTempPath(), "nlmcl-avatar-" + SafeName(account.Name) + ".png");
+
+            SkinAvatarRenderer.RenderHead(source, avatar, 8);
+
+            return avatar;
+        }
+
         /// <summary>PNG 魔数：89 50 4E 47 0D 0A 1A 0A。只认 PNG，避免把 jpg 改名混进来。</summary>
         internal static bool HasPngHeader(string path)
         {
