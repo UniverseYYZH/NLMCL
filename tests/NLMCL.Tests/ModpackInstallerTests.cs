@@ -128,6 +128,23 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class FakeFileDownloader : IFileDownloader
+        {
+            public List<string> Downloaded { get; } = new List<string>();
+
+            public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
+            {
+                lock (Downloaded)
+                {
+                    Downloaded.Add(url);
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                File.WriteAllText(targetPath, "fake");
+                return Task.CompletedTask;
+            }
+        }
+
         private sealed class FakeVersions : IVersionInstaller
         {
             public InstallRequest? LastRequest { get; private set; }
@@ -189,9 +206,10 @@ namespace NLMCL.Tests
             {
                 string pack = BuildMrpack(root);
 
-                FakeDownload download = new FakeDownload();
+                FakeFileDownloader downloader = new FakeFileDownloader();
                 FakeVersions versions = new FakeVersions();
-                ModpackInstaller installer = new ModpackInstaller(download, versions, new FakeLoaders());
+                ModpackInstaller installer = new ModpackInstaller(
+                    new FakeDownload(), versions, new FakeLoaders(), downloader);
 
                 string versionId = await installer.InstallAsync(
                     pack, mc, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
@@ -205,7 +223,8 @@ namespace NLMCL.Tests
                 Assert.True(File.Exists(Path.Combine(instanceDir, "config", "mod.toml")));
 
                 // server-only 文件不应该被下载
-                Assert.DoesNotContain(download.Downloaded, url => url.Contains("server.jar"));
+                Assert.DoesNotContain(downloader.Downloaded, url => url.Contains("server.jar"));
+                Assert.Contains(downloader.Downloaded, url => url.Contains("sodium.jar"));
 
                 JObject json = JObject.Parse(File.ReadAllText(Path.Combine(instanceDir, versionId + ".json")));
                 Assert.Equal("fabric-loader-0.16.9-1.20.1", json.Value<string>("inheritsFrom"));

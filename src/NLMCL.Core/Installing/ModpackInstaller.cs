@@ -38,16 +38,23 @@ namespace NLMCL.Core.Installing
         private readonly IDownloadService _download;
         private readonly IVersionInstaller _versions;
         private readonly ILoaderInstaller _loaders;
+        private readonly IFileDownloader _files;
 
         /// <summary>并发下载的文件数（整合包文件多，串行会慢到不可用）。</summary>
         public int Parallelism { get; set; } = 8;
 
         public ModpackInstaller(
-            IDownloadService download, IVersionInstaller versions, ILoaderInstaller loaders)
+            IDownloadService download,
+            IVersionInstaller versions,
+            ILoaderInstaller loaders,
+            IFileDownloader? files = null)
         {
             _download = download ?? throw new ArgumentNullException(nameof(download));
             _versions = versions ?? throw new ArgumentNullException(nameof(versions));
             _loaders = loaders ?? throw new ArgumentNullException(nameof(loaders));
+
+            // 整合包文件用流式下载器：ModNet 的"小文件直下"会弄坏带 %2B 的 URL，且整包进内存
+            _files = files ?? new HttpFileDownloader();
         }
 
         public Task<ModpackInfo> ReadAsync(string mrpackPath, CancellationToken cancellationToken)
@@ -137,8 +144,7 @@ namespace NLMCL.Core.Installing
 
                             if (!IsFileUpToDate(target, expectedSha1))
                             {
-                                await ResilientDownload
-                                    .DownloadAsync(_download, capturedUrl, target, cancellationToken, attempts: 3)
+                                await _files.DownloadAsync(capturedUrl, target, cancellationToken)
                                     .ConfigureAwait(false);
 
                                 if (!string.IsNullOrEmpty(expectedSha1))

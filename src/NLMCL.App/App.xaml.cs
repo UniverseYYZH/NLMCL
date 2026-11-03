@@ -150,6 +150,7 @@ namespace NLMCL.App
             services.AddSingleton<INeoForgeCatalog, NeoForgeCatalog>();
             services.AddSingleton<ILoaderInstaller, ForgeLoaderInstaller>();
             services.AddSingleton<IProcessRunner, Services.ProcessRunner>();
+            services.AddSingleton<IFileDownloader, HttpFileDownloader>();
             services.AddSingleton<IModpackInstaller, ModpackInstaller>();
             services.AddSingleton<IDownloadTuning, PclDownloadTuning>();
             services.AddSingleton<IJavaLocator, PclJavaLocator>();

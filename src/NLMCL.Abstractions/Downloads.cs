@@ -6,6 +6,19 @@ using System.Threading.Tasks;
 namespace NLMCL.Abstractions
 {
     /// <summary>
+    /// 单纯的流式文件下载（整合包文件用）。
+    ///
+    /// 为什么不复用 <see cref="IDownloadService"/>：PCL 的 ModNet 在"小文件直下"路径上
+    /// 会把带 <c>%2B</c> 的 URL 弄坏（实测同一 URL 用 HttpWebRequest 200、走 ModNet 400），
+    /// 而且是整包下到内存后一次写盘、并发时会互相排队。
+    /// 整合包动辄 200+ 文件，必须用流式 + 真并发。
+    /// </summary>
+    public interface IFileDownloader
+    {
+        Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken);
+    }
+
+    /// <summary>
     /// 下载端口。当前由 PCL 的 <c>ModNet</c> 实现（多镜像、重试、429 退避）。
     /// </summary>
     public interface IDownloadService
