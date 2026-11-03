@@ -110,7 +110,7 @@ namespace NLMCL.Tests
             Assert.Equal("工作区", vm.NavigationGroups[0].Caption);
             Assert.Equal(6, vm.NavigationGroups[0].Items.Count);
             Assert.Equal("工具", vm.NavigationGroups[1].Caption);
-            Assert.Equal(3, vm.NavigationGroups[1].Items.Count); // 版本下载 / 导入资源 / 皮肤
+            Assert.Equal(4, vm.NavigationGroups[1].Items.Count); // 版本下载 / 导入资源 / Mod 管理 / 皮肤
 
             NavigationItem first = vm.NavigationGroups[0].Items[0];
             Assert.True(first.IsActive);

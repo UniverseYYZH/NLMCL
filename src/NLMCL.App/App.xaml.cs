@@ -128,6 +128,8 @@ namespace NLMCL.App
             services.AddSingleton<ITranslator, MyMemoryTranslator>();
             services.AddSingleton<ISkinService, SkinService>();
             services.AddSingleton<IServerBookmarkStore, Core.Servers.ServerBookmarkStore>();
+            services.AddSingleton<IModManager, Core.Mods.ModManager>();
+            services.AddSingleton<IModUpdateChecker, Core.Mods.ModrinthUpdateChecker>();
             services.AddSingleton<IServerPinger, Core.Lan.ServerListPing>();
             services.AddSingleton<ILanScanner, Core.Lan.LanScanner>();
             services.AddSingleton<IDialogService, Services.MessageBoxDialogService>();
@@ -167,6 +169,7 @@ namespace NLMCL.App
             services.AddSingleton<ResourceViewModel>();
             services.AddSingleton<SkinViewModel>();
             services.AddSingleton<LanScanViewModel>();
+            services.AddSingleton<ModsViewModel>();
             services.AddSingleton<LaunchConsoleViewModel>();
             services.AddTransient<MainViewModel>();
             services.AddTransient<MainWindow>();

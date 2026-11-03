@@ -531,6 +531,12 @@
                                Visibility="{Binding DataContext.IsLanScanSection,
                                                     RelativeSource={RelativeSource AncestorType=Window},
                                                     Converter={StaticResource BoolToVisibility}}" />
+            <!-- Mod 管理页 -->
+            <views:ModPage Margin="26,22,26,14"
+                           DataContext="{Binding Mods}"
+                           Visibility="{Binding DataContext.IsModsSection,
+                                                RelativeSource={RelativeSource AncestorType=Window},
+                                                Converter={StaticResource BoolToVisibility}}" />
             <!-- 皮肤页 -->
             <views:SkinPage Margin="26,22,26,14"
                             DataContext="{Binding Skin}"

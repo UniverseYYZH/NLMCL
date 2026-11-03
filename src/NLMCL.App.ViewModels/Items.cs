@@ -17,7 +17,9 @@ namespace NLMCL.App.ViewModels
         Import = 6,
         Settings = 7,
 
-        Skin = 8
+        Skin = 8,
+
+        Mods = 9
     }
 
     /// <summary>

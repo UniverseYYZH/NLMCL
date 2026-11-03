@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -74,6 +75,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>SLP 探测（诊断用）。</summary>
         private readonly IServerPinger? _pinger;
 
+        /// <summary>Mod 管理页。</summary>
+        private readonly ModsViewModel? _mods;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -117,7 +121,8 @@ namespace NLMCL.App.ViewModels
             LanScanViewModel? lanScan = null,
             ISkinService? skins = null,
             IServerBookmarkStore? bookmarks = null,
-            IServerPinger? pinger = null)
+            IServerPinger? pinger = null,
+            ModsViewModel? mods = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -144,6 +149,7 @@ namespace NLMCL.App.ViewModels
             _skins = skins;
             _bookmarks = bookmarks;
             _pinger = pinger;
+            _mods = mods;
             _ = LoadServersAsync();
             if (paths == null)
             {
@@ -165,12 +171,13 @@ namespace NLMCL.App.ViewModels
             NavigationItem settings = new NavigationItem("设置", "外观 / Java / 下载", ShellSection.Settings);
             NavigationItem downloadNav = new NavigationItem("版本下载", "原版与加载器", ShellSection.Download);
             NavigationItem import = new NavigationItem("导入资源", "mod 与整合包", ShellSection.Import);
+            NavigationItem modsNav = new NavigationItem("Mod 管理", "启用 / 删除 / 更新", ShellSection.Mods);
             NavigationItem skinNav = new NavigationItem("皮肤", "预览与保存", ShellSection.Skin);
 
             NavigationGroups = new ReadOnlyCollection<NavigationGroup>(new List<NavigationGroup>
             {
                 new NavigationGroup("工作区", new[] { versions, consoleNav, multiplayer, snapshot, lanScanNav, settings }),
-                new NavigationGroup("工具", new[] { downloadNav, import, skinNav })
+                new NavigationGroup("工具", new[] { downloadNav, import, modsNav, skinNav })
             });
 
             SelectSection(versions);
@@ -438,6 +445,13 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isSkinSection;
 
+        /// <summary>Mod 管理页的视图模型（可能为 null）。</summary>
+        public ModsViewModel? Mods => _mods;
+
+        /// <summary>当前显示「Mod 管理」页。</summary>
+        [ObservableProperty]
+        private bool _isModsSection;
+
         /// <summary>局域网扫描页的视图模型（可能为 null）。</summary>
         public LanScanViewModel? LanScan => _lanScan;
 
@@ -673,6 +687,12 @@ namespace NLMCL.App.ViewModels
             IsSettingsSection = item.Section == ShellSection.Settings;
             IsImportSection = item.Section == ShellSection.Import;
             IsSkinSection = item.Section == ShellSection.Skin;
+            IsModsSection = item.Section == ShellSection.Mods;
+
+            if (IsModsSection)
+            {
+                RefreshModsInstance();
+            }
             IsLanScanSection = item.Section == ShellSection.LanScan;
 
             if (IsSkinSection)
@@ -830,6 +850,36 @@ namespace NLMCL.App.ViewModels
             StatusText = "跳过端口探测，直接启动并连接 " + host + ":" + port + " …";
 
             await LaunchCoreAsync(host + ":" + port).ConfigureAwait(true);
+        }
+        /// <summary>把当前选中实例的 mods 目录交给 Mod 管理页。</summary>
+        private void RefreshModsInstance()
+        {
+            if (_mods == null)
+            {
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                _mods.SetInstance(string.Empty, "未选择实例", string.Empty, string.Empty);
+                return;
+            }
+
+            string minecraft = CurrentGameDirectory;
+            string folder = SelectedVersion.FolderName;
+
+            // 隔离实例的 mods 在 versions/<folder>/mods；否则用全局 mods
+            string isolated = Path.Combine(minecraft, "versions", folder);
+            string modsDirectory = Directory.Exists(isolated)
+                ? Path.Combine(isolated, "mods")
+                : Path.Combine(minecraft, "mods");
+
+            string loader = folder.IndexOf("fabric", StringComparison.OrdinalIgnoreCase) >= 0 ? "fabric"
+                : folder.IndexOf("neoforge", StringComparison.OrdinalIgnoreCase) >= 0 ? "neoforge"
+                : folder.IndexOf("forge", StringComparison.OrdinalIgnoreCase) >= 0 ? "forge"
+                : string.Empty;
+
+            _mods.SetInstance(modsDirectory, folder, SelectedVersion.BasedOn ?? string.Empty, loader);
         }
         /// <summary>载入常用服务器（首次运行会写入「方块宁理」三条线路）。</summary>
         private async Task LoadServersAsync()
