@@ -31,11 +31,16 @@ namespace NLMCL.Core.Installing
 
         private readonly IDownloadService _download;
         private readonly IAppPaths _paths;
+        private readonly IFileDownloader _files;
 
-        public JavaRuntimeInstaller(IDownloadService download, IAppPaths paths)
+        public JavaRuntimeInstaller(
+            IDownloadService download, IAppPaths paths, IFileDownloader? files = null)
         {
             _download = download ?? throw new ArgumentNullException(nameof(download));
             _paths = paths ?? throw new ArgumentNullException(nameof(paths));
+
+            // ModNet 的"小文件直下"在部分网络（校园网/代理）会失败，用流式下载器兜底
+            _files = files ?? new HttpFileDownloader();
         }
 
         public async Task<JavaRuntime> InstallAsync(
@@ -176,7 +181,33 @@ namespace NLMCL.Core.Installing
 
             try
             {
-                await _download.DownloadFileAsync(file.Url, temp, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await _download.DownloadFileAsync(file.Url, temp, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception first)
+                {
+                    // 兜底：ModNet 失败时改用 HttpClient 流式下载（带重试）
+                    if (File.Exists(temp))
+                    {
+                        TryDelete(temp);
+                    }
+
+                    try
+                    {
+                        await _files.DownloadAsync(file.Url, temp, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception second)
+                    {
+                        throw new InvalidOperationException(
+                            "下载 Java 运行时文件失败：" + file.RelativePath
+                            + "（ModNet：" + first.Message + "；备用下载：" + second.Message + "）", second);
+                    }
+                }
 
                 if (!string.IsNullOrEmpty(file.Sha1))
                 {
@@ -207,6 +238,20 @@ namespace NLMCL.Core.Installing
                 catch (IOException)
                 {
                 }
+            }
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
             }
         }
 

@@ -24,6 +24,7 @@ namespace NLMCL.Core.Installing
     public sealed class VanillaVersionInstaller : IVersionInstaller
     {
         private readonly IDownloadService _download;
+        private readonly IFileDownloader _files;
         private readonly InstallOptions _options;
 
         public VanillaVersionInstaller(IDownloadService download)
@@ -31,10 +32,14 @@ namespace NLMCL.Core.Installing
         {
         }
 
-        public VanillaVersionInstaller(IDownloadService download, InstallOptions options)
+        public VanillaVersionInstaller(
+            IDownloadService download, InstallOptions options, IFileDownloader? files = null)
         {
             _download = download ?? throw new ArgumentNullException(nameof(download));
             _options = options ?? throw new ArgumentNullException(nameof(options));
+
+            // 备用下载器：ModNet 的小文件直下在部分网络会失败，用它兜底
+            _files = files ?? new HttpFileDownloader();
         }
 
         public async Task InstallAsync(
@@ -185,7 +190,7 @@ namespace NLMCL.Core.Installing
                 // 单个文件有超时：ModNet 在某些网络/镜像状态下会挂住不返回，
                 // 并发下几个挂住的请求会把整个安装拖死（实测停在同一进度不动）。
                 await ResilientDownload
-                    .DownloadAsync(_download, file.Url, temporary, cancellationToken)
+                    .DownloadAsync(_download, file.Url, temporary, cancellationToken, fallback: _files)
                     .ConfigureAwait(false);
 
                 cancellationToken.ThrowIfCancellationRequested();

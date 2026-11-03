@@ -28,7 +28,8 @@ namespace NLMCL.Core.Installing
             string targetPath,
             CancellationToken cancellationToken,
             int attempts = 3,
-            int timeoutSeconds = DefaultTimeoutSeconds)
+            int timeoutSeconds = DefaultTimeoutSeconds,
+            IFileDownloader? fallback = null)
         {
             if (download == null)
             {
@@ -62,6 +63,32 @@ namespace NLMCL.Core.Installing
 
                         if (attempt >= attempts)
                         {
+                            // 最后兜底：ModNet 的小文件直下在部分网络会失败，改用流式下载器
+                            if (fallback != null)
+                            {
+                                try
+                                {
+                                    await fallback.DownloadAsync(url, targetPath, cancellationToken)
+                                        .ConfigureAwait(false);
+
+                                    return;
+                                }
+                                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                                {
+                                    throw;
+                                }
+                                catch (Exception fallbackError)
+                                {
+                                    string reasonBoth = ex is OperationCanceledException
+                                        ? "超过 " + timeoutSeconds + " 秒未完成"
+                                        : ex.Message;
+
+                                    throw new InvalidOperationException(
+                                        "下载失败（ModNet 重试 " + attempts + " 次：" + reasonBoth
+                                        + "；备用下载：" + fallbackError.Message + "）：" + url, fallbackError);
+                                }
+                            }
+
                             string reason = ex is OperationCanceledException
                                 ? "超过 " + timeoutSeconds + " 秒未完成"
                                 : ex.Message;
