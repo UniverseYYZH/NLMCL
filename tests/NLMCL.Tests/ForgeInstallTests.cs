@@ -1,0 +1,184 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using NLMCL.Abstractions;
+using NLMCL.App.ViewModels;
+using NLMCL.Core.Installing;
+using Xunit;
+
+namespace NLMCL.Tests
+{
+    /// <summary>Forge：构建列表解析、安装器流程、Java 版本要求。</summary>
+    public class ForgeInstallTests
+    {
+        [Fact]
+        public void Parses_and_sorts_forge_builds_newest_first()
+        {
+            const string json = @"[
+                { ""version"": ""47.0.1"", ""mcversion"": ""1.20.1"" },
+                { ""version"": ""47.10.2"", ""mcversion"": ""1.20.1"" },
+                { ""version"": ""47.4.27"", ""mcversion"": ""1.20.1"" }
+            ]";
+
+            IReadOnlyList<LoaderBuild> builds = ForgeCatalog.Parse(json, "1.20.1");
+
+            Assert.Equal(3, builds.Count);
+            Assert.Equal("47.10.2", builds[0].Version); // 数字比较，不是字符串比较
+            Assert.Equal("47.4.27", builds[1].Version);
+            Assert.Equal("47.0.1", builds[2].Version);
+        }
+
+        [Fact]
+        public void Launcher_profiles_is_created_when_missing()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-forge-" + Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                Directory.CreateDirectory(root);
+                ForgeLoaderInstaller.EnsureLauncherProfiles(root);
+
+                string path = Path.Combine(root, "launcher_profiles.json");
+                Assert.True(File.Exists(path));
+                Assert.Contains("profiles", File.ReadAllText(path));
+
+                // 已存在时不能覆盖（里面可能有用户的真实配置）
+                File.WriteAllText(path, "KEEP");
+                ForgeLoaderInstaller.EnsureLauncherProfiles(root);
+                Assert.Equal("KEEP", File.ReadAllText(path));
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        private sealed class FakeDownload : DownloadServiceStub
+        {
+            public string? LastUrl { get; private set; }
+
+            public override Task DownloadFileAsync(string url, string localPath, CancellationToken cancellationToken)
+            {
+                LastUrl = url;
+                Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+
+                // 安装器体积判断要求 > 1MB，这里写 2MB 占位
+                File.WriteAllBytes(localPath, new byte[2 * 1024 * 1024]);
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class FakeProcess : IProcessRunner
+        {
+            public string? Arguments { get; private set; }
+
+            public string? WorkingDirectory { get; private set; }
+
+            public int ExitCode { get; set; }
+
+            public Task<ProcessResult> RunAsync(
+                string executable, string arguments, string workingDirectory,
+                Action<string>? onOutput, CancellationToken cancellationToken)
+            {
+                Arguments = arguments;
+                WorkingDirectory = workingDirectory;
+
+                onOutput?.Invoke("Patching something 1/1");
+
+                // 模拟安装器产物
+                string id = "1.20.1-forge-47.9.9";
+                string dir = Path.Combine(workingDirectory, "versions", id);
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, id + ".json"), "{}");
+
+                return Task.FromResult(new ProcessResult(ExitCode, "done"));
+            }
+        }
+
+        [Fact]
+        public async Task Installer_runs_java_and_returns_version_id()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-forge-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+
+            try
+            {
+                // 清理缓存，确保这次真的走下载分支（安装器缓存是设计好的复用）
+                string cache = Path.Combine(Path.GetTempPath(), "nlmcl-forge", "1.20.1-forge-47.9.9-installer.jar");
+                if (File.Exists(cache))
+                {
+                    File.Delete(cache);
+                }
+
+                FakeDownload download = new FakeDownload();
+                FakeProcess process = new FakeProcess();
+                ForgeLoaderInstaller installer = new ForgeLoaderInstaller(download, process);
+
+                string id = await installer.InstallForgeAsync(
+                    "1.20.1", "47.9.9", root, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
+
+                Assert.Equal("1.20.1-forge-47.9.9", id);
+                Assert.Contains("--installClient", process.Arguments);
+                Assert.Contains("forge-1.20.1-47.9.9-installer.jar", download.LastUrl);
+                Assert.True(File.Exists(Path.Combine(root, "launcher_profiles.json")));
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Nonzero_exit_is_reported_with_output_tail()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-forge-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+
+            try
+            {
+                FakeProcess process = new FakeProcess { ExitCode = 1 };
+                ForgeLoaderInstaller installer = new ForgeLoaderInstaller(new FakeDownload(), process);
+
+                InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    installer.InstallForgeAsync(
+                        "1.20.1", "47.4.27", root, @"C:\Java\bin\javaw.exe", null, CancellationToken.None));
+
+                Assert.Contains("退出码 1", error.Message);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Theory]
+        [InlineData("1.20.1", 17)]
+        [InlineData("1.20.4", 17)]
+        [InlineData("1.20.6", 21)]
+        [InlineData("1.21.2", 21)]
+        public void Required_java_matches_minecraft_version(string mc, int expected)
+        {
+            Assert.Equal(expected, DownloadViewModel.RequiredJavaFor(mc));
+        }
+    }
+}

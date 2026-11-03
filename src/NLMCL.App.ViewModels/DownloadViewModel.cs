@@ -22,19 +22,28 @@ namespace NLMCL.App.ViewModels
 
         private readonly IFabricLoaderCatalog? _loaderCatalog;
         private readonly IVersionCatalog? _catalog;
+        private readonly IForgeCatalog? _forgeCatalog;
+        private readonly ILoaderInstaller? _forgeInstaller;
+        private readonly IJavaLocator? _javaLocator;
 
         public DownloadViewModel(
             IVersionListProvider provider,
             IVersionInstaller installer,
             IAppPaths paths,
             IFabricLoaderCatalog? loaderCatalog = null,
-            IVersionCatalog? catalog = null)
+            IVersionCatalog? catalog = null,
+            IForgeCatalog? forgeCatalog = null,
+            ILoaderInstaller? forgeInstaller = null,
+            IJavaLocator? javaLocator = null)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
             _paths = paths ?? throw new ArgumentNullException(nameof(paths));
             _loaderCatalog = loaderCatalog;
             _catalog = catalog;
+            _forgeCatalog = forgeCatalog;
+            _forgeInstaller = forgeInstaller;
+            _javaLocator = javaLocator;
 
             TargetDirectory = paths.DefaultMinecraftDirectory;
         }
@@ -55,7 +64,7 @@ namespace NLMCL.App.ViewModels
         /// <summary>可选加载器。空串表示原版。</summary>
 
 
-        public IReadOnlyList<string> Loaders { get; } = new[] { "原版", "Fabric" };
+        public IReadOnlyList<string> Loaders { get; } = new[] { "原版", "Fabric", "Forge" };
 
 
 
@@ -77,42 +86,72 @@ namespace NLMCL.App.ViewModels
 
         public bool IsFabricSelected => string.Equals(SelectedLoader, "Fabric", StringComparison.OrdinalIgnoreCase);
 
+        public bool IsForgeSelected => string.Equals(SelectedLoader, "Forge", StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>Fabric 与 Forge 都需要选加载器版本，原版不用。</summary>
+        public bool IsLoaderVersionVisible => IsFabricSelected || IsForgeSelected;
+
 
 
         partial void OnSelectedLoaderChanged(string value)
 
 
         {
-        OnPropertyChanged(nameof(IsFabricSelected));
+            OnPropertyChanged(nameof(IsFabricSelected));
+            OnPropertyChanged(nameof(IsForgeSelected));
+            OnPropertyChanged(nameof(IsLoaderVersionVisible));
 
-            if (IsFabricSelected)
+            if (IsLoaderVersionVisible)
             {
                 _ = ReloadLoaderVersionsAsync();
             }
-
         }
 
         partial void OnSelectedVersionChanged(VanillaVersion? value)
         {
-            if (IsFabricSelected)
+            if (IsLoaderVersionVisible)
             {
                 _ = ReloadLoaderVersionsAsync();
             }
         }
 
-        /// <summary>按当前游戏版本拉取可用的 Fabric 加载器版本。</summary>
+        /// <summary>按当前游戏版本拉取可用的加载器版本（Fabric 走 meta，Forge 走 BMCLAPI）。</summary>
         public async Task ReloadLoaderVersionsAsync()
         {
-            if (_loaderCatalog == null || SelectedVersion == null)
+            if (SelectedVersion == null)
             {
                 return;
             }
 
             try
             {
-                IReadOnlyList<string> versions = await _loaderCatalog
-                    .GetLoaderVersionsAsync(SelectedVersion.Id, CancellationToken.None)
-                    .ConfigureAwait(true);
+                IReadOnlyList<string> versions;
+
+                if (IsForgeSelected)
+                {
+                    if (_forgeCatalog == null)
+                    {
+                        StatusText = "Forge 列表不可用";
+                        return;
+                    }
+
+                    IReadOnlyList<LoaderBuild> builds = await _forgeCatalog
+                        .GetBuildsAsync(SelectedVersion.Id, CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    versions = builds.Select(build => build.Version).ToList();
+                }
+                else
+                {
+                    if (_loaderCatalog == null)
+                    {
+                        return;
+                    }
+
+                    versions = await _loaderCatalog
+                        .GetLoaderVersionsAsync(SelectedVersion.Id, CancellationToken.None)
+                        .ConfigureAwait(true);
+                }
 
                 LoaderVersions.Clear();
                 foreach (string version in versions)
@@ -356,22 +395,30 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                InstallRequest request = new InstallRequest(TargetDirectory, target!.Id)
+                if (IsForgeSelected)
                 {
-                    Parallelism = Parallelism
-                };
-                if (IsFabricSelected)
-                {
-                    request.Loader = "fabric";
-                    request.LoaderVersion = LoaderVersion;
+                    await InstallForgeAsync(target!).ConfigureAwait(true);
                 }
+                else
+                {
+                    InstallRequest request = new InstallRequest(TargetDirectory, target!.Id)
+                    {
+                        Parallelism = Parallelism
+                    };
 
-                await _installer
-                    .InstallAsync(request, new InlineProgress(ApplyProgress), CancellationToken.None)
-                    .ConfigureAwait(true);
+                    if (IsFabricSelected)
+                    {
+                        request.Loader = "fabric";
+                        request.LoaderVersion = LoaderVersion;
+                    }
 
-                Progress = 100;
-                StatusText = "已安装 " + target!.Id + " 到 " + TargetDirectory;
+                    await _installer
+                        .InstallAsync(request, new InlineProgress(ApplyProgress), CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    Progress = 100;
+                    StatusText = "已安装 " + target!.Id + " 到 " + TargetDirectory;
+                }
 
                 await MarkInstalledFromCatalogAsync().ConfigureAwait(true);
                 ApplyFilter();
@@ -387,6 +434,62 @@ namespace NLMCL.App.ViewModels
             {
                 IsBusy = false;
             }
+        }
+
+        /// <summary>Forge 走安装器 jar：需要挑一个能跑安装器的 Java。</summary>
+        private async Task InstallForgeAsync(VanillaVersion target)
+        {
+            if (_forgeInstaller == null || _javaLocator == null)
+            {
+                throw new InvalidOperationException("Forge 安装不可用（未装配安装器或 Java 探测）。");
+            }
+
+            IReadOnlyList<JavaRuntime> javas = await _javaLocator
+                .FindInstalledAsync(CancellationToken.None)
+                .ConfigureAwait(true);
+
+            int required = RequiredJavaFor(target.Id);
+
+            JavaRuntime? java = NLMCL.Core.Installing.JavaRequirements.Pick(javas, required)
+                ?? NLMCL.Core.Installing.JavaRequirements.Pick(javas, null);
+
+            if (java == null)
+            {
+                throw new InvalidOperationException("没有可用的 Java，无法运行 Forge 安装器。");
+            }
+
+            string installedId = await _forgeInstaller
+                .InstallForgeAsync(
+                    target.Id,
+                    LoaderVersion,
+                    TargetDirectory,
+                    java.ExecutablePath,
+                    new InlineProgress(ApplyProgress),
+                    CancellationToken.None)
+                .ConfigureAwait(true);
+
+            Progress = 100;
+            StatusText = "已安装 " + installedId + " 到 " + TargetDirectory
+                + "（Java " + java.Major + "）";
+        }
+
+        /// <summary>Forge 安装器需要与游戏版本匹配的 Java：1.20.5+ 用 21，更早用 17。</summary>
+        public static int RequiredJavaFor(string minecraftVersion)
+        {
+            string[] parts = (minecraftVersion ?? string.Empty).Split('.');
+            int major = parts.Length > 1 && int.TryParse(parts[1], out int m) ? m : 0;
+
+            if (major > 20)
+            {
+                return 21;
+            }
+
+            if (major == 20 && parts.Length > 2 && int.TryParse(parts[2], out int patch) && patch >= 5)
+            {
+                return 21;
+            }
+
+            return 17;
         }
 
         private void ApplyProgress(InstallProgress value)
