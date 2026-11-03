@@ -7,24 +7,28 @@ using NLMCL.Abstractions;
 namespace NLMCL.Core.Installing
 {
     /// <summary>
-    /// 带"停滞检测"的下载封装。
+    /// 带重试与单文件超时的下载封装。
     ///
-    /// 为什么不直接用固定超时：Fabric 的 maven 在国内没有镜像，慢是常态；
-    /// 固定超时会把还在传输的文件误杀，而真正的死连接特征是**文件大小不再增长**。
-    /// 所以这里每 2 秒看一次临时文件大小，连续 30 秒不增长才判定连接已死。
+    /// 注意：**不能用"文件大小是否增长"来判断停滞**。
+    /// PCL 的 ModNet 实现是 <c>FileUtils.Write(path, SendRequest(url))</c>——
+    /// 整包下载到内存后才一次性写盘，所以目标文件在完成前根本不存在，
+    /// 按大小判停滞会把所有大文件（client.jar、几十 MB 的模组）误杀，
+    /// 表现为"下载很慢然后失败"。
+    ///
+    /// 因此这里只做：每个文件一个总超时（默认 300 秒）+ 最多 3 次重试。
+    /// 真挂死的连接由超时兜底；慢但正常的下载不会被掐断。
     /// </summary>
     internal static class ResilientDownload
     {
-        private const int PollMilliseconds = 2000;
-        private const int StallSeconds = 30;
-        private const int TotalSeconds = 600;
+        public const int DefaultTimeoutSeconds = 300;
 
         public static async Task DownloadAsync(
             IDownloadService download,
             string url,
             string targetPath,
             CancellationToken cancellationToken,
-            int attempts = 3)
+            int attempts = 3,
+            int timeoutSeconds = DefaultTimeoutSeconds)
         {
             if (download == null)
             {
@@ -35,103 +39,42 @@ namespace NLMCL.Core.Installing
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                try
+                using (CancellationTokenSource timeout =
+                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    await AttemptAsync(download, url, targetPath, cancellationToken).ConfigureAwait(false);
-                    return;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    TryDelete(targetPath);
+                    timeout.CancelAfter(TimeSpan.FromSeconds(Math.Max(10, timeoutSeconds)));
 
-                    if (attempt >= attempts)
-                    {
-                        throw new InvalidOperationException(
-                            "下载失败（已重试 " + attempts + " 次）：" + url + " —— " + ex.Message, ex);
-                    }
-
-                    // 退避一下，避免立刻撞上同一个坏连接
-                    await Task.Delay(500 * attempt, cancellationToken).ConfigureAwait(false);
-                }
-            }
-        }
-
-        private static async Task AttemptAsync(
-            IDownloadService download, string url, string targetPath, CancellationToken cancellationToken)
-        {
-            using (CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-            {
-                Task downloadTask = download.DownloadFileAsync(url, targetPath, timeout.Token);
-
-                DateTime started = DateTime.UtcNow;
-                DateTime lastGrowth = started;
-                long lastSize = -1;
-
-                while (true)
-                {
-                    Task finished = await Task.WhenAny(downloadTask, Task.Delay(PollMilliseconds, cancellationToken))
-                        .ConfigureAwait(false);
-
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    if (ReferenceEquals(finished, downloadTask))
-                    {
-                        break;
-                    }
-
-                    long size = 0;
                     try
                     {
-                        if (File.Exists(targetPath))
+                        await download
+                            .DownloadFileAsync(url, targetPath, timeout.Token)
+                            .ConfigureAwait(false);
+
+                        return;
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        TryDelete(targetPath);
+
+                        if (attempt >= attempts)
                         {
-                            size = new FileInfo(targetPath).Length;
+                            string reason = ex is OperationCanceledException
+                                ? "超过 " + timeoutSeconds + " 秒未完成"
+                                : ex.Message;
+
+                            throw new InvalidOperationException(
+                                "下载失败（已重试 " + attempts + " 次）：" + url + " —— " + reason, ex);
                         }
-                    }
-                    catch (IOException)
-                    {
-                    }
 
-                    DateTime now = DateTime.UtcNow;
-
-                    if (size != lastSize)
-                    {
-                        lastSize = size;
-                        lastGrowth = now;
-                    }
-
-                    if ((now - lastGrowth).TotalSeconds >= StallSeconds)
-                    {
-                        Abandon(downloadTask, timeout);
-                        throw new TimeoutException("下载停滞 " + StallSeconds + " 秒（已下载 " + size + " 字节）");
-                    }
-
-                    if ((now - started).TotalSeconds >= TotalSeconds)
-                    {
-                        Abandon(downloadTask, timeout);
-                        throw new TimeoutException("下载超过 " + TotalSeconds + " 秒");
+                        // 退避一下，避免立刻撞上同一个坏连接
+                        await Task.Delay(500 * attempt, cancellationToken).ConfigureAwait(false);
                     }
                 }
-
-                await downloadTask.ConfigureAwait(false);
             }
-        }
-
-        private static void Abandon(Task downloadTask, CancellationTokenSource timeout)
-        {
-            try
-            {
-                timeout.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-
-            _ = downloadTask.ContinueWith(task => _ = task.Exception,
-                TaskContinuationOptions.OnlyOnFaulted);
         }
 
         private static void TryDelete(string path)
