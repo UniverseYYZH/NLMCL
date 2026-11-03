@@ -71,6 +71,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>常用服务器（快捷入口）。</summary>
         private readonly IServerBookmarkStore? _bookmarks;
 
+        /// <summary>SLP 探测（诊断用）。</summary>
+        private readonly IServerPinger? _pinger;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -113,7 +116,8 @@ namespace NLMCL.App.ViewModels
             SkinViewModel? skin = null,
             LanScanViewModel? lanScan = null,
             ISkinService? skins = null,
-            IServerBookmarkStore? bookmarks = null)
+            IServerBookmarkStore? bookmarks = null,
+            IServerPinger? pinger = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -139,6 +143,7 @@ namespace NLMCL.App.ViewModels
             _lanScan = lanScan;
             _skins = skins;
             _bookmarks = bookmarks;
+            _pinger = pinger;
             _ = LoadServersAsync();
             if (paths == null)
             {
@@ -452,6 +457,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string _newServerAddress = string.Empty;
 
+        /// <summary>联机诊断输出（多行文本）。</summary>
+        [ObservableProperty]
+        private string _diagnosticsText = string.Empty;
+
         /// <summary>账号头像（头部正面 PNG 路径）；没有皮肤时为 null。</summary>
         [ObservableProperty]
         private string? _avatarPath;
@@ -733,6 +742,70 @@ namespace NLMCL.App.ViewModels
             StatusText = "已复制：" + MyAddress;
         }
 
+        /// <summary>一键诊断：本机地址 → DNS → TCP → SLP，把结论写出来，不用猜。</summary>
+        [RelayCommand]
+        public async Task DiagnoseAsync()
+        {
+            var report = new System.Text.StringBuilder();
+
+            string local = _network.GetLocalIPv4() ?? "(未获取)";
+            report.AppendLine("本机 IPv4：" + local);
+            report.AppendLine("本机端口：" + MyPort);
+            report.AppendLine("待测地址：" + ServerAddress);
+
+            if (!LanAddress.TryParse(ServerAddress, out string host, out int port, out string? error))
+            {
+                report.AppendLine("地址解析失败：" + error);
+                DiagnosticsText = report.ToString();
+                return;
+            }
+
+            report.AppendLine("解析结果：" + host + ":" + port);
+
+            if (local.IndexOf('.') > 0)
+            {
+                string[] a = local.Split('.');
+                string[] b = host.Split('.');
+
+                if (a.Length == 4 && b.Length == 4)
+                {
+                    bool sameSubnet = a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
+                    report.AppendLine("同网段（前三段一致）：" + (sameSubnet ? "是" : "否 —— 跨 VLAN 通常连不通"));
+                }
+            }
+
+            report.AppendLine("TCP 连接测试…");
+            bool open = await _network.IsPortOpenAsync(host, port, CancellationToken.None).ConfigureAwait(true);
+            report.AppendLine("  TCP：" + (open ? "通" : "不通"));
+
+            if (open && _pinger != null)
+            {
+                report.AppendLine("Minecraft 状态查询（SLP）…");
+
+                try
+                {
+                    LanRoom room = await _pinger.PingAsync(host, port, CancellationToken.None).ConfigureAwait(true);
+
+                    report.AppendLine("  SLP：通");
+                    report.AppendLine("  版本：" + room.VersionName);
+                    report.AppendLine("  人数：" + room.Online + "/" + room.Max);
+                    report.AppendLine("  MOTD：" + room.Motd);
+                    report.AppendLine("结论：服务器在线，可以直接连。");
+                }
+                catch (Exception ex)
+                {
+                    report.AppendLine("  SLP：失败（" + ex.Message + "）");
+                    report.AppendLine("结论：端口开着但不是 Minecraft 服务，或对方世界已关闭。");
+                }
+            }
+            else if (!open)
+            {
+                report.AppendLine("结论：连不上对方端口。常见原因是跨 VLAN/端口隔离、对方没开房、防火墙拦截。");
+            }
+
+            DiagnosticsText = report.ToString();
+            StatusText = "诊断完成，见下方结果";
+        }
         /// <summary>探测失败时的退路：不探测，直接带 --server 启动，让游戏自己报结果。</summary>
         [RelayCommand]
         public async Task ForceConnectAsync()

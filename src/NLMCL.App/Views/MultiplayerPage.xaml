@@ -10,6 +10,7 @@
                 <ResourceDictionary Source="/NLMCL;component/Themes/Design.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <local:InverseBooleanConverter x:Key="InverseBool" />
+            <local:EmptyToVisibilityConverter x:Key="EmptyToVisibility" />
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -170,6 +171,9 @@
                                 Margin="6,0,0,0" Padding="12,8" ToolTip="端口探测失败时仍强制启动"
                                 Command="{Binding ForceConnectCommand}"
                                 IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                        <Button Content="诊断" Style="{StaticResource GhostButton}"
+                                Margin="6,0,0,0" Padding="12,8" ToolTip="检查 DNS / 端口 / Minecraft 状态"
+                                Command="{Binding DiagnoseCommand}" />
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -179,6 +183,14 @@
         <Border Grid.Row="3" Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,12,0,0"
                 VerticalAlignment="Top">
             <StackPanel>
+                <StackPanel Visibility="{Binding DiagnosticsText, Converter={StaticResource EmptyToVisibility}}">
+                    <TextBlock Text="诊断结果" FontSize="11.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="{Binding DiagnosticsText}" FontSize="10.5" Margin="0,6,0,10"
+                               Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
+                               FontFamily="Consolas" />
+                </StackPanel>
+
                 <TextBlock Text="校园网提示" FontSize="11.5" FontWeight="SemiBold"
                            Foreground="{DynamicResource Text}" />
                 <TextBlock FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,6,0,0"
