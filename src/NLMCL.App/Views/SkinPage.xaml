@@ -47,6 +47,8 @@
                     <Button Content="刷新" Style="{StaticResource GhostButton}" Padding="14,7"
                             Command="{Binding RefreshCommand}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                    <Button Content="打开本地皮肤" Style="{StaticResource GhostButton}" Padding="14,7"
+                            Margin="8,0,0,0" Command="{Binding PickLocalCommand}" />
                     <Button Content="保存皮肤" Style="{StaticResource PrimaryButton}" Padding="14,7"
                             Margin="8,0,0,0" Command="{Binding SaveCommand}" />
                 </StackPanel>

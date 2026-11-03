@@ -17,13 +17,15 @@ namespace NLMCL.App.ViewModels
     public sealed partial class SkinViewModel : ObservableObject
     {
         private readonly ISkinService _skins;
+        private readonly IFilePicker? _filePicker;
 
         private Account? _account;
         private SkinInfo? _current;
 
-        public SkinViewModel(ISkinService skins)
+        public SkinViewModel(ISkinService skins, IFilePicker? filePicker = null)
         {
             _skins = skins ?? throw new ArgumentNullException(nameof(skins));
+            _filePicker = filePicker;
         }
 
         [ObservableProperty]
@@ -88,7 +90,7 @@ namespace NLMCL.App.ViewModels
                 {
                     PreviewPath = null;
                     StatusText = skin == null
-                        ? "这个账号类型没有服务器下发的皮肤（离线账号没有皮肤）。"
+                        ? "离线账号没有服务器皮肤。可以点「打开本地皮肤」预览自己的 PNG。"
                         : "该账号还没有设置皮肤。";
                     return;
                 }
@@ -119,6 +121,40 @@ namespace NLMCL.App.ViewModels
             finally
             {
                 IsBusy = false;
+            }
+        }
+
+        /// <summary>离线账号的出口：选本地 PNG，复制进皮肤目录并预览。</summary>
+        [RelayCommand]
+        public async Task PickLocalAsync()
+        {
+            if (_filePicker == null)
+            {
+                StatusText = "文件选择不可用。";
+                return;
+            }
+
+            string? path = _filePicker.PickFile("选择皮肤 PNG", "PNG 皮肤 (*.png)|*.png|所有文件 (*.*)|*.*");
+
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            try
+            {
+                string saved = await _skins
+                    .ImportLocalAsync(path!, _account?.Name ?? "player", CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                _current = null;
+                PreviewPath = saved;
+                ModelText = "本地皮肤";
+                StatusText = "本地皮肤：" + saved;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "导入失败：" + ex.Message;
             }
         }
 

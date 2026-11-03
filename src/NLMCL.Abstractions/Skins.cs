@@ -48,5 +48,11 @@ namespace NLMCL.Abstractions
 
         /// <summary>把皮肤 PNG 下载到指定路径（预览用）。</summary>
         Task SavePreviewAsync(string url, string targetPath, CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 导入本地皮肤文件：校验 PNG 头 → 复制到皮肤目录 → 返回副本路径（供预览）。
+        /// 离线账号没有服务器皮肤，用它自娱自乐或做素材检查。
+        /// </summary>
+        Task<string> ImportLocalAsync(string sourcePath, string playerName, CancellationToken cancellationToken);
     }
 }

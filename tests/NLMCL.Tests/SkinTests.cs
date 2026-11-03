@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -105,6 +106,74 @@ namespace NLMCL.Tests
 
             public Task SavePreviewAsync(string url, string targetPath, CancellationToken cancellationToken)
                 => Task.CompletedTask;
+
+            public Task<string> ImportLocalAsync(
+                string sourcePath, string playerName, CancellationToken cancellationToken)
+                => Task.FromResult(sourcePath);
+        }
+
+        [Fact]
+        public void Png_header_is_required_for_local_skin()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "nlmcl-png-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+
+            try
+            {
+                string good = Path.Combine(dir, "good.png");
+                File.WriteAllBytes(good, new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3 });
+
+                string bad = Path.Combine(dir, "bad.png");
+                File.WriteAllBytes(bad, new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0, 0, 0, 0 });
+
+                Assert.True(SkinService.HasPngHeader(good));
+                Assert.False(SkinService.HasPngHeader(bad));
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+
+        private sealed class FakePicker : IFilePicker
+        {
+            private readonly string? _path;
+
+            public FakePicker(string? path)
+            {
+                _path = path;
+            }
+
+            public string? PickFile(string title, string filter) => _path;
+        }
+
+        private sealed class CopyingSkinService : ISkinService
+        {
+            public Task<SkinInfo?> GetAsync(Account account, CancellationToken cancellationToken)
+                => Task.FromResult<SkinInfo?>(null);
+
+            public Task<string> SaveAsync(SkinInfo skin, CancellationToken cancellationToken)
+                => Task.FromResult("x.png");
+
+            public Task SavePreviewAsync(string url, string targetPath, CancellationToken cancellationToken)
+                => Task.CompletedTask;
+
+            public Task<string> ImportLocalAsync(
+                string sourcePath, string playerName, CancellationToken cancellationToken)
+                => Task.FromResult(@"C:\skins\copied.png");
+        }
+
+        [Fact]
+        public async Task Picking_local_skin_sets_preview()
+        {
+            SkinViewModel vm = new SkinViewModel(new CopyingSkinService(), new FakePicker(@"C:\in\skin.png"));
+
+            await vm.PickLocalAsync();
+
+            Assert.True(vm.HasPreview);
+            Assert.Equal(@"C:\skins\copied.png", vm.PreviewPath);
+            Assert.Equal("本地皮肤", vm.ModelText);
+            Assert.Contains("本地皮肤", vm.StatusText);
         }
 
         [Fact]

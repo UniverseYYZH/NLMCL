@@ -95,6 +95,54 @@ namespace NLMCL.Core.Resources
             await _download.DownloadFileAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
         }
 
+        public Task<string> ImportLocalAsync(
+            string sourcePath, string playerName, CancellationToken cancellationToken)
+        {
+            if (!File.Exists(sourcePath))
+            {
+                throw new FileNotFoundException("找不到皮肤文件。", sourcePath);
+            }
+
+            if (!HasPngHeader(sourcePath))
+            {
+                throw new InvalidDataException("不是有效的 PNG 文件（皮肤必须是 PNG）。");
+            }
+
+            Directory.CreateDirectory(_paths.SkinDirectory);
+
+            string name = SafeName(playerName) + "-local-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png";
+            string target = Path.Combine(_paths.SkinDirectory, name);
+
+            File.Copy(sourcePath, target, overwrite: true);
+
+            return Task.FromResult(target);
+        }
+
+        /// <summary>PNG 魔数：89 50 4E 47 0D 0A 1A 0A。只认 PNG，避免把 jpg 改名混进来。</summary>
+        internal static bool HasPngHeader(string path)
+        {
+            try
+            {
+                using (FileStream stream = File.OpenRead(path))
+                {
+                    byte[] header = new byte[8];
+                    int read = stream.Read(header, 0, header.Length);
+
+                    if (read < header.Length)
+                    {
+                        return false;
+                    }
+
+                    return header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47
+                        && header[4] == 0x0D && header[5] == 0x0A && header[6] == 0x1A && header[7] == 0x0A;
+                }
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+
         /// <summary>解析 profile JSON 里的 textures 属性；没有皮肤时返回带 null 地址的 SkinInfo。</summary>
         internal static SkinInfo? ParseProfile(string json, string fallbackName, string source)
         {
