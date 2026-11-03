@@ -22,11 +22,18 @@ namespace NLMCL.Core.Installing
 
         private readonly IDownloadService _download;
         private readonly IProcessRunner _process;
+        private readonly string _cacheDirectory;
 
-        public ForgeLoaderInstaller(IDownloadService download, IProcessRunner process)
+        public ForgeLoaderInstaller(
+            IDownloadService download, IProcessRunner process, string? cacheDirectory = null)
         {
             _download = download ?? throw new ArgumentNullException(nameof(download));
             _process = process ?? throw new ArgumentNullException(nameof(process));
+
+            // 测试可以指定独立目录，避免把桩文件写进真实缓存（曾经因此让 47.4.27 安装失败）
+            _cacheDirectory = string.IsNullOrWhiteSpace(cacheDirectory)
+                ? Path.Combine(Path.GetTempPath(), "nlmcl-forge")
+                : cacheDirectory!;
         }
 
         public async Task<string> InstallForgeAsync(
@@ -100,15 +107,18 @@ namespace NLMCL.Core.Installing
         /// <summary>安装器 jar 下载到临时目录；已存在就复用（同版本重装不必再下 8 MB）。</summary>
         private async Task<string> EnsureInstallerAsync(string id, string minecraftVersion, string loaderVersion, CancellationToken cancellationToken)
         {
-            string directory = Path.Combine(Path.GetTempPath(), "nlmcl-forge");
-            Directory.CreateDirectory(directory);
+            Directory.CreateDirectory(_cacheDirectory);
 
-            string path = Path.Combine(directory, id + "-installer.jar");
+            string path = Path.Combine(_cacheDirectory, id + "-installer.jar");
 
-            if (File.Exists(path) && new FileInfo(path).Length > 1024 * 1024)
+            if (IsValidJar(path))
             {
                 return path;
             }
+
+            // 缓存损坏（半截下载、被别的程序写坏、测试桩写入）时删掉重下，
+            // 只校验体积是不够的：一个 2MB 的全零文件同样能通过 ">1MB" 检查。
+            TryDelete(path);
 
             // 注意 Maven 布局：目录是 {mc}-{forge}，文件名才是 forge-{mc}-{forge}-installer.jar
             // （id 里的 "forge-" 只用于版本目录名，不能直接拼进 maven 路径）
@@ -118,6 +128,44 @@ namespace NLMCL.Core.Installing
             await _download.DownloadFileAsync(url, path, cancellationToken).ConfigureAwait(false);
 
             return path;
+        }
+
+        /// <summary>真正的 jar 以 PK\003\004 开头；体积也要够（安装器约 8MB）。</summary>
+        internal static bool IsValidJar(string path)
+        {
+            try
+            {
+                if (!File.Exists(path) || new FileInfo(path).Length < 1024 * 1024)
+                {
+                    return false;
+                }
+
+                using (FileStream stream = File.OpenRead(path))
+                {
+                    return stream.ReadByte() == 0x50 && stream.ReadByte() == 0x4B;
+                }
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+
+        private static void TryDelete(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         /// <summary>安装器要求目录里已有启动器配置；没有就写一个最小的。</summary>

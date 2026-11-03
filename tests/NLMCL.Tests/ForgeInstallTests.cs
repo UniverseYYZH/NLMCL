@@ -111,16 +111,10 @@ namespace NLMCL.Tests
 
             try
             {
-                // 清理缓存，确保这次真的走下载分支（安装器缓存是设计好的复用）
-                string cache = Path.Combine(Path.GetTempPath(), "nlmcl-forge", "1.20.1-forge-47.9.9-installer.jar");
-                if (File.Exists(cache))
-                {
-                    File.Delete(cache);
-                }
-
+                string cache = Path.Combine(root, "cache");
                 FakeDownload download = new FakeDownload();
                 FakeProcess process = new FakeProcess();
-                ForgeLoaderInstaller installer = new ForgeLoaderInstaller(download, process);
+                ForgeLoaderInstaller installer = new ForgeLoaderInstaller(download, process, cache);
 
                 string id = await installer.InstallForgeAsync(
                     "1.20.1", "47.9.9", root, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
@@ -151,13 +145,51 @@ namespace NLMCL.Tests
             try
             {
                 FakeProcess process = new FakeProcess { ExitCode = 1 };
-                ForgeLoaderInstaller installer = new ForgeLoaderInstaller(new FakeDownload(), process);
+                ForgeLoaderInstaller installer = new ForgeLoaderInstaller(
+                    new FakeDownload(), process, Path.Combine(root, "cache"));
 
                 InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
                     installer.InstallForgeAsync(
                         "1.20.1", "47.4.27", root, @"C:\Java\bin\javaw.exe", null, CancellationToken.None));
 
                 Assert.Contains("退出码 1", error.Message);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Corrupted_cached_installer_is_replaced()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-forge-" + Guid.NewGuid().ToString("N"));
+            string cache = Path.Combine(root, "cache");
+            Directory.CreateDirectory(cache);
+
+            try
+            {
+                // 伪造一个"体积够大但内容全零"的坏缓存（就是之前 47.4.27 失败的原因）
+                string bad = Path.Combine(cache, "1.20.1-forge-47.9.9-installer.jar");
+                File.WriteAllBytes(bad, new byte[2 * 1024 * 1024]);
+
+                Assert.False(ForgeLoaderInstaller.IsValidJar(bad));
+
+                FakeDownload download = new FakeDownload();
+                ForgeLoaderInstaller installer = new ForgeLoaderInstaller(
+                    download, new FakeProcess(), cache);
+
+                string id = await installer.InstallForgeAsync(
+                    "1.20.1", "47.9.9", root, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
+
+                Assert.Equal("1.20.1-forge-47.9.9", id);
+                Assert.NotNull(download.LastUrl); // 说明缓存被判坏并重新下载了
             }
             finally
             {
