@@ -196,6 +196,53 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Clones_loader_json_so_pcl_can_merge_it()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-mrp-" + Guid.NewGuid().ToString("N"));
+            string mc = Path.Combine(root, ".minecraft");
+            string loaderId = "fabric-loader-0.16.9-1.20.1";
+            string loaderDir = Path.Combine(mc, "versions", loaderId);
+            Directory.CreateDirectory(loaderDir);
+
+            // 模拟已安装的 Fabric：完整的 profile JSON
+            File.WriteAllText(
+                Path.Combine(loaderDir, loaderId + ".json"),
+                @"{
+                    ""id"": ""fabric-loader-0.16.9-1.20.1"",
+                    ""inheritsFrom"": ""1.20.1"",
+                    ""mainClass"": ""net.fabricmc.loader.impl.launch.knot.KnotClient"",
+                    ""libraries"": [ { ""name"": ""net.fabricmc:fabric-loader:0.16.9"" } ]
+                }");
+
+            try
+            {
+                string pack = BuildMrpack(root);
+                ModpackInstaller installer = new ModpackInstaller(
+                    new FakeDownload(), new FakeVersions(), new FakeLoaders(), new FakeFileDownloader());
+
+                string versionId = await installer.InstallAsync(
+                    pack, mc, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
+
+                string jsonPath = Path.Combine(mc, "versions", versionId, versionId + ".json");
+                JObject json = JObject.Parse(File.ReadAllText(jsonPath));
+
+                Assert.Equal(versionId, json.Value<string>("id"));
+                Assert.Equal("1.20.1", json.Value<string>("inheritsFrom")); // 继承原版，不再指向加载器
+                Assert.NotNull(json["libraries"]);
+                Assert.Equal("net.fabricmc.loader.impl.launch.knot.KnotClient", json.Value<string>("mainClass"));
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+        [Fact]
         public async Task Installs_pack_into_isolated_instance()
         {
             string root = Path.Combine(Path.GetTempPath(), "nlmcl-mrp-" + Guid.NewGuid().ToString("N"));

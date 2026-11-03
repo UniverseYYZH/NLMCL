@@ -41,7 +41,7 @@ namespace NLMCL.Core.Installing
         private readonly IFileDownloader _files;
 
         /// <summary>并发下载的文件数（整合包文件多，串行会慢到不可用）。</summary>
-        public int Parallelism { get; set; } = 8;
+        public int Parallelism { get; set; } = 12;
 
         public ModpackInstaller(
             IDownloadService download,
@@ -142,7 +142,9 @@ namespace NLMCL.Core.Installing
                         {
                             string target = SafeCombine(instanceDirectory, captured);
 
-                            if (!IsFileUpToDate(target, expectedSha1))
+                            long? expectedSize = file.Value<long?>("fileSize");
+
+                            if (!IsFileUpToDate(target, expectedSha1, expectedSize))
                             {
                                 await _files.DownloadAsync(capturedUrl, target, cancellationToken)
                                     .ConfigureAwait(false);
@@ -320,15 +322,20 @@ namespace NLMCL.Core.Installing
             string directory = Path.Combine(minecraftDirectory, "versions", versionId);
             Directory.CreateDirectory(directory);
 
-            JObject json = new JObject
-            {
-                ["id"] = versionId,
-                ["inheritsFrom"] = loaderVersionId,
-                ["type"] = "release",
-                ["time"] = DateTimeOffset.Now.ToString("o", CultureInfo.InvariantCulture),
-                ["releaseTime"] = DateTimeOffset.Now.ToString("o", CultureInfo.InvariantCulture),
-                ["modpack"] = info.Name
-            };
+            // 优先复制加载器版本 JSON 再改 id：
+            // 只写一个 inheritsFrom 的极简 JSON，PCL 的版本合并拿不到 libraries/mainClass 会启动失败。
+            JObject json = CloneLoaderVersionJson(minecraftDirectory, loaderVersionId, versionId)
+                ?? new JObject
+                {
+                    ["id"] = versionId,
+                    ["inheritsFrom"] = loaderVersionId,
+                    ["type"] = "release"
+                };
+
+            json["id"] = versionId;
+            json["modpack"] = info.Name;
+            json["time"] = DateTimeOffset.Now.ToString("o", CultureInfo.InvariantCulture);
+            json["releaseTime"] = DateTimeOffset.Now.ToString("o", CultureInfo.InvariantCulture);
 
             File.WriteAllText(
                 Path.Combine(directory, versionId + ".json"),
@@ -361,6 +368,37 @@ namespace NLMCL.Core.Installing
                 {
                     throw new InvalidDataException("整合包索引不是合法 JSON。");
                 }
+            }
+        }
+
+        /// <summary>把加载器版本的完整 JSON 复制一份作为整合包实例（改 id，保留 librar* 与 mainClass）。</summary>
+        internal static JObject? CloneLoaderVersionJson(string minecraftDirectory, string loaderVersionId, string newId)
+        {
+            string path = Path.Combine(
+                minecraftDirectory, "versions", loaderVersionId, loaderVersionId + ".json");
+
+            if (!File.Exists(path))
+            {
+                return null;
+            }
+
+            try
+            {
+                JObject json = JObject.Parse(File.ReadAllText(path));
+
+                // 复制出来的 JSON 直接以原版为父；不能再指向加载器自己（会形成二级继承）
+                string? parent = json.Value<string>("inheritsFrom");
+
+                if (string.IsNullOrEmpty(parent))
+                {
+                    json.Remove("inheritsFrom");
+                }
+
+                return json;
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
 
@@ -407,11 +445,24 @@ namespace NLMCL.Core.Installing
         }
 
         /// <summary>已存在且 sha1 匹配就跳过（重试/断点续传）。</summary>
-        internal static bool IsFileUpToDate(string path, string? expectedSha1)
+        internal static bool IsFileUpToDate(string path, string? expectedSha1, long? expectedSize = null)
         {
-            if (!File.Exists(path) || new FileInfo(path).Length == 0)
+            if (!File.Exists(path))
             {
                 return false;
+            }
+
+            long actualSize = new FileInfo(path).Length;
+
+            if (actualSize == 0)
+            {
+                return false;
+            }
+
+            // 清单里有文件大小就先比大小：重试时不必把几十 MB 的文件重新算一遍 sha1
+            if (expectedSize.HasValue && expectedSize.Value > 0)
+            {
+                return actualSize == expectedSize.Value;
             }
 
             if (string.IsNullOrEmpty(expectedSha1))
