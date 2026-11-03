@@ -52,6 +52,18 @@ namespace NLMCL.Core.Networking
                 return false;
             }
 
+            // 容错：有些人会把端口写成点号（10.21.38.133.56643）。
+            // 五段纯数字时，最后一段当端口。
+            if (value.IndexOf(':') < 0)
+            {
+                string[] dotParts = value.Split('.');
+
+                if (dotParts.Length == 5 && dotParts.All(part => part.Length > 0 && part.All(char.IsDigit)))
+                {
+                    value = string.Join(".", dotParts, 0, 4) + ":" + dotParts[4];
+                }
+            }
+
             int separator = value.LastIndexOf(':');
             if (separator < 0)
             {

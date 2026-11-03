@@ -23,6 +23,16 @@ namespace NLMCL.Tests
             Assert.Null(error);
             Assert.Equal(expectedHost, host);
             Assert.Equal(expectedPort, port);
+
+        }
+        [Theory]
+        [InlineData("10.21.38.133.56643", "10.21.38.133", 56643)]
+        [InlineData("192.168.1.7.25565", "192.168.1.7", 25565)]
+        public void Accepts_dot_separated_port(string input, string expectedHost, int expectedPort)
+        {
+            Assert.True(LanAddress.TryParse(input, out string host, out int port, out _));
+            Assert.Equal(expectedHost, host);
+            Assert.Equal(expectedPort, port);
         }
 
         [Theory]
