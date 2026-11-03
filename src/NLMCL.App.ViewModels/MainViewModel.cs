@@ -1531,6 +1531,15 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            // 缺客户端 JAR 的实例直接拉起 JVM 只会弹「A Java Exception has occurred.」，
+            // 对用户毫无信息量。这里提前拦住，并告诉他去哪儿修。
+            if (SelectedVersion.HasWarning)
+            {
+                StatusText = "该实例缺少客户端 JAR，无法启动。请到「版本下载」安装对应原版，"
+                    + "或重新安装这个实例。";
+                return;
+            }
+
             IsLaunching = true;
             StatusText = "正在查找 Java…";
 
