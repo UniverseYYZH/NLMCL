@@ -127,6 +127,7 @@ namespace NLMCL.App
             // 中文查询兜底翻译（Modrinth 只有英文元数据）
             services.AddSingleton<ITranslator, MyMemoryTranslator>();
             services.AddSingleton<ISkinService, SkinService>();
+            services.AddSingleton<IServerBookmarkStore, Core.Servers.ServerBookmarkStore>();
             services.AddSingleton<IServerPinger, Core.Lan.ServerListPing>();
             services.AddSingleton<ILanScanner, Core.Lan.LanScanner>();
             services.AddSingleton<IDialogService, Services.MessageBoxDialogService>();

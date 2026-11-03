@@ -28,6 +28,34 @@
                        Foreground="{DynamicResource Text}" />
             <TextBlock Text="同一局域网内直接连：一方在游戏里「对局域网开放」，另一方填地址加入"
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
+
+            <!-- 常用服务器快捷入口 -->
+            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0">
+                <StackPanel>
+                    <TextBlock Text="常用服务器" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="点一下直接用当前选中的版本启动并进服"
+                               FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,3,0,10" />
+
+                    <ItemsControl ItemsSource="{Binding Servers}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
+                                        Padding="14,8" Content="{Binding Name}"
+                                        ToolTip="{Binding DisplayAddress}"
+                                        Command="{Binding DataContext.QuickJoinCommand,
+                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <!-- 我的房间 -->

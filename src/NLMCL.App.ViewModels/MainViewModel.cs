@@ -68,6 +68,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>皮肤服务（取账号头像用；可能为 null）。</summary>
         private readonly ISkinService? _skins;
 
+        /// <summary>常用服务器（快捷入口）。</summary>
+        private readonly IServerBookmarkStore? _bookmarks;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -109,7 +112,8 @@ namespace NLMCL.App.ViewModels
             ResourceViewModel? resource = null,
             SkinViewModel? skin = null,
             LanScanViewModel? lanScan = null,
-            ISkinService? skins = null)
+            ISkinService? skins = null,
+            IServerBookmarkStore? bookmarks = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -134,6 +138,8 @@ namespace NLMCL.App.ViewModels
             _skin = skin;
             _lanScan = lanScan;
             _skins = skins;
+            _bookmarks = bookmarks;
+            _ = LoadServersAsync();
             if (paths == null)
             {
                 throw new ArgumentNullException(nameof(paths));
@@ -434,6 +440,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isLanScanSection;
 
+        /// <summary>常用服务器列表（方块宁理三条线路 + 用户自定义）。</summary>
+        public ObservableCollection<ServerBookmark> Servers { get; }
+            = new ObservableCollection<ServerBookmark>();
+
         /// <summary>账号头像（头部正面 PNG 路径）；没有皮肤时为 null。</summary>
         [ObservableProperty]
         private string? _avatarPath;
@@ -713,6 +723,54 @@ namespace NLMCL.App.ViewModels
 
             _clipboard.SetText(MyAddress);
             StatusText = "已复制：" + MyAddress;
+        }
+
+        /// <summary>载入常用服务器（首次运行会写入「方块宁理」三条线路）。</summary>
+        private async Task LoadServersAsync()
+        {
+            if (_bookmarks == null)
+            {
+                return;
+            }
+
+            try
+            {
+                IReadOnlyList<ServerBookmark> servers = await _bookmarks
+                    .LoadAsync(CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                Servers.Clear();
+
+                foreach (ServerBookmark server in servers)
+                {
+                    Servers.Add(server);
+                }
+            }
+            catch (Exception)
+            {
+                // 读不到就空着，不影响联机页其它功能
+            }
+        }
+
+        /// <summary>快捷入口：填入地址并直接启动（不探测端口——公网服务器常挡住端口探测）。</summary>
+        [RelayCommand]
+        public async Task QuickJoinAsync(ServerBookmark? server)
+        {
+            if (server == null || IsLaunching)
+            {
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在「本地版本」里选一个版本，再点快捷入口";
+                return;
+            }
+
+            ServerAddress = server.DisplayAddress;
+            StatusText = "正在启动并连接 " + server.DisplayAddress + " …";
+
+            await LaunchCoreAsync(server.Endpoint).ConfigureAwait(true);
         }
 
         /// <summary>
