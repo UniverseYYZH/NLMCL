@@ -78,6 +78,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>Mod 管理页。</summary>
         private readonly ModsViewModel? _mods;
 
+        /// <summary>版本修复。</summary>
+        private readonly IVersionRepairer? _repairer;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -122,7 +125,8 @@ namespace NLMCL.App.ViewModels
             ISkinService? skins = null,
             IServerBookmarkStore? bookmarks = null,
             IServerPinger? pinger = null,
-            ModsViewModel? mods = null)
+            ModsViewModel? mods = null,
+            IVersionRepairer? repairer = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -150,6 +154,7 @@ namespace NLMCL.App.ViewModels
             _bookmarks = bookmarks;
             _pinger = pinger;
             _mods = mods;
+            _repairer = repairer;
             _ = LoadServersAsync();
             if (paths == null)
             {
@@ -1761,6 +1766,66 @@ namespace NLMCL.App.ViewModels
             return best;
         }
 
+        /// <summary>修复选中实例：检查客户端 JAR 与库，缺哪个从镜像补哪个。</summary>
+        [RelayCommand]
+        public async Task RepairSelectedAsync()
+        {
+            if (_repairer == null)
+            {
+                StatusText = "修复功能不可用。";
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在列表里点选一个版本";
+                return;
+            }
+
+            if (IsLaunching || IsBusy)
+            {
+                return;
+            }
+
+            IsBusy = true;
+            StatusText = "正在检查文件完整性…";
+
+            try
+            {
+                RepairReport inspect = await _repairer
+                    .InspectAsync(CurrentGameDirectory, SelectedVersion.FolderName, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (inspect.Missing == 0)
+                {
+                    StatusText = "文件完整，无需修复。";
+                    return;
+                }
+
+                StatusText = "缺失 " + inspect.Missing + " 个文件，开始修复…";
+
+                RepairReport result = await _repairer
+                    .RepairAsync(
+                        CurrentGameDirectory,
+                        SelectedVersion.FolderName,
+                        new Progress<InstallProgress>(value => StatusText = value.Stage),
+                        CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                StatusText = result.Summary
+                    + (result.Details.Count > 0 ? "（" + string.Join("；", result.Details.Take(3)) + "）" : string.Empty);
+
+                await RefreshAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "修复失败：" + ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
         /// <summary>扫描本地版本。UI 只通过 <see cref="RefreshCommand"/> 触发。</summary>
         [RelayCommand]
         public async Task RefreshAsync()

@@ -274,6 +274,9 @@
                         <TextBlock Text="● 扫描只读" Style="{StaticResource ChipText}"
                                    Foreground="{DynamicResource Muted}" />
                     </Border>
+                <Button Content="修复" Style="{StaticResource GhostButton}"
+                        Padding="14,9" Margin="0,0,8,0" ToolTip="检查并补全缺失的库与客户端 JAR"
+                        Command="{Binding RepairSelectedCommand}" />
                     <Button Content="快照" Style="{StaticResource GhostButton}"
                             Padding="14,9" Margin="0,0,8,0"
                             Command="{Binding OpenSnapshotsCommand}" />
