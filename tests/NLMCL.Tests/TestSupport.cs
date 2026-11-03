@@ -302,7 +302,8 @@ namespace NLMCL.Tests
             IDialogService? dialogs = null,
             IAppearance? appearance = null,
             IAppSettingsStore? appSettings = null,
-            ResourceViewModel? resource = null)
+            ResourceViewModel? resource = null,
+            IServerBookmarkStore? bookmarks = null)
         {
             return new MainViewModel(
                 catalog,
@@ -323,7 +324,8 @@ namespace NLMCL.Tests
                 snapshotService: snapshotService,
                 dialogs: dialogs,
                 appearance: appearance,
-                resource: resource);
+                resource: resource,
+                bookmarks: bookmarks);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {

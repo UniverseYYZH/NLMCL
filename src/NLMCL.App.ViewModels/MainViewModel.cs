@@ -444,6 +444,14 @@ namespace NLMCL.App.ViewModels
         public ObservableCollection<ServerBookmark> Servers { get; }
             = new ObservableCollection<ServerBookmark>();
 
+        /// <summary>「添加服务器」输入：名称（可空，默认用地址）。</summary>
+        [ObservableProperty]
+        private string _newServerName = string.Empty;
+
+        /// <summary>「添加服务器」输入：host[:port]。</summary>
+        [ObservableProperty]
+        private string _newServerAddress = string.Empty;
+
         /// <summary>账号头像（头部正面 PNG 路径）；没有皮肤时为 null。</summary>
         [ObservableProperty]
         private string? _avatarPath;
@@ -752,6 +760,68 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>把输入的服务器加入列表并落盘。</summary>
+        [RelayCommand]
+        public async Task AddServerAsync()
+        {
+            string address = (NewServerAddress ?? string.Empty).Trim();
+
+            if (!ServerBookmark.TryParse(address, out _, out _, out string? error))
+            {
+                StatusText = "地址不对：" + error;
+                return;
+            }
+
+            if (Servers.Any(item => string.Equals(item.Address, address, StringComparison.OrdinalIgnoreCase)))
+            {
+                StatusText = "这个地址已经在列表里了";
+                return;
+            }
+
+            string name = string.IsNullOrWhiteSpace(NewServerName) ? address : NewServerName.Trim();
+
+            Servers.Add(new ServerBookmark(name, address));
+
+            NewServerName = string.Empty;
+            NewServerAddress = string.Empty;
+
+            await PersistServersAsync().ConfigureAwait(true);
+
+            StatusText = "已添加服务器：" + name;
+        }
+
+        /// <summary>从列表移除并落盘。</summary>
+        [RelayCommand]
+        public async Task RemoveServerAsync(ServerBookmark? server)
+        {
+            if (server == null)
+            {
+                return;
+            }
+
+            Servers.Remove(server);
+
+            await PersistServersAsync().ConfigureAwait(true);
+
+            StatusText = "已移除 " + server.Name;
+        }
+
+        private async Task PersistServersAsync()
+        {
+            if (_bookmarks == null)
+            {
+                return;
+            }
+
+            try
+            {
+                await _bookmarks.SaveAsync(Servers.ToList(), CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "保存服务器列表失败：" + ex.Message;
+            }
+        }
         /// <summary>快捷入口：填入地址并直接启动（不探测端口——公网服务器常挡住端口探测）。</summary>
         [RelayCommand]
         public async Task QuickJoinAsync(ServerBookmark? server)

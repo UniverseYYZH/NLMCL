@@ -71,6 +71,64 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class RecordingStore : IServerBookmarkStore
+        {
+            public IReadOnlyList<ServerBookmark>? Saved { get; private set; }
+
+            public Task<IReadOnlyList<ServerBookmark>> LoadAsync(CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ServerBookmark>>(new List<ServerBookmark>());
+
+            public Task SaveAsync(IReadOnlyList<ServerBookmark> servers, CancellationToken cancellationToken)
+            {
+                Saved = servers;
+                return Task.CompletedTask;
+            }
+        }
+
+        private sealed class EmptyCatalog : IVersionCatalog
+        {
+            public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
+                string minecraftDirectory, CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<MinecraftVersion>>(new List<MinecraftVersion>());
+        }
+
+        [Fact]
+        public async Task MainViewModel_adds_and_removes_custom_servers()
+        {
+            RecordingStore store = new RecordingStore();
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-servers-" + Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                NLMCL.App.ViewModels.MainViewModel vm = TestSupport.CreateMain(
+                    new EmptyCatalog(), new AppPaths(root), bookmarks: store);
+
+                vm.NewServerName = "我的服";
+                vm.NewServerAddress = "play.example.com:25570";
+
+                await vm.AddServerAsync();
+
+                Assert.Single(vm.Servers);
+                Assert.Equal("play.example.com:25570", vm.Servers[0].Endpoint);
+                Assert.NotNull(store.Saved);
+
+                await vm.RemoveServerAsync(vm.Servers[0]);
+
+                Assert.Empty(vm.Servers);
+                Assert.Empty(store.Saved!);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
         [Fact]
         public async Task Saves_and_reloads_custom_servers()
         {

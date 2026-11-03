@@ -45,15 +45,52 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8"
-                                        Padding="14,8" Content="{Binding Name}"
-                                        ToolTip="{Binding DisplayAddress}"
-                                        Command="{Binding DataContext.QuickJoinCommand,
-                                                          RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                        CommandParameter="{Binding}" />
+                                <StackPanel Orientation="Horizontal" Margin="0,0,8,8">
+                                    <Button Style="{StaticResource GhostButton}"
+                                            Padding="14,8" Content="{Binding Name}"
+                                            ToolTip="{Binding DisplayAddress}"
+                                            Command="{Binding DataContext.QuickJoinCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" />
+                                    <Button Style="{StaticResource GhostButton}" Content="×"
+                                            Width="26" Padding="0" Margin="2,0,0,0" ToolTip="移除"
+                                            Command="{Binding DataContext.RemoveServerCommand,
+                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" />
+                                </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="140" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                CornerRadius="6" Padding="8,5">
+                            <TextBox Text="{Binding NewServerName, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="Transparent" BorderThickness="0" FontSize="11.5"
+                                     Foreground="{DynamicResource Text}"
+                                     ToolTip="名称（可留空）" />
+                        </Border>
+
+                        <Border Grid.Column="1" Margin="8,0,0,0" Background="{DynamicResource Surface}"
+                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                CornerRadius="6" Padding="8,5">
+                            <TextBox Text="{Binding NewServerAddress, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="Transparent" BorderThickness="0" FontSize="11.5"
+                                     Foreground="{DynamicResource Text}"
+                                     ToolTip="地址，例如 play.example.com 或 1.2.3.4:25565" />
+                        </Border>
+
+                        <Button Grid.Column="2" Content="添加" Style="{StaticResource PrimaryButton}"
+                                Margin="8,0,0,0" Padding="14,6"
+                                Command="{Binding AddServerCommand}" />
+                    </Grid>
                 </StackPanel>
             </Border>
         </StackPanel>
