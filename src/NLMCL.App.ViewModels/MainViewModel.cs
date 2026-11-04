@@ -85,6 +85,7 @@ namespace NLMCL.App.ViewModels
         private readonly IVersionInstaller? _versionInstaller;
         private readonly IFileDownloader? _fileDownloader;
         private readonly IResourceCatalog? _resourceCatalog;
+        private readonly IFabricLoaderCatalog? _fabricCatalog;
 
         /// <summary>Mod 管理页。</summary>
         private readonly ModsViewModel? _mods;
@@ -148,7 +149,8 @@ namespace NLMCL.App.ViewModels
             ServerProfilePicker? profilePicker = null,
             IVersionInstaller? versionInstaller = null,
             IFileDownloader? fileDownloader = null,
-            IResourceCatalog? resourceCatalog = null)
+            IResourceCatalog? resourceCatalog = null,
+            IFabricLoaderCatalog? fabricCatalog = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -181,6 +183,7 @@ namespace NLMCL.App.ViewModels
             _versionInstaller = versionInstaller;
             _fileDownloader = fileDownloader;
             _resourceCatalog = resourceCatalog;
+            _fabricCatalog = fabricCatalog;
             _mods = mods;
             _repairer = repairer;
             _ = LoadServersAsync();
@@ -1007,9 +1010,36 @@ namespace NLMCL.App.ViewModels
 
                 string target = chosen.Endpoint.Host + ":" + chosen.Endpoint.Port;
 
+                // Fabric 安装必须带版本号（不传会抛「必须指定加载器版本」）。
+                // 档案里没写就查 Fabric meta 的推荐版本，并记回档案。
+                string? loaderVersion = string.IsNullOrWhiteSpace(profile.LoaderVersion)
+                    ? null
+                    : profile.LoaderVersion;
+
+                if (loaderVersion == null
+                    && _fabricCatalog != null
+                    && string.Equals(profile.Loader, "fabric", StringComparison.OrdinalIgnoreCase))
+                {
+                    StatusText = "查询 Fabric 加载器版本 …";
+
+                    var loaderVersions = await _fabricCatalog
+                        .GetLoaderVersionsAsync(profile.Minecraft, CancellationToken.None).ConfigureAwait(true);
+
+                    loaderVersion = loaderVersions.FirstOrDefault();
+
+                    if (string.IsNullOrWhiteSpace(loaderVersion))
+                    {
+                        StatusText = "拿不到 " + profile.Minecraft + " 的 Fabric 加载器版本";
+                        return;
+                    }
+
+                    profile.LoaderVersion = loaderVersion!;
+                }
+
+
                 if (_versionInstaller != null)
                 {
-                    StatusText = "安装 " + profile.Minecraft + " " + profile.Loader + " …";
+                    StatusText = "安装 " + profile.Minecraft + " " + profile.Loader + " " + (loaderVersion ?? string.Empty) + " …";
 
                     Progress<InstallProgress> progress = new Progress<InstallProgress>(
                         p => StatusText = p.Stage + " " + p.Percent.ToString("0", CultureInfo.InvariantCulture) + "%");
@@ -1018,7 +1048,7 @@ namespace NLMCL.App.ViewModels
                         new InstallRequest(CurrentGameDirectory, profile.Minecraft)
                         {
                             Loader = string.IsNullOrWhiteSpace(profile.Loader) ? null : profile.Loader,
-                            LoaderVersion = string.IsNullOrWhiteSpace(profile.LoaderVersion) ? null : profile.LoaderVersion
+                            LoaderVersion = loaderVersion
                         },
                         progress,
                         CancellationToken.None).ConfigureAwait(true);
