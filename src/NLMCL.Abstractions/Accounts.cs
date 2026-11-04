@@ -96,9 +96,20 @@ namespace NLMCL.Abstractions
     /// <summary>账号的持久化。实现可以是 JSON 文件。</summary>
     public interface IAccountStore
     {
+        /// <summary>当前账号。</summary>
         Task<Account?> LoadAsync(CancellationToken cancellationToken);
 
+        /// <summary>所有可切换的账号（当前账号排第一）。</summary>
+        Task<IReadOnlyList<Account>> LoadAllAsync(CancellationToken cancellationToken);
+
+        /// <summary>保存账号并设为当前（登录时调用）。</summary>
         Task SaveAsync(Account account, CancellationToken cancellationToken);
+
+        /// <summary>把已有账号设为当前（不重新登录）。</summary>
+        Task SwitchAsync(Account account, CancellationToken cancellationToken);
+
+        /// <summary>删除一个账号；删的是当前账号时，自动切到剩下的第一个。</summary>
+        Task RemoveAsync(Account account, CancellationToken cancellationToken);
 
         Task ClearAsync(CancellationToken cancellationToken);
     }

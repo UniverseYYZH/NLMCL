@@ -687,6 +687,45 @@
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,0,4,0">
+                            <!-- 已保存账号：一键切换 / 移除 -->
+                            <ItemsControl ItemsSource="{Binding SavedAccounts}" Margin="0,0,0,4">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{DynamicResource Surface}"
+                                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                                CornerRadius="7" Padding="10,7" Margin="0,0,0,6">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <TextBlock Text="{Binding Name}" FontSize="11.5"
+                                                               Foreground="{DynamicResource Text}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding TypeLabel}" FontSize="9.5"
+                                                               Foreground="{DynamicResource Faint}" Margin="0,1,0,0" />
+                                                </StackPanel>
+
+                                                <Button Grid.Column="1" Content="切换"
+                                                        Style="{StaticResource GhostButton}" Padding="10,3" FontSize="10.5"
+                                                        Command="{Binding DataContext.SwitchAccountCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Grid.Column="2" Content="×"
+                                                        Style="{StaticResource GhostButton}" Padding="8,3" FontSize="10.5"
+                                                        Margin="6,0,0,0" ToolTip="移除这个账号"
+                                                        Command="{Binding DataContext.RemoveAccountCommand,
+                                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
                             <TextBlock Text="离线登录" FontSize="11.5" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Text}" />
                             <TextBlock Text="名字决定离线 UUID"

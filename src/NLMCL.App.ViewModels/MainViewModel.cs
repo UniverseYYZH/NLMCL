@@ -471,6 +471,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isLanScanSection;
 
+        /// <summary>已保存的账号（当前账号在第一位）。</summary>
+        public ObservableCollection<Account> SavedAccounts { get; }
+            = new ObservableCollection<Account>();
+
         /// <summary>常用服务器列表（方块宁理三条线路 + 用户自定义）。</summary>
         public ObservableCollection<ServerBookmark> Servers { get; }
             = new ObservableCollection<ServerBookmark>();
@@ -982,6 +986,89 @@ namespace NLMCL.App.ViewModels
                 StatusText = "保存服务器列表失败：" + ex.Message;
             }
         }
+        /// <summary>把已保存的另一个账号设为当前。</summary>
+        [RelayCommand]
+        public async Task SwitchAccountAsync(Account? account)
+        {
+            if (account == null || Account == null
+                || string.Equals(account.Uuid, Account.Uuid, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            try
+            {
+                await _accounts.SwitchAsync(account, CancellationToken.None).ConfigureAwait(true);
+
+                Account = account;
+                Console.Account = account;
+
+                    await ReloadSavedAccountsAsync().ConfigureAwait(true);
+                StatusText = "已切换到 " + account.Name;
+
+                await ReloadSavedAccountsAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "切换账号失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>删除已保存的账号（当前账号被删时自动切到剩下的一个）。</summary>
+        [RelayCommand]
+        public async Task RemoveAccountAsync(Account? account)
+        {
+            if (account == null)
+            {
+                return;
+            }
+
+            if (_dialogs != null && !_dialogs.Confirm(
+                    "移除账号",
+                    "确定要从列表里移除「" + account.Name + "」吗？\n\n只删本地保存的登录信息，不影响账号本身。"))
+            {
+                return;
+            }
+
+            try
+            {
+                await _accounts.RemoveAsync(account, CancellationToken.None).ConfigureAwait(true);
+
+                Account? current = await _accounts.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+
+                Account = current;
+                Console.Account = current;
+
+                await ReloadSavedAccountsAsync().ConfigureAwait(true);
+
+                StatusText = current == null ? "已移除账号，当前未登录" : "已移除 " + account.Name;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "移除账号失败：" + ex.Message;
+            }
+        }
+
+        private async Task ReloadSavedAccountsAsync()
+        {
+            try
+            {
+                IReadOnlyList<Account> accounts = await _accounts
+                    .LoadAllAsync(CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                SavedAccounts.Clear();
+
+                foreach (Account item in accounts)
+                {
+                    SavedAccounts.Add(item);
+                }
+            }
+            catch (Exception)
+            {
+                // 读不到就空着
+            }
+        }
         /// <summary>快捷入口：填入地址并直接启动（不探测端口——公网服务器常挡住端口探测）。</summary>
         [RelayCommand]
         public async Task QuickJoinAsync(ServerBookmark? server)
@@ -1172,6 +1259,7 @@ namespace NLMCL.App.ViewModels
                     .ConfigureAwait(true);
 
                 await _accounts.SaveAsync(account, CancellationToken.None).ConfigureAwait(true);
+            await ReloadSavedAccountsAsync().ConfigureAwait(true);
 
                 Account = account;
                 Console.Account = account;
@@ -1216,6 +1304,7 @@ namespace NLMCL.App.ViewModels
                     .ConfigureAwait(true);
 
                 await _accounts.SaveAsync(account, CancellationToken.None).ConfigureAwait(true);
+            await ReloadSavedAccountsAsync().ConfigureAwait(true);
 
                 Account = account;
                 Console.Account = account;
@@ -1468,6 +1557,7 @@ namespace NLMCL.App.ViewModels
             {
                 Account account = OfflineAccountFactory.Create(PlayerNameInput);
                 await _accounts.SaveAsync(account, CancellationToken.None).ConfigureAwait(true);
+            await ReloadSavedAccountsAsync().ConfigureAwait(true);
 
                 Account = account;
                 Console.Account = account;

@@ -54,6 +54,23 @@ namespace NLMCL.Tests
                 Saved = null;
                 return Task.CompletedTask;
             }
+
+            public Task<System.Collections.Generic.IReadOnlyList<Account>> LoadAllAsync(
+                CancellationToken cancellationToken)
+                => Task.FromResult<System.Collections.Generic.IReadOnlyList<Account>>(
+                    Saved == null ? new System.Collections.Generic.List<Account>() : new System.Collections.Generic.List<Account> { Saved });
+
+            public Task SwitchAsync(Account account, CancellationToken cancellationToken)
+            {
+                Saved = account;
+                return Task.CompletedTask;
+            }
+
+            public Task RemoveAsync(Account account, CancellationToken cancellationToken)
+            {
+                Saved = null;
+                return Task.CompletedTask;
+            }
         }
 
         private static string NewRoot()

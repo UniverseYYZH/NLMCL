@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -97,8 +97,10 @@ namespace NLMCL.Tests
                 Directory.CreateDirectory(paths.DataRoot);
                 File.WriteAllText(paths.AccountsFile, "{ not json");
 
-                // 坏文件不该让启动器崩在启动流程里
-                await Assert.ThrowsAnyAsync<Exception>(() => store.LoadAsync(CancellationToken.None));
+                // 坏文件不该让启动器崩：直接当"未登录"，而不是抛异常中断启动流程
+                Account? account = await store.LoadAsync(CancellationToken.None);
+
+                Assert.Null(account);
             }
             finally
             {

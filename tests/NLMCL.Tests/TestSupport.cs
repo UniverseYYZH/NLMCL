@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -187,6 +188,41 @@ namespace NLMCL.Tests
             public Task ClearAsync(CancellationToken cancellationToken)
             {
                 Current = null;
+                return Task.CompletedTask;
+            }
+
+            public System.Collections.Generic.List<Account> All { get; } = new();
+
+            public Task<System.Collections.Generic.IReadOnlyList<Account>> LoadAllAsync(
+                CancellationToken cancellationToken)
+            {
+                var list = new System.Collections.Generic.List<Account>();
+
+                if (Current != null)
+                {
+                    list.Add(Current);
+                }
+
+                list.AddRange(All.Where(item => !ReferenceEquals(item, Current)));
+
+                return Task.FromResult<System.Collections.Generic.IReadOnlyList<Account>>(list);
+            }
+
+            public Task SwitchAsync(Account account, CancellationToken cancellationToken)
+            {
+                Current = account;
+                return Task.CompletedTask;
+            }
+
+            public Task RemoveAsync(Account account, CancellationToken cancellationToken)
+            {
+                All.RemoveAll(item => string.Equals(item.Uuid, account.Uuid, StringComparison.OrdinalIgnoreCase));
+
+                if (Current != null && string.Equals(Current.Uuid, account.Uuid, StringComparison.OrdinalIgnoreCase))
+                {
+                    Current = All.FirstOrDefault();
+                }
+
                 return Task.CompletedTask;
             }
         }
