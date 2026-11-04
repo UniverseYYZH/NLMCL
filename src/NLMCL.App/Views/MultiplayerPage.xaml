@@ -36,7 +36,7 @@
 
             <!-- 服务器档案：主按钮 + 就绪检查（新玩家只需要点这一个按钮） -->
             <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0"
-                    Visibility="{Binding PrimaryProfile, Converter={StaticResource NullToVisibility}}">
+                    Visibility="{Binding HasPrimaryProfile, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel>
                     <TextBlock Text="{Binding PrimaryProfile.Name}" FontSize="13" FontWeight="SemiBold"
                                Foreground="{DynamicResource Text}" />

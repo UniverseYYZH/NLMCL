@@ -518,6 +518,10 @@ namespace NLMCL.App.ViewModels
         public ServerProfile? PrimaryProfile => ServerProfiles.FirstOrDefault(p => p.RequiresMods)
             ?? ServerProfiles.FirstOrDefault();
 
+        /// <summary>是否有可显示的服务器档案（卡片绑定它，避免异步加载后不刷新）。</summary>
+        [ObservableProperty]
+        private bool _hasPrimaryProfile;
+
 
         /// <summary>已保存的账号（当前账号在第一位）。</summary>
         public ObservableCollection<Account> SavedAccounts { get; }
@@ -1271,6 +1275,9 @@ namespace NLMCL.App.ViewModels
         /// </summary>
         public void RefreshJoinChecks()
         {
+            HasPrimaryProfile = PrimaryProfile != null;
+            OnPropertyChanged(nameof(PrimaryProfile));
+
             JoinChecks.Clear();
 
             ServerProfile? profile = PrimaryProfile;
