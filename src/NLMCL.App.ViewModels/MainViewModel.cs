@@ -521,6 +521,10 @@ namespace NLMCL.App.ViewModels
         /// <summary>纯净子服档案（还原服等）：不装任何加载器。</summary>
         public ServerProfile? VanillaProfile => ServerProfiles.FirstOrDefault(p => !p.RequiresMods);
 
+        /// <summary>是否有纯净档案（卡片绑定它；计算属性本身不发通知）。</summary>
+        [ObservableProperty]
+        private bool _hasVanillaProfile;
+
         /// <summary>是否有可显示的服务器档案（卡片绑定它，避免异步加载后不刷新）。</summary>
         [ObservableProperty]
         private bool _hasPrimaryProfile;
@@ -1312,6 +1316,8 @@ namespace NLMCL.App.ViewModels
         public void RefreshJoinChecks()
         {
             HasPrimaryProfile = PrimaryProfile != null;
+            HasVanillaProfile = VanillaProfile != null;
+            OnPropertyChanged(nameof(VanillaProfile));
             OnPropertyChanged(nameof(PrimaryProfile));
 
             JoinChecks.Clear();

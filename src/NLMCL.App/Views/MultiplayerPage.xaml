@@ -94,7 +94,7 @@
 
             <!-- 还原服：纯净子服，不装任何加载器 -->
             <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,10,0,0"
-                    Visibility="{Binding VanillaProfile, Converter={StaticResource NullToVisibility}}">
+                    Visibility="{Binding HasVanillaProfile, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel>
                     <TextBlock Text="{Binding VanillaProfile.Name}" FontSize="13" FontWeight="SemiBold"
                                Foreground="{DynamicResource Text}" />
