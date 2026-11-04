@@ -1203,8 +1203,23 @@ namespace NLMCL.App.ViewModels
             {
                 StatusText = "正在停止当前游戏 …";
                 Console.Stop();
-                await Task.Delay(1500).ConfigureAwait(true);
+
+                // 不能固定延时：慢机器上旧进程没退干净就启动会双开，
+                // 快机器上又白等。改成"最多等 10 秒，期间每 200ms 检查一次"。
+                DateTime deadline = DateTime.UtcNow.AddSeconds(10);
+
+                while (Console.IsRunning && DateTime.UtcNow < deadline)
+                {
+                    await Task.Delay(200).ConfigureAwait(true);
+                }
+
+                if (Console.IsRunning)
+                {
+                    StatusText = "旧进程 10 秒内没有退出，请手动关闭游戏后再点「重启游戏」";
+                    return;
+                }
             }
+
 
             if (SelectedVersion == null)
             {

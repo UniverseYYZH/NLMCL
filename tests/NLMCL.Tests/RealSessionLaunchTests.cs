@@ -19,7 +19,7 @@ namespace NLMCL.Tests
     /// </summary>
     public class RealSessionLaunchTests
     {
-        [Fact]
+        [RealFact]
         public async Task Launches_real_instance_through_the_session_path()
         {
             string? minecraft = Environment.GetEnvironmentVariable("NLMCL_TEST_MC_DIR");

@@ -89,7 +89,7 @@ namespace NLMCL.Tests
         }
 
         /// <summary>造一个只有 natives 归档的最小安装，然后跑 PCL 的解压逻辑。</summary>
-        [Fact]
+        [RealFact]
         public void Extracts_native_dlls_next_to_the_version()
         {
             string versionDirectory = Path.Combine(_root, "versions", "1.21.1");
@@ -136,7 +136,7 @@ namespace NLMCL.Tests
         /// 没有传统的 <c>natives.windows</c> 字段。PCL 不认这种，需要我们自己平铺解压，
         /// 否则 <c>-Djava.library.path</c> 指向空目录，LWJGL 报 lwjgl.dll 找不到。
         /// </summary>
-        [Fact]
+        [RealFact]
         public void Extracts_modern_format_natives_flat()
         {
             string minecraft = Path.Combine(_root, "modern");
@@ -189,7 +189,7 @@ namespace NLMCL.Tests
         /// 它会列出该版本所有 natives 条目、文件是否存在、以及最终解压结果。
         /// 用来回答"为什么真实实例的 -natives 目录还是空的"。
         /// </summary>
-        [Fact]
+        [RealFact]
         public void Diagnose_real_instance_natives()
         {
             string? minecraft = Environment.GetEnvironmentVariable("NLMCL_TEST_MC_DIR");

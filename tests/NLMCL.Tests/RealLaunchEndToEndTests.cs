@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -40,7 +40,7 @@ namespace NLMCL.Tests
             }
         }
 
-        [Fact]
+        [RealFact]
         public async Task Launching_from_the_view_model_starts_a_real_process()
         {
             (string Directory, string Version)? target = Target;

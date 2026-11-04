@@ -32,6 +32,12 @@ namespace NLMCL.Core.Installing
 
         private const int MaxPerConnection = 4;
 
+        /// <summary>分块首字节超时。</summary>
+        private static readonly TimeSpan FirstByteTimeout = TimeSpan.FromSeconds(15);
+
+        /// <summary>分块"无进展"超时（每收到数据就重置）。</summary>
+        private static readonly TimeSpan NoProgressTimeout = TimeSpan.FromSeconds(60);
+
         private static readonly HttpClient Client = CreateClient();
 
         private static HttpClient CreateClient()
@@ -323,29 +329,64 @@ namespace NLMCL.Core.Installing
             return false;
         }
 
+        /// <summary>
+        /// 下载一个分块，带**两级超时**：
+        ///   首字节 15 秒内没到 → 失败；已连上但 60 秒没有新数据 → 失败。
+        ///
+        /// 为什么必须有：调用方大多传 CancellationToken.None，
+        /// 一个卡住的连接会让整次下载既不失败也不重试（成员审阅 3.5 指出的问题）。
+        /// </summary>
         private static async Task DownloadRangeAsync(
             string url, long start, long end, string partPath, CancellationToken cancellationToken)
         {
-            using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url))
+            using (CancellationTokenSource watchdog =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
-                request.Headers.Range = new RangeHeaderValue(start, end);
+                watchdog.CancelAfter(FirstByteTimeout);
 
-                using (HttpResponseMessage response = await Client
-                    .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
-                    .ConfigureAwait(false))
+                using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url))
                 {
-                    if (response.StatusCode != System.Net.HttpStatusCode.PartialContent)
-                    {
-                        throw new InvalidOperationException("服务器不支持分块下载：" + response.StatusCode);
-                    }
+                    request.Headers.Range = new RangeHeaderValue(start, end);
 
-                    using (Stream remote = await response.Content
-                        .ReadAsStreamAsync()
-                        .ConfigureAwait(false))
-                    using (FileStream local = new FileStream(
-                        partPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                    try
                     {
-                        await remote.CopyToAsync(local, 81920, cancellationToken).ConfigureAwait(false);
+                        using (HttpResponseMessage response = await Client
+                            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, watchdog.Token)
+                            .ConfigureAwait(false))
+                        {
+                            if (response.StatusCode != System.Net.HttpStatusCode.PartialContent)
+                            {
+                                throw new InvalidOperationException("服务器不支持分块下载：" + response.StatusCode);
+                            }
+
+                            using (Stream remote = await response.Content
+                                .ReadAsStreamAsync()
+                                .ConfigureAwait(false))
+                            using (FileStream local = new FileStream(
+                                partPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                            {
+                                byte[] buffer = new byte[81920];
+                                int read;
+
+                                while ((read = await remote
+                                    .ReadAsync(buffer, 0, buffer.Length, watchdog.Token)
+                                    .ConfigureAwait(false)) > 0)
+                                {
+                                    await local
+                                        .WriteAsync(buffer, 0, read, watchdog.Token)
+                                        .ConfigureAwait(false);
+
+                                    // 每收到数据就重置"无进展"计时
+                                    watchdog.CancelAfter(NoProgressTimeout);
+                                }
+                            }
+                        }
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        throw new TimeoutException(
+                            "分块超时（首字节 " + FirstByteTimeout.TotalSeconds + " 秒 / 无进展 "
+                            + NoProgressTimeout.TotalSeconds + " 秒）：" + url);
                     }
                 }
             }

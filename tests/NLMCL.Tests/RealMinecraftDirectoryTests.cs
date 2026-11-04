@@ -30,7 +30,7 @@ namespace NLMCL.Tests
             }
         }
 
-        [Fact]
+        [RealFact]
         public async Task Scans_a_real_minecraft_directory()
         {
             string? minecraft = Directory;
@@ -61,7 +61,7 @@ namespace NLMCL.Tests
             }
         }
 
-        [Fact]
+        [RealFact]
         public async Task Reads_java_requirement_from_real_versions()
         {
             string? minecraft = Directory;

@@ -15,7 +15,7 @@ namespace NLMCL.Tests
     /// </summary>
     public class JavaSelectionDiagnosticsTests
     {
-        [Fact]
+        [RealFact]
         public async Task Dumps_detected_javas()
         {
             string? minecraft = Environment.GetEnvironmentVariable("NLMCL_TEST_MC_DIR");

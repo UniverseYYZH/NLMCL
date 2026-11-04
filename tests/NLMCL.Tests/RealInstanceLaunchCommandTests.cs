@@ -41,7 +41,7 @@ namespace NLMCL.Tests
             }
         }
 
-        [Fact]
+        [RealFact]
         public void Builds_a_command_for_a_real_instance()
         {
             (string Directory, string Version)? target = Target;
