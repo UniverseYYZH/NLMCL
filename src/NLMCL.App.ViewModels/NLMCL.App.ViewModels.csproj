@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net48</TargetFramework>
     <RootNamespace>NLMCL.App.ViewModels</RootNamespace>
@@ -7,6 +7,9 @@
   <ItemGroup>
     <ProjectReference Include="..\NLMCL.Abstractions\NLMCL.Abstractions.csproj" />
     <ProjectReference Include="..\NLMCL.Core\NLMCL.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="NLMCL.Tests" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />

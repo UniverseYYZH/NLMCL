@@ -236,6 +236,8 @@ namespace NLMCL.App.ViewModels
             IsRunning = true;
             StatusText = "运行中（PID " + _session.ProcessId + "）";
 
+            StartWatchdog();
+
             // JVM 秒退时，Exited 可能在订阅之前就广播完了——补查一次终态，
             // 否则界面永远停在"运行中"，StartCommand 会一直拒绝再次启动。
             if (_session.ExitCode.HasValue)
@@ -292,6 +294,7 @@ namespace NLMCL.App.ViewModels
 
         private void AppendLine(GameOutputLine line)
         {
+            MarkOutput();
             LogTag tag = LogClassifier.Classify(line.Text);
 
             Lines.Add(new ConsoleLine(line.Text, tag));
@@ -343,6 +346,7 @@ namespace NLMCL.App.ViewModels
 
         private void HandleExit(int exitCode)
         {
+            StopWatchdog();
             if (_exitHandled)
             {
                 return;
