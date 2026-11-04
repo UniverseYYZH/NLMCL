@@ -29,6 +29,7 @@ namespace NLMCL.Core.Servers
                     Loader = "fabric",
                     AutoModpackVersion = "4.0.6",
                     Mode = ServerProfileMode.Modded,
+                    MemoryMb = 6144,
                     Notes = "纯净客户端也能进大厅；进宝可梦子服需要在游戏内用菜单传送"
                 };
 
@@ -82,6 +83,7 @@ namespace NLMCL.Core.Servers
                             LoaderVersion = item.Value<string>("loaderVersion") ?? string.Empty,
                             AutoModpackVersion = item.Value<string>("automodpack") ?? string.Empty,
                             Notes = item.Value<string>("notes") ?? string.Empty,
+                            MemoryMb = item.Value<int?>("memory") ?? 0,
                             Mode = string.Equals(item.Value<string>("mode"), "modded", StringComparison.OrdinalIgnoreCase)
                                 ? ServerProfileMode.Modded
                                 : ServerProfileMode.Vanilla
@@ -150,6 +152,7 @@ namespace NLMCL.Core.Servers
                     ["automodpack"] = profile.AutoModpackVersion,
                     ["mode"] = profile.Mode == ServerProfileMode.Modded ? "modded" : "vanilla",
                     ["notes"] = profile.Notes,
+                    ["memory"] = profile.MemoryMb,
                     ["addresses"] = addresses
                 });
             }

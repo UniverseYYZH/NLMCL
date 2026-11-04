@@ -1066,6 +1066,23 @@ namespace NLMCL.App.ViewModels
 
                 await EnsureAutoModpackAsync(profile, instance).ConfigureAwait(true);
 
+                // 大型整合包给 2048 MB 会频繁 GC（表现为"一卡一卡"），按档案建议值写实例设置。
+                if (profile.MemoryMb > 0 && _instanceSettings != null)
+                {
+                    InstanceSettings currentSettings = await _instanceSettings
+                        .LoadAsync(CurrentGameDirectory, instance.FolderName, CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    if (currentSettings.MemoryMb != profile.MemoryMb)
+                    {
+                        currentSettings.MemoryMb = profile.MemoryMb;
+
+                        await _instanceSettings
+                            .SaveAsync(CurrentGameDirectory, instance.FolderName, currentSettings, CancellationToken.None)
+                            .ConfigureAwait(true);
+                    }
+                }
+
                 SelectedVersion = instance;
 
                 StatusText = "启动 " + instance.Name + " 并连接 " + target + " …";

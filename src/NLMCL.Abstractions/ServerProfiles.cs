@@ -55,6 +55,12 @@ namespace NLMCL.Abstractions
         /// <summary>服务器地址（可多个，用于分流/容灾）。域名或 IP，可带端口。</summary>
         public List<string> Addresses { get; } = new List<string>();
 
+        /// <summary>
+        /// 建议分配的内存（MB）。0 = 自动（用实例原有设置）。
+        /// 178 个 mod 的整合包给 2048 MB 会频繁 GC，表现为"一卡一卡"。
+        /// </summary>
+        public int MemoryMb { get; set; }
+
         /// <summary>备注，展示在界面上。</summary>
         public string Notes { get; set; } = string.Empty;
 
