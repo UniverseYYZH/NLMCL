@@ -92,6 +92,26 @@
                 </StackPanel>
             </Border>
 
+            <!-- 还原服：纯净子服，不装任何加载器 -->
+            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,10,0,0"
+                    Visibility="{Binding VanillaProfile, Converter={StaticResource NullToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="{Binding VanillaProfile.Name}" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="{Binding VanillaProfile.AddressText}" FontSize="10.5"
+                               Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
+                    <TextBlock Text="纯净子服：只装原版，不加载任何模组（带 AutoModpack 的客户端会被拒绝）"
+                               FontSize="10" Foreground="{DynamicResource Faint}" Margin="0,4,0,0" TextWrapping="Wrap" />
+
+                    <Button Content="▶  进入还原服（纯原版）"
+                            Style="{StaticResource GhostButton}" Padding="16,9" Margin="0,10,0,0"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Command="{Binding DataContext.JoinProfileModdedCommand,
+                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding VanillaProfile}" />
+                </StackPanel>
+            </Border>
+
             <!-- 常用服务器快捷入口 -->
             <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0">
                 <StackPanel>
@@ -286,6 +306,8 @@
                     <Run Text="· 进模组服：自动装 1.21.1 + Fabric + AutoModpack，直接进宝可梦子服（首次同步约 1 GB）。" />
                     <LineBreak />
                     <Run Text="· 常用服务器：等同于「进大厅」，只是换个线路。" />
+                    <LineBreak />
+                    <Run Text="· 子服准入：宝可梦服 → 模组端；还原服等其它 → 纯净端；大厅 → 任意版本。" />
                     <LineBreak />
                     <Run Text="· 不要从大厅的菜单传送到宝可梦服——没装模组的客户端会卡在那里。" />
                 </TextBlock>

@@ -518,6 +518,9 @@ namespace NLMCL.App.ViewModels
         public ServerProfile? PrimaryProfile => ServerProfiles.FirstOrDefault(p => p.RequiresMods)
             ?? ServerProfiles.FirstOrDefault();
 
+        /// <summary>纯净子服档案（还原服等）：不装任何加载器。</summary>
+        public ServerProfile? VanillaProfile => ServerProfiles.FirstOrDefault(p => !p.RequiresMods);
+
         /// <summary>是否有可显示的服务器档案（卡片绑定它，避免异步加载后不刷新）。</summary>
         [ObservableProperty]
         private bool _hasPrimaryProfile;
@@ -1022,6 +1025,39 @@ namespace NLMCL.App.ViewModels
                 }
 
                 string target = chosen.Endpoint.Host + ":" + chosen.Endpoint.Port;
+
+                // 纯净档案（还原服等）：不装加载器、不装 AutoModpack，
+                // 直接用原版实例进服——带 AutoModpack 的客户端会被验证服拒绝。
+                if (!profile.RequiresMods)
+                {
+                    if (_versionInstaller != null)
+                    {
+                        StatusText = "安装 " + profile.Minecraft + " 原版 …";
+
+                        Progress<InstallProgress> vanillaProgress = new Progress<InstallProgress>(
+                            p => StatusText = p.Stage + " " + p.Percent.ToString("0", CultureInfo.InvariantCulture) + "%");
+
+                        await _versionInstaller.InstallAsync(
+                            new InstallRequest(CurrentGameDirectory, profile.Minecraft),
+                            vanillaProgress,
+                            CancellationToken.None).ConfigureAwait(true);
+                    }
+
+                    await RefreshAsync().ConfigureAwait(true);
+
+                    VersionItem? vanillaInstance = FindProfileInstance(profile);
+
+                    if (vanillaInstance == null)
+                    {
+                        StatusText = "安装完成，但没找到 " + profile.Minecraft + " 原版实例";
+                        return;
+                    }
+
+                    SelectedVersion = vanillaInstance;
+                    StatusText = "启动 " + vanillaInstance.Name + " 并连接 " + target + " …";
+                    await LaunchCoreAsync(target).ConfigureAwait(true);
+                    return;
+                }
 
                 // Fabric 安装必须带版本号（不传会抛「必须指定加载器版本」）。
                 // 档案里没写就查 Fabric meta 的推荐版本，并记回档案。

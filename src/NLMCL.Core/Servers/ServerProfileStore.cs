@@ -36,7 +36,17 @@ namespace NLMCL.Core.Servers
                 pokemon.Addresses.Add("mc2.nxist.top");
                 pokemon.Addresses.Add("mc4.nxist.top");
 
-                return new[] { pokemon };
+                // 还原服是纯净子服：任何模组客户端都会被验证服拒绝（会回同一句红字）。
+                ServerProfile restore = new ServerProfile("nxist-restore", "方块宁理 · 还原服（纯原版）", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Vanilla,
+                    Notes = "纯净端专用；带 AutoModpack 的模组端会被拒绝"
+                };
+
+                restore.Addresses.Add("mc2.nxist.top");
+                restore.Addresses.Add("mc4.nxist.top");
+
+                return new[] { pokemon, restore };
             }
         }
 
@@ -106,6 +116,16 @@ namespace NLMCL.Core.Servers
                         {
                             profiles.Add(profile);
                         }
+                    }
+                }
+
+                // 老文件里只有宝可梦档案：把后来新增的内置档案合并进去，
+                // 否则老用户永远看不到"还原服"。只补缺失的 id，不覆盖用户改过的。
+                foreach (ServerProfile builtIn in BuiltIn)
+                {
+                    if (!profiles.Any(p => string.Equals(p.Id, builtIn.Id, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        profiles.Add(builtIn);
                     }
                 }
 

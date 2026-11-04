@@ -71,7 +71,7 @@ namespace NLMCL.Tests
 
                 IReadOnlyList<ServerProfile> profiles = await store.LoadAsync(CancellationToken.None);
 
-                Assert.Single(profiles);
+                Assert.Equal(2, profiles.Count);   // 宝可梦（模组）+ 还原服（纯净）
                 ServerProfile pokemon = profiles[0];
 
                 Assert.Equal("方块宁理 · 宝可梦服", pokemon.Name);
@@ -114,7 +114,7 @@ namespace NLMCL.Tests
 
                 IReadOnlyList<ServerProfile> loaded = await store.LoadAsync(CancellationToken.None);
 
-                Assert.Single(loaded);
+                Assert.Contains(loaded, p => p.Id == "local-test");
                 Assert.Equal("测试服", loaded[0].Name);
                 Assert.Equal("forge", loaded[0].Loader);
                 Assert.Equal("47.4.28", loaded[0].LoaderVersion);
