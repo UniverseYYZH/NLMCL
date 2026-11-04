@@ -75,6 +75,7 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>SLP 探测（诊断用）。</summary>
         private readonly IServerPinger? _pinger;
+        private readonly IServerAddressResolver? _addressResolver;
 
         /// <summary>Mod 管理页。</summary>
         private readonly ModsViewModel? _mods;
@@ -132,7 +133,8 @@ namespace NLMCL.App.ViewModels
             ModsViewModel? mods = null,
             IVersionRepairer? repairer = null,
             ICrashAnalyzer? crashAnalyzer = null,
-            IVersionManager? versionManager = null)
+            IVersionManager? versionManager = null,
+            IServerAddressResolver? addressResolver = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -159,6 +161,7 @@ namespace NLMCL.App.ViewModels
             _skins = skins;
             _bookmarks = bookmarks;
             _pinger = pinger;
+            _addressResolver = addressResolver;
             _mods = mods;
             _repairer = repairer;
             _ = LoadServersAsync();
@@ -807,6 +810,25 @@ namespace NLMCL.App.ViewModels
             }
 
             report.AppendLine("解析结果：" + host + ":" + port);
+
+            // 很多服务器把真实端口放在 SRV 记录里（例如 mc2.nxist.top → 46718）。
+            // 游戏自己会查 SRV，但我们这里的探测不会，所以先解析一次。
+            if (_addressResolver != null)
+            {
+                ServerEndpoint resolved = await _addressResolver
+                    .ResolveAsync(host, port, CancellationToken.None).ConfigureAwait(true);
+
+                if (resolved.FromSrv)
+                {
+                    report.AppendLine("SRV 记录：" + resolved.Host + ":" + resolved.Port);
+                    host = resolved.Host;
+                    port = resolved.Port;
+                }
+                else
+                {
+                    report.AppendLine("SRV 记录：无（按 " + port + " 连接）");
+                }
+            }
 
             if (local.IndexOf('.') > 0)
             {

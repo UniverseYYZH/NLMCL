@@ -166,6 +166,7 @@ namespace NLMCL.App
             services.AddSingleton<IVersionManager, Core.Versions.VersionManager>();
             services.AddSingleton<IModUpdateChecker, Core.Mods.ModrinthUpdateChecker>();
             services.AddSingleton<IServerPinger, Core.Lan.ServerListPing>();
+            services.AddSingleton<IServerAddressResolver, Core.Servers.SrvResolver>();
             services.AddSingleton<ILanScanner, Core.Lan.LanScanner>();
             services.AddSingleton<IDialogService, Services.MessageBoxDialogService>();
 

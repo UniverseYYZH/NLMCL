@@ -76,3 +76,38 @@ namespace NLMCL.Abstractions
         Task SaveAsync(IReadOnlyList<ServerBookmark> servers, CancellationToken cancellationToken);
     }
 }
+
+    /// <summary>解析后的服务器端点（可能是 SRV 记录给出的真实端口）。</summary>
+    public readonly struct ServerEndpoint
+    {
+        public ServerEndpoint(string host, int port, bool fromSrv)
+        {
+            Host = host;
+            Port = port;
+            FromSrv = fromSrv;
+        }
+
+        /// <summary>实际连接用的主机（SRV 的 target 或原主机）。</summary>
+        public string Host { get; }
+
+        public int Port { get; }
+
+        /// <summary>端口是否来自 SRV 记录。</summary>
+        public bool FromSrv { get; }
+
+        public override string ToString() => Host + ":" + Port;
+    }
+
+    /// <summary>
+    /// 把「域名[:端口]」解析成实际可连的端点。
+    ///
+    /// 为什么需要：Minecraft 服务器常把真实端口藏在 DNS 的
+    /// <c>_minecraft._tcp.&lt;域名&gt;</c> SRV 记录里（例如 mc2.nxist.top 实际是 46718），
+    /// 只填 25565 会直接连不上。游戏客户端自己会查 SRV，但我们的端口探测/诊断不会，
+    /// 所以需要这一层。
+    /// </summary>
+    public interface IServerAddressResolver
+    {
+        /// <summary>解析；查不到 SRV 时原样返回（<c>FromSrv = false</c>）。</summary>
+        Task<ServerEndpoint> ResolveAsync(string host, int port, CancellationToken cancellationToken);
+    }
