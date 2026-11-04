@@ -1,3 +1,4 @@
+using System.Threading;
 using System;
 using System.Threading.Tasks;
 using System.Windows;
@@ -54,6 +55,25 @@ namespace NLMCL.App
 
                 // 把"哪个构建 / 谁 / 能不能写"落盘：用于区分"跑的是旧 exe"和"新 exe 写盘失败"
                 Services.StartupTrace.Write(null);
+
+                // 首次使用引导：先让用户选目录 / 看 Java / 登录，再进主界面
+                try
+                {
+                    AppSettings existingSettings = _services.GetRequiredService<IAppSettingsStore>()
+                        .LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+                    if (!existingSettings.WizardCompleted)
+                    {
+                        Views.WizardWindow wizard = _services.GetRequiredService<Views.WizardWindow>();
+                        wizard.ShowDialog();
+                    }
+                }
+                catch (Exception wizardError)
+                {
+                    // 引导自身失败不能拦住启动
+                    Services.StartupTrace.Write(wizardError);
+                }
+
 
                 MainWindow window = _services.GetRequiredService<MainWindow>();
                 MainWindow = window;
@@ -173,9 +193,11 @@ namespace NLMCL.App
             services.AddSingleton<SkinViewModel>();
             services.AddSingleton<LanScanViewModel>();
             services.AddSingleton<ModsViewModel>();
+            services.AddTransient<WizardViewModel>();
             services.AddSingleton<LaunchConsoleViewModel>();
             services.AddTransient<MainViewModel>();
             services.AddTransient<MainWindow>();
+            services.AddTransient<Views.WizardWindow>();
         }
 
         protected override void OnExit(ExitEventArgs e)

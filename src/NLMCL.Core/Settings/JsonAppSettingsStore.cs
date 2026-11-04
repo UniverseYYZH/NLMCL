@@ -40,7 +40,8 @@ namespace NLMCL.Core.Settings
                     UiScale = root.Value<double?>("uiScale") ?? 1.0,
                     UiScaleMaximized = root.Value<double?>("uiScaleMaximized") ?? 1.5,
                     DownloadThreads = root.Value<int?>("downloadThreads") ?? 6,
-                    DefaultMemoryMb = root.Value<int?>("defaultMemoryMb") ?? 2048
+                    DefaultMemoryMb = root.Value<int?>("defaultMemoryMb") ?? 2048,
+                    WizardCompleted = root.Value<bool?>("wizardCompleted") ?? false
                 });
             }
             catch (JsonException)
@@ -87,7 +88,8 @@ namespace NLMCL.Core.Settings
                 ["uiScale"] = settings.UiScale,
                 ["uiScaleMaximized"] = settings.UiScaleMaximized,
                 ["downloadThreads"] = settings.DownloadThreads,
-                ["defaultMemoryMb"] = settings.DefaultMemoryMb
+                ["defaultMemoryMb"] = settings.DefaultMemoryMb,
+                ["wizardCompleted"] = settings.WizardCompleted
             };
 
             // 原子替换：先写临时文件，再换名。直接 WriteAllText 会在写到一半时被截断，

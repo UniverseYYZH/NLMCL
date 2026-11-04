@@ -33,6 +33,9 @@ namespace NLMCL.Abstractions
 
         /// <summary>新实例的默认内存（MB）。</summary>
         public int DefaultMemoryMb { get; set; } = 2048;
+
+        /// <summary>首次启动引导是否已完成（跳过/关掉也算完成，避免反复弹）。</summary>
+        public bool WizardCompleted { get; set; }
     }
 
     /// <summary>应用设置的持久化。</summary>
