@@ -69,3 +69,14 @@ artifacts\publish\NLMCL.exe      约 1.45 MB
 
 `NLMCL.App.csproj` 里 `Costura.Fody` 带 `PrivateAssets="all"`，
 **不要加 `IncludeAssets`**——Fody 会警告缺少 `compile` 部分。
+
+## 发布包命名（重要）
+
+net48 按 **exe 文件名** 查找配置文件：`<exe>.exe.config`。因此：
+
+- exe **必须叫 `NLMCL.exe`**：改名会让 `NLMCL.exe.config` 里的程序集绑定重定向失效，
+  某些环境下报 `未能加载文件或程序集 Newtonsoft.Json`
+- 版本标识放在**文件夹或压缩包**上：`NLMCL-1.0\NLMCL.exe`、`NLMCL-1.0.zip`
+- 分发用版本号命名 zip，解压后双击 `NLMCL.exe`
+
+本机测试用的 `NLMCL-<时间>.exe` 属于临时副本，可以改名；发人的包不要这么干。
