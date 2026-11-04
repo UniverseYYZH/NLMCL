@@ -1117,7 +1117,8 @@ namespace NLMCL.App.ViewModels
                 .GetFilesAsync(projectId, ResourceKind.Mod, profile.Minecraft, profile.Loader, CancellationToken.None)
                 .ConfigureAwait(true);
 
-            ResourceFile? file = files.FirstOrDefault();
+            // 服务端跑 v4.0.6 的话，装 v5.0.0-rc 会协议对不上（进服不同步）。
+            ResourceFile? file = AutoModpackSelector.Pick(files, profile.AutoModpackVersion);
 
             if (file == null)
             {
@@ -1135,6 +1136,23 @@ namespace NLMCL.App.ViewModels
             StatusText = "下载 AutoModpack " + (file.VersionName ?? file.Name) + " …";
 
             await _fileDownloader.DownloadAsync(file.Url, target, CancellationToken.None).ConfigureAwait(true);
+
+            // 同目录里如果还留着别的 automodpack 版本（例如上次误装的 v5），一并删掉，
+            // 否则两个 AutoModpack 同时加载会冲突。
+            foreach (string stale in Directory.GetFiles(mods, "automodpack*.jar"))
+            {
+                if (!string.Equals(Path.GetFileName(stale), file.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        File.Delete(stale);
+                    }
+                    catch (IOException)
+                    {
+                        // 被占用就算了，下一次再清
+                    }
+                }
+            }
 
             if (!string.IsNullOrEmpty(file.Sha1) && !HasSha1(target, file.Sha1!))
             {
