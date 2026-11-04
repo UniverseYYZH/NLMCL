@@ -95,7 +95,7 @@ namespace NLMCL.Abstractions
     public sealed class ResourceFile
     {
         public ResourceFile(string name, string url, long size, string? versionName,
-            IReadOnlyList<string> gameVersions, string? loader)
+            IReadOnlyList<string> gameVersions, string? loader, string? sha1 = null)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Url = url ?? throw new ArgumentNullException(nameof(url));
@@ -103,7 +103,11 @@ namespace NLMCL.Abstractions
             VersionName = versionName;
             GameVersions = gameVersions ?? Array.Empty<string>();
             Loader = loader;
+            Sha1 = sha1;
         }
+
+        /// <summary>Modrinth 提供的 SHA1（可为空；有就必须校验）。</summary>
+        public string? Sha1 { get; }
 
         public string Name { get; }
 

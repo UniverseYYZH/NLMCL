@@ -48,7 +48,29 @@ namespace NLMCL.Core.Resources
 
             try
             {
-                await _download.DownloadFileAsync(file.Url, temporary, cancellationToken).ConfigureAwait(false);
+                // 最多两次：第一次校验失败就重下一次，避免"半个文件"被当成好的
+                for (int attempt = 1; ; attempt++)
+                {
+                    await _download.DownloadFileAsync(file.Url, temporary, cancellationToken).ConfigureAwait(false);
+
+                    if (!IsChecksumValid(temporary, file.Sha1, out string actual, out long length))
+                    {
+                        TryDelete(temporary);
+
+                        if (attempt >= 2)
+                        {
+                            throw new InvalidDataException(
+                                "文件校验失败（两次下载都不匹配）：" + file.Name
+                                + "；期望 SHA1 " + file.Sha1
+                                + "，实际 " + actual + "，大小 " + length + " 字节。"
+                                + "可能是下载被截断或镜像缓存了坏文件，稍后重试或换网络。");
+                        }
+
+                        continue;
+                    }
+
+                    break;
+                }
 
                 if (File.Exists(target))
                 {
@@ -63,6 +85,30 @@ namespace NLMCL.Core.Resources
             {
                 TryDelete(temporary);
             }
+        }
+
+        /// <summary>有 SHA1 就校验；没有就只看"文件非空"。</summary>
+        internal static bool IsChecksumValid(string path, string? expectedSha1, out string actual, out long length)
+        {
+            actual = string.Empty;
+            length = 0;
+
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            length = new FileInfo(path).Length;
+
+            if (string.IsNullOrWhiteSpace(expectedSha1))
+            {
+                return length > 0;
+            }
+
+            actual = MeloongCore.CryptographyUtils.ComputeFileHash(
+                path, MeloongCore.CryptographyUtils.HashMethod.Sha1);
+
+            return string.Equals(actual, expectedSha1!.Trim(), StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>安装目录：隔离实例优先。</summary>

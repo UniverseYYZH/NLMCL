@@ -270,7 +270,8 @@ namespace NLMCL.Core.Resources
                     primary.Value<long?>("size") ?? 0,
                     versionName,
                     gameVersions,
-                    loader));
+                    loader,
+                    primary.SelectToken("hashes.sha1")?.Value<string>()));
             }
 
             return files;
