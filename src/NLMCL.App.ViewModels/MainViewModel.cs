@@ -1025,6 +1025,7 @@ namespace NLMCL.App.ViewModels
                 ProfileEndpoint chosen = await _profilePicker
                     .PickAsync(profile, CancellationToken.None).ConfigureAwait(true);
 
+                JoinTrace("挑入口结果：" + chosen.Endpoint + " 在线=" + chosen.Online + " 错误=" + (chosen.Error ?? "-"));
                 if (!chosen.Online)
                 {
                     StatusText = "服务器连不上：" + profile.Name + "（" + (chosen.Error ?? "超时") + "）";
@@ -1087,6 +1088,7 @@ namespace NLMCL.App.ViewModels
                     && _fabricCatalog != null
                     && string.Equals(profile.Loader, "fabric", StringComparison.OrdinalIgnoreCase))
                 {
+                    JoinTrace("模组分支：查询 Fabric 加载器版本 " + profile.Minecraft);
                     StatusText = "查询 Fabric 加载器版本 …";
 
                     var loaderVersions = await _fabricCatalog
@@ -1106,6 +1108,7 @@ namespace NLMCL.App.ViewModels
 
                 if (_versionInstaller != null)
                 {
+                    JoinTrace("模组分支：开始安装 " + profile.Minecraft + " " + profile.Loader + " " + (loaderVersion ?? ""));
                     StatusText = "安装 " + profile.Minecraft + " " + profile.Loader + " " + (loaderVersion ?? string.Empty) + " …";
 
                     Progress<InstallProgress> progress = new Progress<InstallProgress>(
@@ -1152,6 +1155,7 @@ namespace NLMCL.App.ViewModels
 
                 SelectedVersion = instance;
 
+                JoinTrace("模组分支：启动 " + instance.FolderName + " → " + target);
                 StatusText = "启动 " + instance.Name + " 并连接 " + target + " …";
 
                 await LaunchCoreAsync(target).ConfigureAwait(true);
@@ -1196,6 +1200,7 @@ namespace NLMCL.App.ViewModels
             string mods = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "mods");
             Directory.CreateDirectory(mods);
 
+            JoinTrace("模组分支：查询 AutoModpack 版本");
             StatusText = "查询 AutoModpack 适配版本 …";
 
             var files = await _resourceCatalog
