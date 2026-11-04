@@ -12,7 +12,7 @@
 > - **第三方库**：[MeloongCore](https://github.com/Meloong-Git/MeloongCore)（Apache-2.0），
 >   以及 NuGet 依赖（见 `Directory.Packages.props`）。
 >
-> 本仓库为**私有仓库**，不发布二进制、不对第三方分发 PCL 代码。
+> 本仓库为**私有仓库**（含 Release 附件）：仅本人可见，不对外分发二进制或 PCL 代码。
 
 Minecraft Java 版启动器（Windows / .NET Framework 4.8 / WPF）。
 
