@@ -10,5 +10,8 @@ namespace NLMCL.Abstractions
     {
         /// <summary>是 → 继续；否 → 取消。</summary>
         bool Confirm(string title, string message);
+
+        /// <summary>输入一行文本；取消返回 null。</summary>
+        string? Prompt(string title, string message, string initialValue);
     }
 }

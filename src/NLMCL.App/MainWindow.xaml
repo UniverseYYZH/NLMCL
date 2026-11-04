@@ -417,7 +417,18 @@
                                  Foreground="{DynamicResource Text}" />
                     </Border>
 
-                    <Button Grid.Column="6" Content="保存" Style="{StaticResource GhostButton}"
+                <StackPanel Grid.Column="6" Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
+                    <Button Content="重命名" Style="{StaticResource GhostButton}" Padding="10,4"
+                            ToolTip="改实例目录名与 JSON id"
+                            Command="{Binding RenameVersionCommand}" />
+                    <Button Content="复制" Style="{StaticResource GhostButton}" Padding="10,4" Margin="6,0,0,0"
+                            ToolTip="复制出一个新实例"
+                            Command="{Binding CopyVersionCommand}" />
+                    <Button Content="删除" Style="{StaticResource GhostButton}" Padding="10,4" Margin="6,0,0,0"
+                            ToolTip="删除整个实例目录（带确认）"
+                            Command="{Binding DeleteVersionCommand}" />
+                </StackPanel>
+                    <Button Grid.Column="7" Content="保存" Style="{StaticResource GhostButton}"
                             Margin="8,0,0,0" Padding="12,4"
                             Command="{Binding SaveSettingsCommand}" />
                 </Grid>

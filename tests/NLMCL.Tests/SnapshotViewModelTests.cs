@@ -57,6 +57,8 @@ namespace NLMCL.Tests
 
             public bool Answer { get; }
 
+        public string? Prompt(string title, string message, string initialValue) => null;
+
             public int Calls { get; private set; }
 
             public bool Confirm(string title, string message)

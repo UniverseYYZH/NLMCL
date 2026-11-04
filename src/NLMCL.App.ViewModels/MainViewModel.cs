@@ -81,6 +81,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>版本修复。</summary>
         private readonly IVersionRepairer? _repairer;
 
+        /// <summary>实例重命名/复制/删除。</summary>
+        private readonly IVersionManager? _versionManager;
+
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
 
@@ -127,7 +130,8 @@ namespace NLMCL.App.ViewModels
             IServerPinger? pinger = null,
             ModsViewModel? mods = null,
             IVersionRepairer? repairer = null,
-            ICrashAnalyzer? crashAnalyzer = null)
+            ICrashAnalyzer? crashAnalyzer = null,
+            IVersionManager? versionManager = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -167,6 +171,7 @@ namespace NLMCL.App.ViewModels
 
             Console = console ?? throw new ArgumentNullException(nameof(console));
             Console.CrashAnalyzer = crashAnalyzer;
+            _versionManager = versionManager;
 
             CurrentGameDirectory = paths.DefaultMinecraftDirectory;
 
@@ -1826,6 +1831,149 @@ namespace NLMCL.App.ViewModels
             finally
             {
                 IsBusy = false;
+            }
+        }
+        /// <summary>重命名当前实例（目录 + JSON 里的 id）。</summary>
+        [RelayCommand]
+        public async Task RenameVersionAsync()
+        {
+            if (_versionManager == null || _dialogs == null)
+            {
+                StatusText = "实例管理不可用。";
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在列表里点选一个版本";
+                return;
+            }
+
+            string current = SelectedVersion.FolderName;
+            string? name = _dialogs.Prompt("重命名实例", "新名字（不能与现有实例重名）：", current);
+
+            if (string.IsNullOrWhiteSpace(name) || string.Equals(name, current, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (!_versionManager.IsNameAvailable(CurrentGameDirectory, name!, current))
+            {
+                StatusText = "名字不可用：已有同名实例，或包含非法字符。";
+                return;
+            }
+
+            try
+            {
+                await _versionManager.RenameAsync(CurrentGameDirectory, current, name!, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                StatusText = "已重命名为 " + name;
+                await RefreshAsync().ConfigureAwait(true);
+                SelectVersionByName(name!);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "重命名失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>复制当前实例（只复制目录内容，不动共享的 libraries/assets）。</summary>
+        [RelayCommand]
+        public async Task CopyVersionAsync()
+        {
+            if (_versionManager == null || _dialogs == null)
+            {
+                StatusText = "实例管理不可用。";
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在列表里点选一个版本";
+                return;
+            }
+
+            string current = SelectedVersion.FolderName;
+            string suggestion = current + "-副本";
+            string? name = _dialogs.Prompt("复制实例", "新实例名：", suggestion);
+
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return;
+            }
+
+            if (!_versionManager.IsNameAvailable(CurrentGameDirectory, name!, current))
+            {
+                StatusText = "名字不可用：已有同名实例，或包含非法字符。";
+                return;
+            }
+
+            StatusText = "正在复制实例（大实例可能要一会儿）…";
+
+            try
+            {
+                string created = await _versionManager
+                    .CopyAsync(CurrentGameDirectory, current, name!, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                StatusText = "已复制为 " + created;
+                await RefreshAsync().ConfigureAwait(true);
+                SelectVersionByName(created);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "复制失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>删除当前实例（不可恢复，带确认）。</summary>
+        [RelayCommand]
+        public async Task DeleteVersionAsync()
+        {
+            if (_versionManager == null)
+            {
+                StatusText = "实例管理不可用。";
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在列表里点选一个版本";
+                return;
+            }
+
+            string folder = SelectedVersion.FolderName;
+
+            if (_dialogs != null && !_dialogs.Confirm(
+                    "删除实例",
+                    "确定要删除「" + folder + "」吗？\n\n整个实例目录（含存档、模组、配置）都会被删除，无法恢复。"))
+            {
+                return;
+            }
+
+            try
+            {
+                await _versionManager.DeleteAsync(CurrentGameDirectory, folder, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                StatusText = "已删除 " + folder;
+                await RefreshAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "删除失败：" + ex.Message;
+            }
+        }
+
+        private void SelectVersionByName(string folder)
+        {
+            VersionItem? match = Versions.FirstOrDefault(
+                item => string.Equals(item.FolderName, folder, StringComparison.OrdinalIgnoreCase));
+
+            if (match != null)
+            {
+                SelectVersion(match);
             }
         }
         /// <summary>扫描本地版本。UI 只通过 <see cref="RefreshCommand"/> 触发。</summary>
