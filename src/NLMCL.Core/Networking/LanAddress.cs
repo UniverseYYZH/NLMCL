@@ -67,8 +67,17 @@ namespace NLMCL.Core.Networking
             int separator = value.LastIndexOf(':');
             if (separator < 0)
             {
-                error = "联机地址缺少端口，格式应为 host:port";
-                return false;
+                // 纯 IP 没写端口：局域网房间端口是随机的，必须让用户补上，否则必然连错。
+                // 域名没写端口：按默认 25565 处理，真实端口由 SRV 记录给出（mc2.nxist.top → 46718）。
+                if (IPAddress.TryParse(value, out _))
+                {
+                    error = "联机地址缺少端口，格式应为 host:port";
+                    return false;
+                }
+
+                host = value;
+                port = 25565;
+                return true;
             }
 
             string hostPart = value.Substring(0, separator).Trim();

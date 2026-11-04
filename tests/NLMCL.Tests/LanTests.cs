@@ -198,5 +198,17 @@ namespace NLMCL.Tests
             Assert.Equal("192.168.1.7:端口", vm.MyAddress);
             Assert.Contains("端口", vm.StatusText);
         }
+
+        [Theory]
+        [InlineData("mc2.nxist.top", "mc2.nxist.top", 25565)]
+        [InlineData("example.org", "example.org", 25565)]
+        public void Domain_without_port_means_default_25565(string input, string expectedHost, int expectedPort)
+        {
+            // 域名不写端口是合法的：真实端口可能来自 SRV 记录
+            Assert.True(LanAddress.TryParse(input, out string host, out int port, out string? error));
+            Assert.Null(error);
+            Assert.Equal(expectedHost, host);
+            Assert.Equal(expectedPort, port);
+        }
     }
 }
