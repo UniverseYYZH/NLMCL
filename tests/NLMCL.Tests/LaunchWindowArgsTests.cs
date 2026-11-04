@@ -39,9 +39,9 @@ namespace NLMCL.Tests
 
                 IReadOnlyList<string> args = vm.BuildExtraGameArguments();
 
-                Assert.Contains("--fullscreen", args);
-                Assert.Equal("1280", args[args.ToList().IndexOf("--width") + 1]);
-                Assert.Equal("720", args[args.ToList().IndexOf("--height") + 1]);
+                // 窗口尺寸/全屏不再走命令行（会与 PCL 自带的 --width 重复而互相抵消）
+                Assert.DoesNotContain("--width", args);
+                Assert.DoesNotContain("--fullscreen", args);
                 Assert.Contains("-XX:+UseG1GC", args);
                 Assert.Contains("--demo", args);
             }

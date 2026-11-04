@@ -1169,22 +1169,8 @@ namespace NLMCL.App.ViewModels
                     StringSplitOptions.RemoveEmptyEntries));
             }
 
-            if (Fullscreen)
-            {
-                args.Add("--fullscreen");
-            }
-
-            if (WindowWidth > 0)
-            {
-                args.Add("--width");
-                args.Add(WindowWidth.ToString(CultureInfo.InvariantCulture));
-            }
-
-            if (WindowHeight > 0)
-            {
-                args.Add("--height");
-                args.Add(WindowHeight.ToString(CultureInfo.InvariantCulture));
-            }
+            // 窗口尺寸与全屏不走命令行：PCL 的参数管线读 LaunchArgumentWindow*，
+            // 而且多份 --width/--height 会互相抵消（见厂商代码注释），所以改由启动器写设置。
 
             return args;
         }
@@ -1848,6 +1834,9 @@ namespace NLMCL.App.ViewModels
                 }.WithAccount(Account ?? BuildImplicitOfflineAccount());
 
             request.ExtraGameArguments = BuildExtraGameArguments();
+            request.WindowWidth = WindowWidth;
+            request.WindowHeight = WindowHeight;
+            request.Fullscreen = Fullscreen;
 
                 // 外置登录：把 authlib-injector 挂到 JVM 上。
                 // 失败就明确报错，不要带着空身份启动（服务器会直接踢人，日志还看不出原因）。

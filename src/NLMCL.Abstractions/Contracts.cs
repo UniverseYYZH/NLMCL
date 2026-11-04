@@ -165,6 +165,15 @@ namespace NLMCL.Abstractions
 
         /// <summary>玩家名。为空时用占位名 Player。</summary>
         /// <summary>额外的游戏参数（--width / --height / --fullscreen 等），追加在命令行末尾。</summary>
+
+        /// <summary>窗口宽度（0 = 不指定）。</summary>
+        public int WindowWidth { get; set; }
+
+        /// <summary>窗口高度（0 = 不指定）。</summary>
+        public int WindowHeight { get; set; }
+
+        /// <summary>是否全屏启动。</summary>
+        public bool Fullscreen { get; set; }
         public IReadOnlyList<string> ExtraGameArguments { get; set; } = Array.Empty<string>();
 
         public string? PlayerName { get; set; }
