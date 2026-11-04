@@ -1,4 +1,18 @@
-# NLMCL
+# NLMCL（C# / WPF 重写）
+
+> **来源声明**
+>
+> - **原项目**：[UniverseYYZH/NLMCL](https://github.com/UniverseYYZH/NLMCL)（作者 **UniverseYYZH**，
+>   Python + Flet 实现，v1.0.0）。本仓库是该项目的 **C#/WPF 重写**，经原作者允许后建立。
+>   旧实现的源码作为对照物保留在 [`legacy/`](legacy/)，对应 v1.0.0 发布版本。
+> - **后端依赖**：[PCL（Plain Craft Launcher）](https://github.com/Meloong-Git/PCL)，作者 Meloong-Git
+>   及社区贡献者。其部分源码以 vendor 形式引入（`src/NLMCL.Core.Pcl.Vb/Vendor/`），
+>   **仅按《PCL 分发有限许可》在私人范围内使用**，不对外分发。许可原文见
+>   [PCL/LICENCE](https://github.com/Meloong-Git/PCL/blob/main/LICENCE)。
+> - **第三方库**：[MeloongCore](https://github.com/Meloong-Git/MeloongCore)（Apache-2.0），
+>   以及 NuGet 依赖（见 `Directory.Packages.props`）。
+>
+> 本仓库为**私有仓库**，不发布二进制、不对第三方分发 PCL 代码。
 
 Minecraft Java 版启动器（Windows / .NET Framework 4.8 / WPF）。
 
