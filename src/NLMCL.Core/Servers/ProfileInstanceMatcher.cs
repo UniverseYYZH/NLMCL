@@ -31,7 +31,34 @@ namespace NLMCL.Core.Servers
                 return false;
             }
 
-            return kind.Length == 0 || folder.Contains(kind);
+            if (kind.Length > 0)
+            {
+                return folder.Contains(kind);
+            }
+
+            // 纯净档案（loader 为空）：必须排除"带加载器"的目录。
+            // 否则 fabric-loader-0.20.1-1.21.1 也会以 "-1.21.1" 结尾而被命中，
+            // 结果"进还原服"启动的是模组客户端 —— 服务器必然拒绝。
+            return !HasLoaderToken(folder);
+        }
+
+        private static readonly string[] LoaderTokens =
+        {
+            "fabric", "forge", "neoforge", "quilt", "optifine", "liteloader"
+        };
+
+        /// <summary>目录名里是否带加载器标记。</summary>
+        private static bool HasLoaderToken(string folder)
+        {
+            foreach (string token in LoaderTokens)
+            {
+                if (folder.IndexOf(token, StringComparison.Ordinal) >= 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

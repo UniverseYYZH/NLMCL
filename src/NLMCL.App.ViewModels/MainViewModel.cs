@@ -974,6 +974,8 @@ namespace NLMCL.App.ViewModels
 
             try
             {
+                JoinTrace("开始挑入口：" + string.Join(",", profile.Addresses));
+
                 ProfileEndpoint chosen = await _profilePicker
                     .PickAsync(profile, CancellationToken.None).ConfigureAwait(true);
 
@@ -1004,6 +1006,7 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task JoinProfileModdedAsync(ServerProfile? profile)
         {
+            JoinTrace("点击进服：profile=" + (profile == null ? "null" : profile.Name) + "，picker=" + (_profilePicker != null));
             if (profile == null || _profilePicker == null)
             {
                 return;
@@ -1034,8 +1037,16 @@ namespace NLMCL.App.ViewModels
                 // 直接用原版实例进服——带 AutoModpack 的客户端会被验证服拒绝。
                 if (!profile.RequiresMods)
                 {
-                    if (_versionInstaller != null)
+                    // 已有可用实例就直接用：重复跑安装器会让"点一下没反应"（安装要下载几百个文件）。
+                    // 先刷新版本列表：刚启动时扫描可能还没完成，Versions 为空会误判成"没装"。
+                    await RefreshAsync().ConfigureAwait(true);
+                    VersionItem? existingVanilla = FindProfileInstance(profile);
+                    JoinTrace("纯净分支：版本列表 " + Versions.Count + " 个，匹配到 " + (existingVanilla?.FolderName ?? "无"));
+                    bool needInstall = existingVanilla == null || !HasClientJar(existingVanilla);
+
+                    if (needInstall && _versionInstaller != null)
                     {
+                        JoinTrace("纯净分支：开始安装 " + profile.Minecraft + " 原版");
                         StatusText = "安装 " + profile.Minecraft + " 原版 …";
 
                         Progress<InstallProgress> vanillaProgress = new Progress<InstallProgress>(
@@ -1049,6 +1060,8 @@ namespace NLMCL.App.ViewModels
 
                     await RefreshAsync().ConfigureAwait(true);
 
+                    JoinTrace("纯净分支：查找实例 minecraft=" + profile.Minecraft);
+
                     VersionItem? vanillaInstance = FindProfileInstance(profile);
 
                     if (vanillaInstance == null)
@@ -1059,6 +1072,7 @@ namespace NLMCL.App.ViewModels
 
                     SelectedVersion = vanillaInstance;
                     StatusText = "启动 " + vanillaInstance.Name + " 并连接 " + target + " …";
+                    JoinTrace("纯净分支：启动 " + vanillaInstance.FolderName + " → " + target);
                     await LaunchCoreAsync(target).ConfigureAwait(true);
                     return;
                 }
@@ -1144,6 +1158,7 @@ namespace NLMCL.App.ViewModels
             }
             catch (Exception ex)
             {
+                JoinTrace("进服失败：" + ex.GetType().Name + " " + ex.Message);
                 StatusText = "进模组服失败：" + ex.Message;
             }
         }
@@ -1313,6 +1328,43 @@ namespace NLMCL.App.ViewModels
         /// 刷新"进服前检查"：账号 / 客户端 / 模组 / 内存 / 整合包。
         /// 让玩家在点按钮之前就能看出缺什么。
         /// </summary>
+        /// <summary>进服链路日志（排查"点了没反应"）：%APPDATA%\NLMCL\logs\join.log。</summary>
+        /// <summary>实例目录里是否已有客户端 jar（判断"能否直接启动、不必重装"）。</summary>
+        private bool HasClientJar(VersionItem instance)
+        {
+            try
+            {
+                string jar = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, instance.FolderName + ".jar");
+                return File.Exists(jar) && new FileInfo(jar).Length > 1024 * 1024;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+
+
+        private static void JoinTrace(string message)
+        {
+            try
+            {
+                string dir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "NLMCL", "logs");
+
+                Directory.CreateDirectory(dir);
+                File.AppendAllText(
+                    Path.Combine(dir, "join.log"),
+                    DateTime.Now.ToString("HH:mm:ss") + " " + message + Environment.NewLine);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+
         public void RefreshJoinChecks()
         {
             HasPrimaryProfile = PrimaryProfile != null;
