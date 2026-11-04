@@ -64,8 +64,20 @@ namespace NLMCL.App
 
                     if (!existingSettings.WizardCompleted)
                     {
-                        Views.WizardWindow wizard = _services.GetRequiredService<Views.WizardWindow>();
-                        wizard.ShowDialog();
+                        // 关键：此时主窗口还没创建，ShutdownMode=OnMainWindowClose 会退化成
+                        // "最后一个窗口关闭即退出"——引导一关，进程就没了，主界面永远不出现。
+                        ShutdownMode previousMode = ShutdownMode;
+                        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+                        try
+                        {
+                            Views.WizardWindow wizard = _services.GetRequiredService<Views.WizardWindow>();
+                            wizard.ShowDialog();
+                        }
+                        finally
+                        {
+                            ShutdownMode = previousMode;
+                        }
                     }
                 }
                 catch (Exception wizardError)
