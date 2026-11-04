@@ -20,9 +20,9 @@ namespace NLMCL.Core.Servers
     {
         public static readonly IReadOnlyList<ServerBookmark> BuiltIn = new[]
         {
-            new ServerBookmark("方块宁理 · 线路一", "mc2.nxist.top"),
-            new ServerBookmark("方块宁理 · 线路二", "mc4.nxist.top"),
-            new ServerBookmark("方块宁理 · 学生专线", "mua.nxist.top")
+            new ServerBookmark("方块宁理 · 宝可梦服", "mc2.nxist.top"),
+            new ServerBookmark("方块宁理 · 宝可梦生存", "mc4.nxist.top"),
+            new ServerBookmark("高校联盟 · 账号认证（非游戏服）", "mua.nxist.top")
         };
 
         private readonly IAppPaths _paths;
@@ -64,6 +64,13 @@ namespace NLMCL.Core.Servers
                     }
                 }
 
+                // 老版本写入的是「线路一 / 线路二 / 学生专线」，现在按实际用途改名。
+                // 只改与内置预设完全同名的那几条，用户自己改过名字的一律不动。
+                if (MigrateSeededNames(servers))
+                {
+                    await SaveAsync(servers, cancellationToken).ConfigureAwait(false);
+                }
+
                 return servers;
             }
             catch (Exception)
@@ -73,6 +80,29 @@ namespace NLMCL.Core.Servers
             }
         }
 
+        /// <summary>把老版本的内置命名迁移成现在的用途命名；只匹配"名字与内置预设完全一致"的条目。</summary>
+        internal static bool MigrateSeededNames(IList<ServerBookmark> servers)
+        {
+            var renames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["方块宁理 · 线路一"] = "方块宁理 · 宝可梦服",
+                ["方块宁理 · 线路二"] = "方块宁理 · 宝可梦生存",
+                ["方块宁理 · 学生专线"] = "高校联盟 · 账号认证（非游戏服）"
+            };
+
+            bool changed = false;
+
+            for (int i = 0; i < servers.Count; i++)
+            {
+                if (renames.TryGetValue(servers[i].Name, out string? newName))
+                {
+                    servers[i] = new ServerBookmark(newName, servers[i].Address);
+                    changed = true;
+                }
+            }
+
+            return changed;
+        }
         public async Task SaveAsync(IReadOnlyList<ServerBookmark> servers, CancellationToken cancellationToken)
         {
             string file = FilePath;
