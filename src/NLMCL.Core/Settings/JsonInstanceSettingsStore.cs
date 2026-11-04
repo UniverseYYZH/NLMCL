@@ -40,7 +40,10 @@ namespace NLMCL.Core.Settings
                     MemoryMb = root.Value<int?>("memoryMb") ?? InstanceSettings.DefaultMemoryMb,
                     JavaPath = root.Value<string>("javaPath"),
                     ExtraArguments = root.Value<string>("extraArguments"),
-                    ServerAddress = root.Value<string>("serverAddress")
+                    ServerAddress = root.Value<string>("serverAddress"),
+                    WindowWidth = root.Value<int?>("windowWidth") ?? 0,
+                    WindowHeight = root.Value<int?>("windowHeight") ?? 0,
+                    Fullscreen = root.Value<bool?>("fullscreen") ?? false
                 };
 
                 return Task.FromResult(settings);
@@ -78,7 +81,10 @@ namespace NLMCL.Core.Settings
                 ["memoryMb"] = settings.MemoryMb,
                 ["javaPath"] = settings.JavaPath,
                 ["extraArguments"] = settings.ExtraArguments,
-                ["serverAddress"] = settings.ServerAddress
+                ["serverAddress"] = settings.ServerAddress,
+                ["windowWidth"] = settings.WindowWidth,
+                ["windowHeight"] = settings.WindowHeight,
+                ["fullscreen"] = settings.Fullscreen
             };
 
             File.WriteAllText(file, root.ToString(Formatting.Indented), Encoding.UTF8);

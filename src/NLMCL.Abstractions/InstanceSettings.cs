@@ -24,6 +24,15 @@ namespace NLMCL.Abstractions
         /// <summary>直连服务器地址。</summary>
         public string? ServerAddress { get; set; }
 
+        /// <summary>窗口宽度（0 = 不指定，用游戏默认）。</summary>
+        public int WindowWidth { get; set; }
+
+        /// <summary>窗口高度（0 = 不指定）。</summary>
+        public int WindowHeight { get; set; }
+
+        /// <summary>是否全屏启动。</summary>
+        public bool Fullscreen { get; set; }
+
         /// <summary>把额外参数按空白切开（忽略多余空格）。</summary>
         public IReadOnlyList<string> ParsedExtraArguments()
         {

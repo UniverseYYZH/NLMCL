@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
@@ -275,6 +276,15 @@ namespace NLMCL.App.ViewModels
         /// <summary>额外的游戏参数（按空格分词）。</summary>
         [ObservableProperty]
         private string _extraArguments = string.Empty;
+
+        [ObservableProperty]
+        private int _windowWidth;
+
+        [ObservableProperty]
+        private int _windowHeight;
+
+        [ObservableProperty]
+        private bool _fullscreen;
 
         /// <summary>列表里被点中的版本。启动按钮用它决定启动哪个。</summary>
         [ObservableProperty]
@@ -1145,6 +1155,41 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>把实例设置翻译成游戏参数：额外参数 + 窗口尺寸 + 全屏。</summary>
+        internal IReadOnlyList<string> BuildExtraGameArguments()
+        {
+            List<string> args = new List<string>();
+
+            string extra = (ExtraArguments ?? string.Empty).Trim();
+
+            if (extra.Length > 0)
+            {
+                args.AddRange(extra.Split(
+                    new[] { ' ', '\t', '\r', '\n' },
+                    StringSplitOptions.RemoveEmptyEntries));
+            }
+
+            if (Fullscreen)
+            {
+                args.Add("--fullscreen");
+            }
+
+            if (WindowWidth > 0)
+            {
+                args.Add("--width");
+                args.Add(WindowWidth.ToString(CultureInfo.InvariantCulture));
+            }
+
+            if (WindowHeight > 0)
+            {
+                args.Add("--height");
+                args.Add(WindowHeight.ToString(CultureInfo.InvariantCulture));
+            }
+
+            return args;
+        }
+
+
         /// <summary>读取当前实例的设置。</summary>
         public async Task LoadInstanceSettingsAsync(VersionItem item)
         {
@@ -1162,6 +1207,9 @@ namespace NLMCL.App.ViewModels
                 MemoryMb = settings.MemoryMb;
                 JavaPath = settings.JavaPath ?? string.Empty;
                 ExtraArguments = settings.ExtraArguments ?? string.Empty;
+                WindowWidth = settings.WindowWidth;
+                WindowHeight = settings.WindowHeight;
+                Fullscreen = settings.Fullscreen;
             }
             catch (Exception ex)
             {
@@ -1188,7 +1236,10 @@ namespace NLMCL.App.ViewModels
                     {
                         MemoryMb = MemoryMb,
                         JavaPath = string.IsNullOrWhiteSpace(JavaPath) ? null : JavaPath,
-                        ExtraArguments = string.IsNullOrWhiteSpace(ExtraArguments) ? null : ExtraArguments
+                        ExtraArguments = string.IsNullOrWhiteSpace(ExtraArguments) ? null : ExtraArguments,
+                        WindowWidth = WindowWidth,
+                        WindowHeight = WindowHeight,
+                        Fullscreen = Fullscreen
                     },
                     CancellationToken.None).ConfigureAwait(true);
 
@@ -1539,15 +1590,19 @@ namespace NLMCL.App.ViewModels
         {
             try
             {
-                await _appSettings.SaveAsync(
-                    new AppSettings { GameDirectory = CurrentGameDirectory },
-                    CancellationToken.None).ConfigureAwait(true);
+                // 只改目录：其它字段（主题、缩放、wizardCompleted、clientId）必须原样保留。
+                // 之前这里 new 了一个空 AppSettings，保存一次就把引导标记和 client id 抹掉了。
+                AppSettings current = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+                current.GameDirectory = CurrentGameDirectory;
+
+                await _appSettings.SaveAsync(current, CancellationToken.None).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
                 StatusText = "保存设置失败：" + ex.Message;
             }
         }
+
 
         /// <summary>离线登录：用输入的名字生成账号并持久化。</summary>
         [RelayCommand]
@@ -1791,6 +1846,8 @@ namespace NLMCL.App.ViewModels
                     MaximumMemoryMb = MemoryMb,
                     ServerAddress = serverAddress
                 }.WithAccount(Account ?? BuildImplicitOfflineAccount());
+
+            request.ExtraGameArguments = BuildExtraGameArguments();
 
                 // 外置登录：把 authlib-injector 挂到 JVM 上。
                 // 失败就明确报错，不要带着空身份启动（服务器会直接踢人，日志还看不出原因）。

@@ -164,6 +164,9 @@ namespace NLMCL.Abstractions
         public string? ExtraJvmArguments { get; set; }
 
         /// <summary>玩家名。为空时用占位名 Player。</summary>
+        /// <summary>额外的游戏参数（--width / --height / --fullscreen 等），追加在命令行末尾。</summary>
+        public IReadOnlyList<string> ExtraGameArguments { get; set; } = Array.Empty<string>();
+
         public string? PlayerName { get; set; }
 
         /// <summary>玩家 UUID（不带花括号）。</summary>
