@@ -51,4 +51,18 @@ namespace NLMCL.App
             throw new NotSupportedException();
         }
     }
+
+    /// <summary>非 null 显示、null 隐藏（用于"有档案才显示卡片"）。</summary>
+    public sealed class NullToVisibilityConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return value == null ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new System.NotSupportedException();
+        }
+    }
 }

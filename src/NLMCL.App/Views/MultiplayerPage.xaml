@@ -12,6 +12,7 @@
             <local:InverseBooleanConverter x:Key="InverseBool" />
             <local:EmptyToVisibilityConverter x:Key="EmptyToVisibility" />
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <local:NullToVisibilityConverter x:Key="NullToVisibility" />
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -33,55 +34,61 @@
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
 
 
-            <!-- 服务器档案：一键按档案要求进服 -->
-            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0">
+            <!-- 服务器档案：主按钮 + 就绪检查（新玩家只需要点这一个按钮） -->
+            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0"
+                    Visibility="{Binding PrimaryProfile, Converter={StaticResource NullToVisibility}}">
                 <StackPanel>
-                    <TextBlock Text="服务器档案" FontSize="12" FontWeight="SemiBold"
+                    <TextBlock Text="{Binding PrimaryProfile.Name}" FontSize="13" FontWeight="SemiBold"
                                Foreground="{DynamicResource Text}" />
-                    <TextBlock Text="点「进大厅」自动挑一个能连的地址并启动；大厅不需要装模组"
-                               FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,3,0,10" />
+                    <TextBlock Text="{Binding PrimaryProfile.AddressText}" FontSize="10.5"
+                               Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
 
-                    <ItemsControl ItemsSource="{Binding ServerProfiles}">
+                    <!-- 就绪检查：缺什么一眼可见 -->
+                    <ItemsControl ItemsSource="{Binding JoinChecks}" Margin="0,10,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{DynamicResource Surface}"
-                                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                                        CornerRadius="8" Padding="12,10" Margin="0,0,0,8">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <StackPanel Grid.Column="0">
-                                            <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource Text}" />
-                                            <TextBlock Text="{Binding AddressText}" FontSize="10.5"
-                                                       Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
-                                            <TextBlock Text="{Binding Notes}" FontSize="10" TextWrapping="Wrap"
-                                                       Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
-                                        </StackPanel>
-
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <Button Content="进大厅"
-                                                Style="{StaticResource PrimaryButton}" Padding="14,7"
-                                                ToolTip="大厅不需要模组，任意 1.21 客户端都能进"
-                                                Command="{Binding DataContext.JoinProfileLobbyCommand,
-                                                          RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}" />
-                                        <Button Content="进模组服"
-                                                Style="{StaticResource GhostButton}" Padding="12,7" Margin="6,0,0,0"
-                                                ToolTip="自动安装 MC + 加载器 + AutoModpack 后启动"
-                                                Visibility="{Binding RequiresMods, Converter={StaticResource BoolToVisibility}}"
-                                                Command="{Binding DataContext.JoinProfileModdedCommand,
-                                                          RelativeSource={RelativeSource AncestorType=Window}}"
-                                                CommandParameter="{Binding}" />
-                                    </StackPanel>
-                                    </Grid>
-                                </Border>
+                                <StackPanel Orientation="Horizontal" Margin="0,1">
+                                    <TextBlock Text="✓" Foreground="#2E7D32" FontSize="11" Width="16"
+                                               Visibility="{Binding IsOkGlyph, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBlock Text="⚠" Foreground="#C62828" FontSize="11" Width="16"
+                                               Visibility="{Binding IsWarnGlyph, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBlock Text="{Binding Text}" FontSize="10.5"
+                                               Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
+                                </StackPanel>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!-- 主按钮：自动准备 + 启动 -->
+                    <Button Content="▶  进入宝可梦服（自动准备）"
+                            Style="{StaticResource PrimaryButton}" Padding="18,10" Margin="0,12,0,0"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            ToolTip="自动检查并安装 1.21.1 + Fabric + AutoModpack，然后直接进宝可梦子服"
+                            Command="{Binding DataContext.JoinProfileModdedCommand,
+                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding PrimaryProfile}" />
+
+                    <!-- 次要入口：只进大厅 -->
+                    <Button Content="只进大厅（不需要模组，任意版本可进）"
+                            Style="{StaticResource GhostButton}" Padding="10,4" Margin="0,8,0,0"
+                            FontSize="10.5" HorizontalAlignment="Left"
+                            Command="{Binding DataContext.JoinProfileLobbyCommand,
+                                      RelativeSource={RelativeSource AncestorType=Window}}"
+                            CommandParameter="{Binding PrimaryProfile}" />
+
+                    <!-- 首次进服的预告：两红框不吓人 -->
+                    <Border Background="{DynamicResource Surface}" CornerRadius="6" Padding="10,8"
+                            Margin="0,10,0,0" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
+                        <TextBlock FontSize="10" Foreground="{DynamicResource Faint}" TextWrapping="Wrap" LineHeight="16">
+                            <Run Text="首次进服会出现两个红色确认框，属正常：" />
+                            <LineBreak />
+                            <Run Text="① Certificate Verification → 点 Skip → 输入 I accept the risk" />
+                            <LineBreak />
+                            <Run Text="② MODPACK INSTALL（服主自制 mod）→ 勾选 → Load these unverified JARs" />
+                            <LineBreak />
+                            <Run Text="之后会下载约 1 GB 整合包（视网速 10–60 分钟），完成提示重启时用启动器的「重启游戏」。" />
+                        </TextBlock>
+                    </Border>
                 </StackPanel>
             </Border>
 

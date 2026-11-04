@@ -339,7 +339,8 @@ namespace NLMCL.Tests
             IAppearance? appearance = null,
             IAppSettingsStore? appSettings = null,
             ResourceViewModel? resource = null,
-            IServerBookmarkStore? bookmarks = null)
+            IServerBookmarkStore? bookmarks = null,
+            IServerProfileStore? profileStore = null)
         {
             return new MainViewModel(
                 catalog,
@@ -361,7 +362,8 @@ namespace NLMCL.Tests
                 dialogs: dialogs,
                 appearance: appearance,
                 resource: resource,
-                bookmarks: bookmarks);
+                bookmarks: bookmarks,
+                profileStore: profileStore);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {

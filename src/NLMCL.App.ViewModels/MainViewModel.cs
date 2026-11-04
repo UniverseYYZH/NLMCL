@@ -510,6 +510,15 @@ namespace NLMCL.App.ViewModels
         public System.Collections.ObjectModel.ObservableCollection<ServerProfile> ServerProfiles { get; }
             = new System.Collections.ObjectModel.ObservableCollection<ServerProfile>();
 
+        /// <summary>进服前检查（账号 / 客户端 / 模组 / 内存 / 整合包）。</summary>
+        public ObservableCollection<ServerJoinCheck> JoinChecks { get; }
+            = new ObservableCollection<ServerJoinCheck>();
+
+        /// <summary>主按钮对应的服务器（第一个需要模组的档案）。</summary>
+        public ServerProfile? PrimaryProfile => ServerProfiles.FirstOrDefault(p => p.RequiresMods)
+            ?? ServerProfiles.FirstOrDefault();
+
+
         /// <summary>已保存的账号（当前账号在第一位）。</summary>
         public ObservableCollection<Account> SavedAccounts { get; }
             = new ObservableCollection<Account>();
@@ -1248,13 +1257,103 @@ namespace NLMCL.App.ViewModels
                 {
                     ServerProfiles.Add(profile);
                 }
+                RefreshJoinChecks();
             }
             catch (Exception ex)
             {
                 StatusText = "读取服务器档案失败：" + ex.Message;
             }
         }
-        /// <summary>把当前选中实例的 mods 目录交给 Mod 管理页。</summary>
+
+        /// <summary>
+        /// 刷新"进服前检查"：账号 / 客户端 / 模组 / 内存 / 整合包。
+        /// 让玩家在点按钮之前就能看出缺什么。
+        /// </summary>
+        public void RefreshJoinChecks()
+        {
+            JoinChecks.Clear();
+
+            ServerProfile? profile = PrimaryProfile;
+
+            if (profile == null)
+            {
+                return;
+            }
+
+            // ① 账号
+            JoinChecks.Add(Account != null
+                ? new ServerJoinCheck("账号", Account.Name + "（" + Account.TypeLabel + "）", true)
+                : new ServerJoinCheck("账号", "未登录（需要外置或正版账号）", false));
+
+            // ② 客户端实例
+            VersionItem? instance = FindProfileInstance(profile);
+            JoinChecks.Add(instance != null
+                ? new ServerJoinCheck("客户端", instance.Name + " 已就绪", true)
+                : new ServerJoinCheck("客户端", "未安装（点按钮会自动装 " + profile.Minecraft + " + " + profile.Loader + "）", false));
+
+            if (instance == null)
+            {
+                JoinChecks.Add(new ServerJoinCheck("模组", "待安装 AutoModpack " + profile.AutoModpackVersion, false));
+                JoinChecks.Add(new ServerJoinCheck("整合包", "未同步（首次约 1 GB）", false));
+                return;
+            }
+
+            string mods = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "mods");
+            bool hasAutoModpack = Directory.Exists(mods)
+                && Directory.GetFiles(mods, "automodpack*.jar").Length > 0;
+
+            JoinChecks.Add(hasAutoModpack
+                ? new ServerJoinCheck("模组", "AutoModpack " + profile.AutoModpackVersion + " 已就位", true)
+                : new ServerJoinCheck("模组", "缺 AutoModpack（点按钮会自动装）", false));
+
+            // ③ 内存（100+ mod 的整合包 2 GB 会频繁 GC）
+            int memory = GetInstanceMemory(instance);
+            JoinChecks.Add(memory >= 4096
+                ? new ServerJoinCheck("内存", memory + " MB", true)
+                : new ServerJoinCheck("内存", memory + " MB（建议 6144，点按钮会自动改）", false));
+
+            // ④ 整合包是否同步过
+            string packs = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "automodpack", "modpacks");
+            long size = 0;
+
+            if (Directory.Exists(packs))
+            {
+                foreach (string file in Directory.GetFiles(packs, "*", SearchOption.AllDirectories))
+                {
+                    try { size += new FileInfo(file).Length; } catch (IOException) { }
+                }
+            }
+
+            JoinChecks.Add(size > 100L * 1024 * 1024
+                ? new ServerJoinCheck("整合包", "已同步（" + Math.Round(size / 1024d / 1024d) + " MB）", true)
+                : new ServerJoinCheck("整合包", "未同步（首次约 1 GB，视网速 10–60 分钟）", false));
+        }
+
+        /// <summary>读实例设置里的内存；没有设置文件就返回全局默认。</summary>
+        private int GetInstanceMemory(VersionItem instance)
+        {
+            try
+            {
+                string settings = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "nlmcl-settings.json");
+
+                if (File.Exists(settings))
+                {
+                    string json = File.ReadAllText(settings);
+                    var match = System.Text.RegularExpressions.Regex.Match(json, @"""memoryMb""\s*:\s*(\d+)");
+
+                    if (match.Success && int.TryParse(match.Groups[1].Value, out int value))
+                    {
+                        return value;
+                    }
+                }
+            }
+            catch (IOException)
+            {
+            }
+
+            return 2048;
+        }
+
         private void RefreshModsInstance()
         {
             if (_mods == null)

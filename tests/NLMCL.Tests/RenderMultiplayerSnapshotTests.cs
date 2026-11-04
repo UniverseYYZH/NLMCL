@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -6,6 +6,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using NLMCL.App.ViewModels;
 using NLMCL.Core;
+using NLMCL.Core.Servers;
 using NLMCL.Core.Pcl;
 using Xunit;
 
@@ -25,7 +26,15 @@ namespace NLMCL.Tests
             {
                 try
                 {
-                    MainViewModel vm = TestSupport.CreateMain(new PclVersionCatalog(), new AppPaths(roaming));
+                    AppPaths paths = new AppPaths(roaming);
+
+                    // 注入服务器档案，让"主按钮 + 就绪检查"这张卡片也被渲染到快照里
+                    ServerProfileStore profiles = new ServerProfileStore(paths);
+                    MainViewModel vm = TestSupport.CreateMain(
+                        new PclVersionCatalog(), paths, profileStore: profiles);
+
+                    vm.LoadServerProfilesAsync().GetAwaiter().GetResult();
+                    vm.RefreshJoinChecks();
 
                     vm.SelectSection(vm.NavigationGroups[0].Items[2]);
                     Assert.True(vm.IsMultiplayerSection);
