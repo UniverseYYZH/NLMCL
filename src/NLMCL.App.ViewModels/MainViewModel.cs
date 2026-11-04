@@ -12,6 +12,7 @@ using NLMCL.Abstractions;
 using NLMCL.Core.Accounts;
 using NLMCL.Core.Installing;
 using NLMCL.Core.Networking;
+using NLMCL.Core.Servers;
 using NLMCL.Core.Settings;
 using System.Diagnostics;
 
@@ -76,6 +77,8 @@ namespace NLMCL.App.ViewModels
         /// <summary>SLP 探测（诊断用）。</summary>
         private readonly IServerPinger? _pinger;
         private readonly IServerAddressResolver? _addressResolver;
+        private readonly IServerProfileStore? _profileStore;
+        private readonly ServerProfilePicker? _profilePicker;
 
         /// <summary>Mod 管理页。</summary>
         private readonly ModsViewModel? _mods;
@@ -134,7 +137,9 @@ namespace NLMCL.App.ViewModels
             IVersionRepairer? repairer = null,
             ICrashAnalyzer? crashAnalyzer = null,
             IVersionManager? versionManager = null,
-            IServerAddressResolver? addressResolver = null)
+            IServerAddressResolver? addressResolver = null,
+            IServerProfileStore? profileStore = null,
+            ServerProfilePicker? profilePicker = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -162,6 +167,8 @@ namespace NLMCL.App.ViewModels
             _bookmarks = bookmarks;
             _pinger = pinger;
             _addressResolver = addressResolver;
+            _profileStore = profileStore;
+            _profilePicker = profilePicker;
             _mods = mods;
             _repairer = repairer;
             _ = LoadServersAsync();
@@ -483,6 +490,10 @@ namespace NLMCL.App.ViewModels
         /// <summary>当前显示「局域网扫描」页。</summary>
         [ObservableProperty]
         private bool _isLanScanSection;
+
+        /// <summary>服务器档案：进入一台服需要什么（版本/加载器/模组）。</summary>
+        public System.Collections.ObjectModel.ObservableCollection<ServerProfile> ServerProfiles { get; }
+            = new System.Collections.ObjectModel.ObservableCollection<ServerProfile>();
 
         /// <summary>已保存的账号（当前账号在第一位）。</summary>
         public ObservableCollection<Account> SavedAccounts { get; }
@@ -898,6 +909,81 @@ namespace NLMCL.App.ViewModels
             StatusText = "跳过端口探测，直接启动并连接 " + host + ":" + port + " …";
 
             await LaunchCoreAsync(host + ":" + port).ConfigureAwait(true);
+        }
+        /// <summary>
+        /// 「进大厅」：用当前选中的实例，连到档案里挑出来的最优地址。
+        ///
+        /// 大厅不需要任何 mod（纯净客户端也能进），所以不做 AutoModpack 安装。
+        /// </summary>
+        [RelayCommand]
+        public async Task JoinProfileLobbyAsync(ServerProfile? profile)
+        {
+            if (profile == null)
+            {
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在「本地版本」里选一个版本，再进大厅";
+                return;
+            }
+
+            if (_profilePicker == null)
+            {
+                StatusText = "服务器档案功能未初始化";
+                return;
+            }
+
+            StatusText = "正在挑选入口：" + string.Join(" / ", profile.Addresses) + " …";
+
+            try
+            {
+                ProfileEndpoint chosen = await _profilePicker
+                    .PickAsync(profile, CancellationToken.None).ConfigureAwait(true);
+
+                if (!chosen.Online)
+                {
+                    StatusText = "进不了大厅：" + profile.Name + " 的地址都连不上（"
+                        + (chosen.Error ?? "超时") + "）";
+                    return;
+                }
+
+                string target = chosen.Endpoint.Host + ":" + chosen.Endpoint.Port;
+
+                StatusText = "进入大厅：" + target + "（" + chosen.Players + "/" + chosen.MaxPlayers + " 在线）";
+
+                await LaunchCoreAsync(target).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "进入大厅失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>读取服务器档案（首次运行会写入内置的宝可梦服）。</summary>
+        public async Task LoadServerProfilesAsync()
+        {
+            if (_profileStore == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var profiles = await _profileStore.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+
+                ServerProfiles.Clear();
+
+                foreach (ServerProfile profile in profiles)
+                {
+                    ServerProfiles.Add(profile);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText = "读取服务器档案失败：" + ex.Message;
+            }
         }
         /// <summary>把当前选中实例的 mods 目录交给 Mod 管理页。</summary>
         private void RefreshModsInstance()
@@ -1590,6 +1676,7 @@ namespace NLMCL.App.ViewModels
             }
 
             await LoadAccountAsync().ConfigureAwait(true);
+            await LoadServerProfilesAsync().ConfigureAwait(true);
             await RefreshAsync().ConfigureAwait(true);
         }
 

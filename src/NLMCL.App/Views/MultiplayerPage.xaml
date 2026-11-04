@@ -31,6 +31,50 @@
             <TextBlock Text="同一局域网内直接连：一方在游戏里「对局域网开放」，另一方填地址加入"
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
 
+
+            <!-- 服务器档案：一键按档案要求进服 -->
+            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0">
+                <StackPanel>
+                    <TextBlock Text="服务器档案" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="点「进大厅」自动挑一个能连的地址并启动；大厅不需要装模组"
+                               FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,3,0,10" />
+
+                    <ItemsControl ItemsSource="{Binding ServerProfiles}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource Surface}"
+                                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                        CornerRadius="8" Padding="12,10" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="{Binding Name}" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Text}" />
+                                            <TextBlock Text="{Binding AddressText}" FontSize="10.5"
+                                                       Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
+                                            <TextBlock Text="{Binding Notes}" FontSize="10" TextWrapping="Wrap"
+                                                       Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
+                                        </StackPanel>
+
+                                        <Button Grid.Column="1" Content="进大厅"
+                                                Style="{StaticResource PrimaryButton}" Padding="14,7"
+                                                VerticalAlignment="Center"
+                                                Command="{Binding DataContext.JoinProfileLobbyCommand,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
             <!-- 常用服务器快捷入口 -->
             <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0">
                 <StackPanel>
