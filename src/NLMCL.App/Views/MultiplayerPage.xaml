@@ -11,6 +11,7 @@
             </ResourceDictionary.MergedDictionaries>
             <local:InverseBooleanConverter x:Key="InverseBool" />
             <local:EmptyToVisibilityConverter x:Key="EmptyToVisibility" />
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -61,12 +62,21 @@
                                                        Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
                                         </StackPanel>
 
-                                        <Button Grid.Column="1" Content="进大厅"
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="进大厅"
                                                 Style="{StaticResource PrimaryButton}" Padding="14,7"
-                                                VerticalAlignment="Center"
+                                                ToolTip="大厅不需要模组，任意 1.21 客户端都能进"
                                                 Command="{Binding DataContext.JoinProfileLobbyCommand,
                                                           RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding}" />
+                                        <Button Content="进模组服"
+                                                Style="{StaticResource GhostButton}" Padding="12,7" Margin="6,0,0,0"
+                                                ToolTip="自动安装 MC + 加载器 + AutoModpack 后启动"
+                                                Visibility="{Binding RequiresMods, Converter={StaticResource BoolToVisibility}}"
+                                                Command="{Binding DataContext.JoinProfileModdedCommand,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
                                     </Grid>
                                 </Border>
                             </DataTemplate>

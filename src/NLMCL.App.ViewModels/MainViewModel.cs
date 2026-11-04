@@ -79,6 +79,12 @@ namespace NLMCL.App.ViewModels
         private readonly IServerAddressResolver? _addressResolver;
         private readonly IServerProfileStore? _profileStore;
         private readonly ServerProfilePicker? _profilePicker;
+        /// <summary>上一次启动用的服务器地址（"重启游戏"要用）。</summary>
+        private string? _lastServerAddress;
+
+        private readonly IVersionInstaller? _versionInstaller;
+        private readonly IFileDownloader? _fileDownloader;
+        private readonly IResourceCatalog? _resourceCatalog;
 
         /// <summary>Mod 管理页。</summary>
         private readonly ModsViewModel? _mods;
@@ -139,7 +145,10 @@ namespace NLMCL.App.ViewModels
             IVersionManager? versionManager = null,
             IServerAddressResolver? addressResolver = null,
             IServerProfileStore? profileStore = null,
-            ServerProfilePicker? profilePicker = null)
+            ServerProfilePicker? profilePicker = null,
+            IVersionInstaller? versionInstaller = null,
+            IFileDownloader? fileDownloader = null,
+            IResourceCatalog? resourceCatalog = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -169,6 +178,9 @@ namespace NLMCL.App.ViewModels
             _addressResolver = addressResolver;
             _profileStore = profileStore;
             _profilePicker = profilePicker;
+            _versionInstaller = versionInstaller;
+            _fileDownloader = fileDownloader;
+            _resourceCatalog = resourceCatalog;
             _mods = mods;
             _repairer = repairer;
             _ = LoadServersAsync();
@@ -961,6 +973,183 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>
+        /// 「进模组服」：按档案把 MC + 加载器 + AutoModpack 装好，再启动直连。
+        ///
+        /// 不碰 AutoModpack 的同步协议：客户端 mod 装好、版本对，剩下交给它自己在登录阶段同步。
+        /// </summary>
+        [RelayCommand]
+        public async Task JoinProfileModdedAsync(ServerProfile? profile)
+        {
+            if (profile == null || _profilePicker == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(profile.Minecraft))
+            {
+                StatusText = "档案里没写 MC 版本，无法自动安装";
+                return;
+            }
+
+            try
+            {
+                StatusText = "正在挑选入口：" + string.Join(" / ", profile.Addresses) + " …";
+
+                ProfileEndpoint chosen = await _profilePicker
+                    .PickAsync(profile, CancellationToken.None).ConfigureAwait(true);
+
+                if (!chosen.Online)
+                {
+                    StatusText = "服务器连不上：" + profile.Name + "（" + (chosen.Error ?? "超时") + "）";
+                    return;
+                }
+
+                string target = chosen.Endpoint.Host + ":" + chosen.Endpoint.Port;
+
+                if (_versionInstaller != null)
+                {
+                    StatusText = "安装 " + profile.Minecraft + " " + profile.Loader + " …";
+
+                    Progress<InstallProgress> progress = new Progress<InstallProgress>(
+                        p => StatusText = p.Stage + " " + p.Percent.ToString("0", CultureInfo.InvariantCulture) + "%");
+
+                    await _versionInstaller.InstallAsync(
+                        new InstallRequest(CurrentGameDirectory, profile.Minecraft)
+                        {
+                            Loader = string.IsNullOrWhiteSpace(profile.Loader) ? null : profile.Loader,
+                            LoaderVersion = string.IsNullOrWhiteSpace(profile.LoaderVersion) ? null : profile.LoaderVersion
+                        },
+                        progress,
+                        CancellationToken.None).ConfigureAwait(true);
+                }
+
+                await RefreshAsync().ConfigureAwait(true);
+
+                VersionItem? instance = FindProfileInstance(profile);
+
+                if (instance == null)
+                {
+                    StatusText = "安装完成，但没找到对应实例；请到「本地版本」手动选一个后重试";
+                    return;
+                }
+
+                await EnsureAutoModpackAsync(profile, instance).ConfigureAwait(true);
+
+                SelectedVersion = instance;
+
+                StatusText = "启动 " + instance.Name + " 并连接 " + target + " …";
+
+                await LaunchCoreAsync(target).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "进模组服失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>按档案找刚装好的实例：目录名同时包含加载器名与 MC 版本。</summary>
+        private VersionItem? FindProfileInstance(ServerProfile profile)
+        {
+            string loader = (profile.Loader ?? string.Empty).ToLowerInvariant();
+            string minecraft = profile.Minecraft ?? string.Empty;
+
+            foreach (VersionItem item in Versions)
+            {
+                string folder = item.FolderName.ToLowerInvariant();
+
+                if (folder.Contains(minecraft.ToLowerInvariant())
+                    && (loader.Length == 0 || folder.Contains(loader)))
+                {
+                    return item;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>把 AutoModpack 客户端 mod 放进实例的 mods 目录（已有且哈希一致就跳过）。</summary>
+        private async Task EnsureAutoModpackAsync(ServerProfile profile, VersionItem instance)
+        {
+            const string projectId = "k68glP2e";
+
+            if (_resourceCatalog == null || _fileDownloader == null)
+            {
+                return;
+            }
+
+            string mods = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "mods");
+            Directory.CreateDirectory(mods);
+
+            StatusText = "查询 AutoModpack 适配版本 …";
+
+            var files = await _resourceCatalog
+                .GetFilesAsync(projectId, ResourceKind.Mod, profile.Minecraft, profile.Loader, CancellationToken.None)
+                .ConfigureAwait(true);
+
+            ResourceFile? file = files.FirstOrDefault();
+
+            if (file == null)
+            {
+                StatusText = "没找到适配 " + profile.Minecraft + " 的 AutoModpack";
+                return;
+            }
+
+            string target = Path.Combine(mods, file.Name);
+
+            if (File.Exists(target) && !string.IsNullOrEmpty(file.Sha1) && HasSha1(target, file.Sha1!))
+            {
+                return;
+            }
+
+            StatusText = "下载 AutoModpack " + (file.VersionName ?? file.Name) + " …";
+
+            await _fileDownloader.DownloadAsync(file.Url, target, CancellationToken.None).ConfigureAwait(true);
+
+            if (!string.IsNullOrEmpty(file.Sha1) && !HasSha1(target, file.Sha1!))
+            {
+                File.Delete(target);
+                throw new InvalidOperationException("AutoModpack 校验失败（哈希不一致），已删除");
+            }
+        }
+
+        /// <summary>比较文件 SHA1（小写十六进制）。</summary>
+        private static bool HasSha1(string path, string expected)
+        {
+            try
+            {
+                using FileStream stream = File.OpenRead(path);
+                using var sha1 = System.Security.Cryptography.SHA1.Create();
+                byte[] hash = sha1.ComputeHash(stream);
+                string actual = BitConverter.ToString(hash).Replace("-", string.Empty).ToLowerInvariant();
+                return string.Equals(actual, expected.Trim().ToLowerInvariant(), StringComparison.Ordinal);
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>重启游戏：停止当前进程后，用同样的版本与服务器再启动一次。</summary>
+        [RelayCommand]
+        public async Task RestartGameAsync()
+        {
+            if (Console.IsRunning)
+            {
+                StatusText = "正在停止当前游戏 …";
+                Console.Stop();
+                await Task.Delay(1500).ConfigureAwait(true);
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "没有可重启的实例";
+                return;
+            }
+
+            StatusText = "重启游戏 …";
+            await LaunchCoreAsync(_lastServerAddress).ConfigureAwait(true);
+        }
         /// <summary>读取服务器档案（首次运行会写入内置的宝可梦服）。</summary>
         public async Task LoadServerProfilesAsync()
         {
@@ -1822,6 +2011,7 @@ namespace NLMCL.App.ViewModels
         /// <summary>启动的统一入口：普通启动传 null，联机启动传对方地址。</summary>
         private async Task LaunchCoreAsync(string? serverAddress)
         {
+            _lastServerAddress = serverAddress;
             if (IsLaunching)
             {
                 return;

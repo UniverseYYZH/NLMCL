@@ -284,6 +284,10 @@
                             Padding="18,9"
                             Command="{Binding LaunchSelectedCommand}"
                             IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                <Button Content="⟳  重启游戏" Style="{StaticResource GhostButton}"
+                        Padding="14,9" Margin="8,0,0,0"
+                        ToolTip="停止当前游戏并用同样的版本与服务器再启动（AutoModpack 同步完会用到）"
+                        Command="{Binding RestartGameCommand}" />
                 </StackPanel>
             </Grid>
 
