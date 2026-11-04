@@ -73,7 +73,7 @@
 |---|---|---|---|
 | `NLMCL.Abstractions` | C# / netstandard2.0 | 端口接口 + 跨层 DTO。**改动需评审**，因为它是全项目的稳定契约 | 架构负责人 |
 | `NLMCL.Core` | C# / net48 | 领域逻辑：路径、版本编排、实例、账号、设置、快照 | 后端/逻辑开发者 |
-| `NLMCL.Core.Pcl` | **VB** / net48 | PCL 代码的唯一落脚点。PCL 原文件原样放入，外加薄适配 | 后端开发者 |
+| `NLMCL.Core.Pcl` | **C#** / net48 | PCL 的 C# 部分（McVersion / McInstallManifest / Constants 等）的原样落脚点 | 后端开发者 |
 | `NLMCL.App.ViewModels` | C# / net48 | 展示逻辑、命令、状态。**禁止引用 WPF** | 前端/逻辑开发者 |
 | `NLMCL.App` | C# / net48 WPF | XAML、样式、控件、组合根 | 前端开发者 |
 | `NLMCL.Tests` | C# / net48 | 单测 + XAML 冒烟测试 | 全员 |
@@ -128,8 +128,8 @@
 | **M1** | 分层骨架、契约、MVVM、DI、测试、可运行壳 | ✅ 完成 |
 | **M2** | 版本扫描接入 PCL：vendor `McVersion.cs`，实现 `PclVersionCatalog` | ✅ 完成 |
 | **M3** | 下载与安装：`IDownloadService` ← PCL `ModNet`；`IVersionInstaller` ← 自写编排（§2.1a 豁免） | ✅ 完成 |
-| **M4** | 启动：`IGameLauncher` ← PCL `ModLaunch`，日志分类与多实例控制台 | 待办 |
-| **M5** | 账号 / 实例 / 快照 / 导入：自有 C# 领域逻辑从 Python 版本迁移 | 待办 |
+| **M4** | 启动：`IGameLauncher` ← PCL `ModLaunch`，日志分类与多实例控制台 | 已完成 |
+| **M5** | 账号 / 实例 / 快照 / 导入：自有 C# 领域逻辑从 Python 版本迁移 | 已完成 |
 
 **M2 的一个关键发现**：PCL 的版本识别逻辑（`McVersion`）**本来就是 C#**，属于 PCL 自己的 `PCLCS` 项目。因此 M2 没有碰任何 VB 代码——原样 vendor `McVersion.cs` / `McInstallManifest.cs` / `Constants.cs`，再补一层兼容垫片（`Shim/PclCompat.cs`，替代未开源的 `MeloongCore` submodule）。VB 只在真正需要 VB-only 模块（`ModDownload` / `ModLaunch`）时才会引入，届时单独建程序集。
 

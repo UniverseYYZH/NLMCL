@@ -1103,13 +1103,13 @@ namespace NLMCL.App.ViewModels
 
             foreach (VersionItem item in Versions)
             {
-                string folder = item.FolderName.ToLowerInvariant();
-
-                if (folder.Contains(minecraft.ToLowerInvariant())
-                    && (loader.Length == 0 || folder.Contains(loader)))
+                // 版本目录命名约定是 <加载器>-<加载器版本>-<MC 版本>；
+                // 不能用 Contains，否则 1.21.1 会命中 1.21.10。
+                if (ProfileInstanceMatcher.Matches(item.FolderName, minecraft, profile.Loader))
                 {
                     return item;
                 }
+
             }
 
             return null;

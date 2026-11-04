@@ -316,7 +316,9 @@ namespace NLMCL.Core.Servers
         private static string ReadName(byte[] buffer, ref int offset)
         {
             StringBuilder builder = new StringBuilder();
+            HashSet<int> visited = new HashSet<int>();
             int guard = 0;
+            int jumps = 0;
 
             while (offset < buffer.Length)
             {
@@ -336,7 +338,13 @@ namespace NLMCL.Core.Servers
                     }
 
                     int pointer = ((length & 0x3F) << 8) | buffer[offset + 1];
-                    offset += 2;
+
+                    // 防环：畸形/恶意响应里的指针可以指回自己，必须记录已访问位置。
+                    if (!visited.Add(pointer) || ++jumps > 64)
+                    {
+                        break;
+                    }
+
                     offset = pointer;
                     continue;
                 }
