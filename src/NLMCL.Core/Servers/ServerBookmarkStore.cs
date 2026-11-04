@@ -20,9 +20,8 @@ namespace NLMCL.Core.Servers
     {
         public static readonly IReadOnlyList<ServerBookmark> BuiltIn = new[]
         {
-            new ServerBookmark("方块宁理 · 宝可梦服", "mc2.nxist.top"),
-            new ServerBookmark("方块宁理 · 宝可梦生存", "mc4.nxist.top"),
-            new ServerBookmark("高校联盟 · 账号认证（非游戏服）", "mua.nxist.top")
+            new ServerBookmark("方块宁理 · 大厅（线路一）", "mc2.nxist.top"),
+            new ServerBookmark("方块宁理 · 大厅（线路二）", "mc4.nxist.top")
         };
 
         private readonly IAppPaths _paths;
@@ -85,9 +84,10 @@ namespace NLMCL.Core.Servers
         {
             var renames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["方块宁理 · 线路一"] = "方块宁理 · 宝可梦服",
-                ["方块宁理 · 线路二"] = "方块宁理 · 宝可梦生存",
-                ["方块宁理 · 学生专线"] = "高校联盟 · 账号认证（非游戏服）"
+                ["方块宁理 · 线路一"] = "方块宁理 · 大厅（线路一）",
+                ["方块宁理 · 线路二"] = "方块宁理 · 大厅（线路二）",
+                ["方块宁理 · 宝可梦服"] = "方块宁理 · 大厅（线路一）",
+                ["方块宁理 · 宝可梦生存"] = "方块宁理 · 大厅（线路二）"
             };
 
             bool changed = false;
@@ -97,6 +97,21 @@ namespace NLMCL.Core.Servers
                 if (renames.TryGetValue(servers[i].Name, out string? newName))
                 {
                     servers[i] = new ServerBookmark(newName, servers[i].Address);
+                    changed = true;
+                }
+            }
+
+            // 把"认证服"从游戏服务器列表里清掉：
+            // mua.nxist.top 是高校联盟的账号认证 API，不是游戏服，点了必然连不上。
+            // 只删内置命名的那一条，用户自己起的名字不动。
+            for (int i = servers.Count - 1; i >= 0; i--)
+            {
+                bool isAuth = servers[i].Address.StartsWith("mua.nxist.top", StringComparison.OrdinalIgnoreCase);
+                bool seededName = servers[i].Name.Contains("认证") || servers[i].Name.Contains("学生专线");
+
+                if (isAuth && seededName)
+                {
+                    servers.RemoveAt(i);
                     changed = true;
                 }
             }

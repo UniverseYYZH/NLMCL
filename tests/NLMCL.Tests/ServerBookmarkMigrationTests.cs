@@ -25,12 +25,12 @@ namespace NLMCL.Tests
         {
             IReadOnlyList<ServerBookmark> builtIn = ServerBookmarkStore.BuiltIn;
 
-            Assert.Equal(3, builtIn.Count);
-            Assert.Equal("方块宁理 · 宝可梦服", builtIn[0].Name);
+            Assert.Equal(2, builtIn.Count);
+            Assert.Equal("方块宁理 · 大厅（线路一）", builtIn[0].Name);
             Assert.Equal("mc2.nxist.top", builtIn[0].Address);
-            Assert.Equal("方块宁理 · 宝可梦生存", builtIn[1].Name);
+            Assert.Equal("方块宁理 · 大厅（线路二）", builtIn[1].Name);
             Assert.Equal("mc4.nxist.top", builtIn[1].Address);
-            Assert.Contains("认证", builtIn[2].Name);
+            // 认证服（mua.nxist.top）已从游戏列表移除：它不是游戏服务器
         }
 
         [Fact]
@@ -56,13 +56,13 @@ namespace NLMCL.Tests
 
                 IReadOnlyList<ServerBookmark> loaded = await store.LoadAsync(CancellationToken.None);
 
-                Assert.Equal("方块宁理 · 宝可梦服", loaded[0].Name);
+                Assert.Equal("方块宁理 · 大厅（线路一）", loaded[0].Name);
                 Assert.Equal("mc2.nxist.top", loaded[0].Address);
-                Assert.Equal("方块宁理 · 宝可梦生存", loaded[1].Name);
+                Assert.Equal("方块宁理 · 大厅（线路二）", loaded[1].Name);
 
                 // 迁移结果要落盘，否则下次启动又变回去
                 string saved = File.ReadAllText(Path.Combine(paths.DataRoot, "servers.json"));
-                Assert.Contains("宝可梦服", saved);
+                Assert.Contains("大厅（线路一）", saved);
             }
             finally
             {
