@@ -70,6 +70,90 @@ namespace NLMCL.Core.Installing
             return client;
         }
 
+        public async Task DownloadAsync(
+            string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+        {
+            if (progress == null)
+            {
+                await DownloadAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            RemoteFile? remote = await ProbeAsync(url, cancellationToken).ConfigureAwait(false);
+            long total = remote?.Length ?? 0;
+
+            using (CancellationTokenSource polling =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                Task reporter = ReportProgressAsync(targetPath, total, progress, polling.Token);
+
+                try
+                {
+                    await DownloadAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    polling.Cancel();
+
+                    try
+                    {
+                        await reporter.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+
+                    progress.Report(1);
+                }
+            }
+        }
+
+        /// <summary>每 250ms 上报一次「目标文件 + 分块」已下载字节占理论总长的比例。</summary>
+        private static async Task ReportProgressAsync(
+            string targetPath, long total, IProgress<double> progress, CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    long done = 0;
+
+                    if (File.Exists(targetPath))
+                    {
+                        done += new FileInfo(targetPath).Length;
+                    }
+
+                    string partsDirectory = targetPath + ".parts";
+
+                    if (Directory.Exists(partsDirectory))
+                    {
+                        foreach (string part in Directory.GetFiles(partsDirectory, "*.part"))
+                        {
+                            done += new FileInfo(part).Length;
+                        }
+                    }
+
+                    if (total > 0)
+                    {
+                        progress.Report(Math.Min(1, done / (double)total));
+                    }
+                }
+                catch (IOException)
+                {
+                    // 分块正在写入，这一轮跳过
+                }
+
+                try
+                {
+                    await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+        }
+
         public async Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(url))

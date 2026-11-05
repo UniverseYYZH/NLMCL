@@ -71,9 +71,14 @@ namespace NLMCL.Tests
                 RecordingFiles files = new RecordingFiles();
                 CurseForgeInstaller installer = new CurseForgeInstaller(new NoopStrings(), files);
 
+                List<double> reported = new List<double>();
+
                 string path = await installer.InstallFileAsync(
                     "https://edge.forgecdn.net/files/1/2/a.jar", "a.jar",
-                    NLMCL.Abstractions.ResourceKind.Mod, root, "1.21.1", CancellationToken.None);
+                    NLMCL.Abstractions.ResourceKind.Mod, root, "1.21.1",
+                    new Progress<double>(reported.Add), CancellationToken.None);
+
+                Assert.NotEmpty(reported);                          // 进度有上报
 
                 Assert.Equal(1, files.Calls);                       // 走自带下载器，不走 ModNet
                 Assert.Contains("mods", path);
@@ -114,6 +119,14 @@ namespace NLMCL.Tests
             {
                 Calls++;
                 File.WriteAllText(targetPath, "jar");
+                return Task.CompletedTask;
+            }
+            public Task DownloadAsync(
+                string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+            {
+                Calls++;
+                File.WriteAllText(targetPath, "jar");
+                progress?.Report(1);
                 return Task.CompletedTask;
             }
 

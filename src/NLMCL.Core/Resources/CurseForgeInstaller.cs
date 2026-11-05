@@ -42,6 +42,7 @@ namespace NLMCL.Core.Resources
             ResourceKind kind,
             string minecraftDirectory,
             string versionFolder,
+            IProgress<double>? progress,
             CancellationToken cancellationToken)
         {
             string safeName = string.IsNullOrWhiteSpace(fileName) ? "curseforge-file.jar" : fileName;
@@ -51,7 +52,7 @@ namespace NLMCL.Core.Resources
             string target = Path.Combine(dir, safeName);
             string temp = target + ".nlmcl-tmp";
 
-            await _files.DownloadAsync(url, temp, cancellationToken).ConfigureAwait(false);
+            await _files.DownloadAsync(url, temp, progress, cancellationToken).ConfigureAwait(false);
             File.Copy(temp, target, overwrite: true);
             File.Delete(temp);
 

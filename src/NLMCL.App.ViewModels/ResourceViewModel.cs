@@ -517,10 +517,16 @@ namespace NLMCL.App.ViewModels
                 if (IsCurseForge && _curseForge != null)
                 {
                     // ForgeCDN 直链用自带下载器：PCL 的 ModNet 对这类地址会报"小文件下载失败"
+                    Progress<double> installProgress = new Progress<double>(ratio =>
+                    {
+                        Progress = ratio * 100;
+                        HasProgress = true;
+                        StatusText = "正在下载 " + file.Name + " " + (ratio * 100).ToString("0") + "%";
+                    });
+
                     path = await _curseForge
-                        .InstallFileAsync(file.Url, file.Name, item.Kind, MinecraftDirectory, VersionFolder,
-                            CancellationToken.None)
-                        .ConfigureAwait(true);
+                        .InstallFileAsync(file.Url, file.Name, item.Kind, MinecraftDirectory, VersionFolder, installProgress,
+                            CancellationToken.None).ConfigureAwait(true);
                 }
                 else
                 {
@@ -531,6 +537,8 @@ namespace NLMCL.App.ViewModels
 
                 Trace("安装成功：" + path);
                 StatusText = "已安装到 " + path;
+                HasProgress = false;
+                Progress = 0;
             }
             catch (Exception ex)
             {

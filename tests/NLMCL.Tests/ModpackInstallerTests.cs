@@ -132,6 +132,9 @@ namespace NLMCL.Tests
         {
             public List<string> Downloaded { get; } = new List<string>();
 
+        public Task DownloadAsync(string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+            => DownloadAsync(url, targetPath, cancellationToken);
+
             public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
             {
                 lock (Downloaded)

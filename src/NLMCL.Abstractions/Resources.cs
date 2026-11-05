@@ -176,6 +176,7 @@ namespace NLMCL.Abstractions
             ResourceKind kind,
             string minecraftDirectory,
             string versionFolder,
+            IProgress<double>? progress,
             CancellationToken cancellationToken);
     }
 }

@@ -16,6 +16,9 @@ namespace NLMCL.Tests
         {
             public int Downloads { get; private set; }
 
+        public Task DownloadAsync(string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+            => DownloadAsync(url, targetPath, cancellationToken);
+
             public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
             {
                 Downloads++;

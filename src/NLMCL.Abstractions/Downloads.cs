@@ -17,6 +17,12 @@ namespace NLMCL.Abstractions
     {
         Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// 带进度的下载：<paramref name="progress"/> 收到 0~1 的比例（实现允许合并上报）。
+        /// 传 null 等价于不带进度的版本。
+        /// </summary>
+        Task DownloadAsync(string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken);
+
         /// <summary>取文本（清单、元数据）。</summary>
         Task<string> GetStringAsync(string url, CancellationToken cancellationToken);
     }
