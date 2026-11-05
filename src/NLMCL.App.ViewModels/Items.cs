@@ -74,6 +74,8 @@ namespace NLMCL.App.ViewModels
             // 拿它当标题会出现两行同名、以及 "Old" 这种对用户无意义的字样。
             Name = version.FolderName;
             FolderName = version.FolderName;
+            MinecraftVersion = version.Id;
+            LoaderHint = DetectLoader(version.FolderName);
 
             // PCL 对 2013 年前的版本返回 "Old"、对实验性快照返回 "pending"，
             // 这些是识别用的哨兵值，不是给用户看的，因此不生成副标题。
@@ -103,6 +105,12 @@ namespace NLMCL.App.ViewModels
 
         public string FolderName { get; }
 
+        /// <summary>基础 MC 版本（如 1.21.1），用于资源搜索预筛。</summary>
+        public string MinecraftVersion { get; }
+
+        /// <summary>加载器标识（fabric / forge / neoforge / quilt），原版为空串。</summary>
+        public string LoaderHint { get; }
+
         /// <summary>加载器实例的「基于 x.x.x」副标题；原版为 null。</summary>
         public string? BasedOn { get; }
 
@@ -118,6 +126,33 @@ namespace NLMCL.App.ViewModels
         public string? Warning { get; }
 
         public bool HasWarning { get; }
+
+        /// <summary>从目录名推断加载器。</summary>
+        private static string DetectLoader(string folder)
+        {
+            if (folder.IndexOf("neoforge", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "neoforge";
+            }
+
+            if (folder.IndexOf("fabric", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "fabric";
+            }
+
+            if (folder.IndexOf("forge", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "forge";
+            }
+
+            if (folder.IndexOf("quilt", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "quilt";
+            }
+
+            return string.Empty;
+        }
+
 
         private static string ToKindLabel(VersionKind kind)
         {

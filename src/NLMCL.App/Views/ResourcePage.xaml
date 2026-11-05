@@ -140,6 +140,17 @@
             </ListBox.ItemContainerStyle>
         </ListBox>
 
+
+        <!-- 结果计数 + 加载更多：Modrinth 一页 20 条，翻页按钮避免"怎么只有 20 个" -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="2,10,0,0">
+            <TextBlock Text="{Binding ResultsCountText}" FontSize="11" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Muted}" />
+            <Button Content="加载更多" Style="{StaticResource GhostButton}" Margin="12,0,0,0"
+                    Padding="12,5" FontSize="10.5"
+                    Visibility="{Binding HasMore, Converter={StaticResource BoolToVisibility}}"
+                    Command="{Binding LoadMoreCommand}"
+                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+        </StackPanel>
         <StackPanel Grid.Row="3" Margin="2,10,0,0">
             <ProgressBar Height="4" Minimum="0" Maximum="100" Value="{Binding Progress}"
                          Foreground="{DynamicResource Primary}" Background="{DynamicResource Surface}"

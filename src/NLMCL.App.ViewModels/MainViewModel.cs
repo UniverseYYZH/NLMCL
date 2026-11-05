@@ -793,7 +793,10 @@ namespace NLMCL.App.ViewModels
 
             if (IsImportSection)
             {
-                _ = Resource.EnsureLoadedAsync();
+                string? gameVersion = SelectedVersion?.MinecraftVersion;
+                string? loader = SelectedVersion?.LoaderHint;
+
+                _ = Resource.EnsureLoadedForInstanceAsync(gameVersion, loader);
             }
 
             if (IsSkinSection)

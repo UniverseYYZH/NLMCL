@@ -49,6 +49,17 @@ namespace NLMCL.App.ViewModels
 
         public ObservableCollection<ResourceSummary> Results { get; } = new ObservableCollection<ResourceSummary>();
 
+        /// <summary>每页条数（Modrinth 单次上限 50，20 是兼顾速度和滚动体验的值）。</summary>
+        private const int PageSize = 20;
+
+        /// <summary>是否还有下一页（上一页正好返回满页）。</summary>
+        [ObservableProperty]
+        private bool _hasMore;
+
+        /// <summary>结果计数文案。</summary>
+        [ObservableProperty]
+        private string _resultsCountText = string.Empty;
+
         [ObservableProperty]
         private string _searchText = string.Empty;
 
@@ -97,6 +108,30 @@ namespace NLMCL.App.ViewModels
             if (Results.Count > 0 || IsBusy)
             {
                 return;
+            }
+
+            await SearchAsync().ConfigureAwait(true);
+        }
+
+        /// <summary>
+        /// 进入页面时按**当前实例**预筛：把游戏版本和加载器填上，再查一次。
+        /// 不带筛的"全部热门"对玩家没什么用——大多装不进这个实例。
+        /// </summary>
+        public async Task EnsureLoadedForInstanceAsync(string? gameVersion, string? loader)
+        {
+            if (Results.Count > 0 || IsBusy)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(gameVersion))
+            {
+                GameVersion = gameVersion!;
+            }
+
+            if (!string.IsNullOrWhiteSpace(loader))
+            {
+                SelectedLoader = LoaderDisplayName(loader!);
             }
 
             await SearchAsync().ConfigureAwait(true);
@@ -157,6 +192,8 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
+                HasMore = found.Count >= PageSize;
+                ResultsCountText = "已显示 " + Results.Count + " 个" + (HasMore ? "（还有更多）" : string.Empty);
                 StatusText = "找到 " + found.Count + " 个结果" + note + relaxed;
             }
             catch (Exception ex)
@@ -218,7 +255,52 @@ namespace NLMCL.App.ViewModels
             return (last, string.Empty);
         }
 
+        /// <summary>再取下一页（Modrinth 用 offset 翻页），追加到现有列表。</summary>
         [RelayCommand]
+        public async Task LoadMoreAsync()
+        {
+            if (IsBusy || !HasMore)
+            {
+                return;
+            }
+
+            IsBusy = true;
+            StatusText = "正在加载更多…";
+
+            try
+            {
+                ResourceKind kind = KindOf(SelectedKind);
+                string? gameVersion = string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim();
+
+                ResourceQuery query = new ResourceQuery(SearchText, kind)
+                {
+                    GameVersion = gameVersion,
+                    Loader = LoaderOf(SelectedLoader),
+                    Offset = Results.Count
+                };
+
+                IReadOnlyList<ResourceSummary> found = await _catalog
+                    .SearchAsync(query, CancellationToken.None).ConfigureAwait(true);
+
+                foreach (ResourceSummary item in found)
+                {
+                    Results.Add(item);
+                }
+
+                HasMore = found.Count >= PageSize;
+                ResultsCountText = "已显示 " + Results.Count + " 个" + (HasMore ? "（还有更多）" : string.Empty);
+                StatusText = HasMore ? "已加载 " + Results.Count + " 个" : "已加载全部 " + Results.Count + " 个";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "加载更多失败：" + ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
         public async Task InstallAsync(ResourceSummary? item)
         {
             if (item == null || IsBusy)
@@ -410,6 +492,23 @@ namespace NLMCL.App.ViewModels
                     return ResourceKind.Mod;
             }
         }
+
+        /// <summary>把加载器标识（fabric/forge/neoforge）映射成下拉里的显示名。</summary>
+        internal static string LoaderDisplayName(string loader)
+        {
+            switch (loader.ToLowerInvariant())
+            {
+                case "fabric":
+                    return "Fabric";
+                case "forge":
+                    return "Forge";
+                case "neoforge":
+                    return "NeoForge";
+                default:
+                    return "不限";
+            }
+        }
+
 
         internal static string? LoaderOf(string text)
         {
