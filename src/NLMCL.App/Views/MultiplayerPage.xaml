@@ -13,29 +13,33 @@
             <local:EmptyToVisibilityConverter x:Key="EmptyToVisibility" />
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <local:NullToVisibilityConverter x:Key="NullToVisibility" />
+
+            <Style x:Key="SectionHeader" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource Text}" />
+            </Style>
+
+            <Style x:Key="SectionHint" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+                <Setter Property="Margin" Value="0,4,0,0" />
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
+    <!-- 整页可滚动：窗口变小时内容不再被裁掉 -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="26,22,26,20" MaxWidth="980" HorizontalAlignment="Stretch">
 
-        <!-- 标题 -->
-        <StackPanel Grid.Row="0">
             <TextBlock Text="联机房间" FontSize="24" FontWeight="Bold"
                        Foreground="{DynamicResource Text}" />
-            <TextBlock Text="同一局域网内直接连：一方在游戏里「对局域网开放」，另一方填地址加入"
+            <TextBlock Text="先选服务器，再进游戏。下面的检查项会告诉你还缺什么。"
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
 
-
-            <!-- 服务器档案：主按钮 + 就绪检查（新玩家只需要点这一个按钮） -->
-            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0"
+            <!-- ===== 宝可梦服（模组端） ===== -->
+            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,16,0,0"
                     Visibility="{Binding HasPrimaryProfile, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel>
                     <TextBlock Text="{Binding PrimaryProfile.Name}" FontSize="13" FontWeight="SemiBold"
@@ -43,14 +47,13 @@
                     <TextBlock Text="{Binding PrimaryProfile.AddressText}" FontSize="10.5"
                                Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
 
-                    <!-- 就绪检查：缺什么一眼可见 -->
                     <ItemsControl ItemsSource="{Binding JoinChecks}" Margin="0,10,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,1">
                                     <TextBlock Text="✓" Foreground="#2E7D32" FontSize="11" Width="16"
                                                Visibility="{Binding IsOkGlyph, Converter={StaticResource BoolToVisibility}}" />
-                                    <TextBlock Text="⚠" Foreground="#C62828" FontSize="11" Width="16"
+                                    <TextBlock Text="!" Foreground="#C62828" FontSize="11" FontWeight="Bold" Width="16"
                                                Visibility="{Binding IsWarnGlyph, Converter={StaticResource BoolToVisibility}}" />
                                     <TextBlock Text="{Binding Text}" FontSize="10.5"
                                                Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
@@ -59,40 +62,24 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <!-- 主按钮：自动准备 + 启动 -->
                     <Button Content="▶  进入宝可梦服（自动准备）"
                             Style="{StaticResource PrimaryButton}" Padding="18,10" Margin="0,12,0,0"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            ToolTip="自动检查并安装 1.21.1 + Fabric + AutoModpack，然后直接进宝可梦子服"
+                            ToolTip="自动检查并安装 1.21.1 + Fabric + AutoModpack，然后进宝可梦子服"
                             Command="{Binding DataContext.JoinProfileModdedCommand,
                                       RelativeSource={RelativeSource AncestorType=Window}}"
                             CommandParameter="{Binding PrimaryProfile}" />
 
-                    <!-- 次要入口：只进大厅 -->
                     <Button Content="只进大厅（不需要模组，任意版本可进）"
                             Style="{StaticResource GhostButton}" Padding="10,4" Margin="0,8,0,0"
                             FontSize="10.5" HorizontalAlignment="Left"
                             Command="{Binding DataContext.JoinProfileLobbyCommand,
                                       RelativeSource={RelativeSource AncestorType=Window}}"
                             CommandParameter="{Binding PrimaryProfile}" />
-
-                    <!-- 首次进服的预告：两红框不吓人 -->
-                    <Border Background="{DynamicResource Surface}" CornerRadius="6" Padding="10,8"
-                            Margin="0,10,0,0" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
-                        <TextBlock FontSize="10" Foreground="{DynamicResource Faint}" TextWrapping="Wrap" LineHeight="16">
-                            <Run Text="首次进服会出现两个红色确认框，属正常：" />
-                            <LineBreak />
-                            <Run Text="① Certificate Verification → 点 Skip → 输入 I accept the risk" />
-                            <LineBreak />
-                            <Run Text="② MODPACK INSTALL（服主自制 mod）→ 勾选 → Load these unverified JARs" />
-                            <LineBreak />
-                            <Run Text="之后会下载约 1 GB 整合包（视网速 10–60 分钟），完成提示重启时用启动器的「重启游戏」。" />
-                        </TextBlock>
-                    </Border>
                 </StackPanel>
             </Border>
 
-            <!-- 还原服：纯净子服，不装任何加载器 -->
+            <!-- ===== 还原服（纯净端） ===== -->
             <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,10,0,0"
                     Visibility="{Binding HasVanillaProfile, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel>
@@ -112,13 +99,12 @@
                 </StackPanel>
             </Border>
 
-            <!-- 常用服务器快捷入口 -->
-            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,14,0,0">
+            <!-- ===== 常用线路 ===== -->
+            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,10,0,0">
                 <StackPanel>
-                    <TextBlock Text="常用服务器" FontSize="12" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Text}" />
-                    <TextBlock Text="点一下直接用当前选中的版本启动并进服"
-                               FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,3,0,10" />
+                    <TextBlock Text="常用线路" Style="{StaticResource SectionHeader}" />
+                    <TextBlock Text="点一下用当前选中的版本直接进服（都进大厅）"
+                               Style="{StaticResource SectionHint}" Margin="0,3,0,10" />
 
                     <ItemsControl ItemsSource="{Binding Servers}">
                         <ItemsControl.ItemsPanel>
@@ -128,194 +114,136 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,8,8">
-                                    <Button Style="{StaticResource GhostButton}"
-                                            Padding="14,8" Content="{Binding Name}"
-                                            ToolTip="进入大厅（不是宝可梦子服）。要玩宝可梦内容请用上方「进模组服」"
-                                            Command="{Binding DataContext.QuickJoinCommand,
-                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}" />
-                                    <Button Style="{StaticResource GhostButton}" Content="×"
-                                            Width="26" Padding="0" Margin="2,0,0,0" ToolTip="移除"
-                                            Command="{Binding DataContext.RemoveServerCommand,
-                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}" />
-                                </StackPanel>
+                                <Border Background="{DynamicResource Surface}" Margin="0,0,8,8"
+                                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                        CornerRadius="6" Padding="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Style="{StaticResource GhostButton}" Padding="12,6" FontSize="10.5"
+                                                Content="{Binding Name}"
+                                                ToolTip="进入大厅（不是宝可梦子服）。要玩宝可梦内容请用上面的「进入宝可梦服」"
+                                                Command="{Binding DataContext.QuickJoinCommand,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Style="{StaticResource GhostButton}" Content="×"
+                                                Padding="8,6" Margin="2,0,0,0"
+                                                ToolTip="从列表移除"
+                                                Command="{Binding DataContext.RemoveServerCommand,
+                                                          RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
-                    <Grid Margin="0,6,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="140" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <Border Grid.Column="0" Background="{DynamicResource Surface}"
-                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                                CornerRadius="6" Padding="8,5">
-                            <TextBox Text="{Binding NewServerName, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                     Foreground="{DynamicResource Text}"
-                                     ToolTip="名称（可留空）" />
-                        </Border>
-
-                        <Border Grid.Column="1" Margin="8,0,0,0" Background="{DynamicResource Surface}"
-                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                                CornerRadius="6" Padding="8,5">
-                            <TextBox Text="{Binding NewServerAddress, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                     Foreground="{DynamicResource Text}"
-                                     ToolTip="地址，例如 play.example.com 或 1.2.3.4:25565" />
-                        </Border>
-
-                        <Button Grid.Column="2" Content="添加" Style="{StaticResource PrimaryButton}"
-                                Margin="8,0,0,0" Padding="14,6"
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBox Width="170" Text="{Binding NewServerName, UpdateSourceTrigger=PropertyChanged}"
+                                 Padding="8,6" FontSize="11" ToolTip="显示名称" />
+                        <TextBox Width="210" Margin="8,0,0,0"
+                                 Text="{Binding NewServerAddress, UpdateSourceTrigger=PropertyChanged}"
+                                 Padding="8,6" FontSize="11" ToolTip="host 或 host:port" />
+                        <Button Content="添加" Style="{StaticResource PrimaryButton}" Padding="14,6" Margin="8,0,0,0"
                                 Command="{Binding AddServerCommand}" />
-                    </Grid>
+                    </StackPanel>
                 </StackPanel>
             </Border>
+
+            <!-- ===== 局域网联机（默认收起） ===== -->
+            <Expander Margin="0,10,0,0" IsExpanded="False">
+                <Expander.Header>
+                    <StackPanel>
+                        <TextBlock Text="局域网联机（同一 WiFi / 同一网段才有效）" Style="{StaticResource SectionHeader}" />
+                        <TextBlock Text="校内同一网段的房间通常能用；跨楼、跨网段会被校园网隔离，连不上属正常"
+                                   Style="{StaticResource SectionHint}" Margin="0,3,0,0" />
+                    </StackPanel>
+                </Expander.Header>
+
+                <StackPanel Margin="0,10,0,0">
+                    <Border Style="{StaticResource CardStyle}" Padding="14,10">
+                        <StackPanel>
+                            <TextBlock Text="① 我开房" Style="{StaticResource SectionHeader}" />
+                            <TextBlock Text="游戏里按 Esc →「对局域网开放」，把聊天栏显示的端口填进来"
+                                       Style="{StaticResource SectionHint}" Margin="0,3,0,8" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="端口" FontSize="10.5" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Muted}" />
+                                <TextBox Width="90" Margin="8,0,0,0" Padding="8,5" FontSize="11"
+                                         Text="{Binding MyPort, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Content="生成地址" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                                        Padding="12,5" Command="{Binding RefreshMyAddressCommand}" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock Text="{Binding MyAddress}" FontSize="13" FontWeight="Bold"
+                                           Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
+                                <Button Content="复制" Style="{StaticResource PrimaryButton}" Margin="10,0,0,0"
+                                        Padding="12,5" Command="{Binding CopyMyAddressCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource CardStyle}" Padding="14,10" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="② 我加入" Style="{StaticResource SectionHeader}" />
+                            <TextBlock Text="填对方给你的地址（形如 10.21.3.9:54321），会先探测端口再启动"
+                                       Style="{StaticResource SectionHint}" Margin="0,3,0,8" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox Width="260" Padding="8,6" FontSize="11"
+                                         Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}" />
+                                <Button Content="▶  连接并启动" Style="{StaticResource PrimaryButton}"
+                                        Margin="8,0,0,0" Padding="14,6"
+                                        Command="{Binding ConnectToLanCommand}"
+                                        IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                                <Button Content="跳过探测" Style="{StaticResource GhostButton}"
+                                        Margin="6,0,0,0" Padding="11,6"
+                                        ToolTip="端口探测失败时仍强制启动"
+                                        Command="{Binding ForceConnectCommand}"
+                                        IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                                <Button Content="诊断" Style="{StaticResource GhostButton}"
+                                        Margin="6,0,0,0" Padding="11,6"
+                                        ToolTip="检查 DNS / SRV / 端口 / Minecraft 状态"
+                                        Command="{Binding DiagnoseCommand}" />
+                            </StackPanel>
+
+                            <Border Background="{DynamicResource Surface}" CornerRadius="6" Padding="10,8"
+                                    Margin="0,10,0,0">
+                                <TextBlock Text="{Binding DiagnosticsText}" FontSize="10"
+                                           Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Expander>
+
+            <!-- ===== 进服须知（默认收起） ===== -->
+            <Expander Margin="0,8,0,0" IsExpanded="False">
+                <Expander.Header>
+                    <TextBlock Text="进服须知（首次进服 / 子服准入）" Style="{StaticResource SectionHeader}" />
+                </Expander.Header>
+
+                <Border Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,10,0,0">
+                    <TextBlock FontSize="10.5" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" LineHeight="19">
+                        <Run Text="· 子服准入：宝可梦服 → 模组端；还原服等其它 → 纯净端；大厅 → 任意版本。" />
+                        <LineBreak />
+                        <Run Text="· 首次进宝可梦服会出现两个红色确认框，属正常：" />
+                        <LineBreak />
+                        <Run Text="  ① Certificate Verification → 点 Skip → 输入 I accept the risk" />
+                        <LineBreak />
+                        <Run Text="  ② MODPACK INSTALL（服主自制 mod）→ 勾选 → Load these unverified JARs" />
+                        <LineBreak />
+                        <Run Text="· 之后同步约 1 GB 整合包（网速不同，10 分钟到数小时），完成提示重启时用启动器的「重启游戏」。" />
+                        <LineBreak />
+                        <Run Text="· 聊天栏出现「AutoModpack mod for fabric modloader is required」= 客户端类型不对。" />
+                        <LineBreak />
+                        <Run Text="· 学生专线 mua.nxist.top 与 mc2/mc4 同一套导航，人少时更稳。" />
+                        <LineBreak />
+                        <Run Text="· 局域网扫描走多播，校园网通常拦截；扫不到不代表功能坏了。" />
+                    </TextBlock>
+                </Border>
+            </Expander>
+
         </StackPanel>
-
-        <!-- 我的房间 -->
-        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,16,0,0">
-            <StackPanel>
-                <TextBlock Text="① 我开房" FontSize="12" FontWeight="SemiBold"
-                           Foreground="{DynamicResource Text}" />
-                <TextBlock Text="游戏里按 Esc →「对局域网开放」，把聊天栏显示的端口填进来"
-                           FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,4,0,10" />
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="110" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Column="0" Text="端口" FontSize="10.5"
-                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
-                    <Border Grid.Column="1" Background="{DynamicResource Surface}" Margin="8,0,0,0"
-                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                            CornerRadius="6" Padding="8,5">
-                        <TextBox Text="{Binding MyPort, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                 Foreground="{DynamicResource Text}" />
-                    </Border>
-
-                    <Button Grid.Column="2" Content="生成地址" Style="{StaticResource GhostButton}"
-                            Margin="8,0,0,0" Command="{Binding RefreshMyAddressCommand}" />
-
-                    <Border Grid.Column="3" Background="{DynamicResource PrimarySoft}" Margin="12,0,0,0"
-                            CornerRadius="6" Padding="12,6">
-                        <TextBlock Text="{Binding MyAddress}" FontSize="14" FontWeight="Bold"
-                                   Foreground="{DynamicResource Primary}"
-                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    </Border>
-
-                    <Button Grid.Column="4" Content="复制" Style="{StaticResource PrimaryButton}"
-                            Margin="8,0,0,0" Padding="14,6"
-                            Command="{Binding CopyMyAddressCommand}" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <!-- 加入房间 -->
-        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,12,0,0">
-            <StackPanel>
-                <TextBlock Text="② 我加入" FontSize="12" FontWeight="SemiBold"
-                           Foreground="{DynamicResource Text}" />
-                <TextBlock Text="填对方给你的地址（形如 10.21.3.9:54321），会先探测端口再启动"
-                           FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,4,0,10" />
-
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Column="0" Background="{DynamicResource Surface}"
-                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                            CornerRadius="6" Padding="10,6">
-                        <TextBox Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                 Foreground="{DynamicResource Text}" />
-                    </Border>
-
-                    <WrapPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
-                        <Button Content="▶  连接并启动" Style="{StaticResource PrimaryButton}"
-                                Padding="16,8"
-                                Command="{Binding ConnectToLanCommand}"
-                                IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
-                        <Button Content="跳过探测启动" Style="{StaticResource GhostButton}"
-                                Margin="6,0,0,0" Padding="12,8" ToolTip="端口探测失败时仍强制启动"
-                                Command="{Binding ForceConnectCommand}"
-                                IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
-                        <Button Content="诊断" Style="{StaticResource GhostButton}"
-                                Margin="6,0,0,0" Padding="12,8" ToolTip="检查 DNS / 端口 / Minecraft 状态"
-                                Command="{Binding DiagnoseCommand}" />
-                    </WrapPanel>
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <!-- 说明 -->
-        <Border Grid.Row="3" Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,12,0,0"
-                VerticalAlignment="Top">
-            <StackPanel>
-                <TextBlock Text="诊断结果" FontSize="11.5" FontWeight="SemiBold"
-                           Foreground="{DynamicResource Text}" />
-                <TextBlock Text="{Binding DiagnosticsText}" FontSize="10.5" Margin="0,6,0,0"
-                           Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
-                           FontFamily="Consolas" />
-            </StackPanel>
-        </Border>
-        <Border Grid.Row="4" Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,12,0,0"
-                VerticalAlignment="Top">
-            <StackPanel>
-
-                <TextBlock Text="校园网提示" FontSize="11.5" FontWeight="SemiBold"
-                           Foreground="{DynamicResource Text}" />
-                <TextBlock FontSize="10.5" Foreground="{DynamicResource Muted}" Margin="0,6,0,0"
-                           TextWrapping="Wrap" LineHeight="18">
-                    <Run Text="· 同一个 WiFi / 同一网段：直接填地址即可，通常能连。" />
-                    <LineBreak />
-                    <Run Text="· 不同楼栋、不同 VLAN：校园网路由通常不放行，连不上是正常的。" />
-                    <LineBreak />
-                    <Run Text="· 跨公网需要 FRP 等穿透工具，启动器不内置（与原版一致）。" />
-                    <LineBreak />
-                    <Run Text="· 端口探测只验证 TCP 可达，能不能进游戏还取决于对方是否已开房。" />
-                </TextBlock>
-            </StackPanel>
-        </Border>
-
-        <TextBlock Grid.Row="5" Text="{Binding StatusText}" FontSize="10.5"
-                   Foreground="{DynamicResource Muted}" Margin="2,10,0,0" TextWrapping="Wrap" />
-
-        <!-- 三种入口的区别：玩家最容易在这里混淆 -->
-        <Border Grid.Row="5" Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,12,0,0">
-            <StackPanel>
-                <TextBlock Text="三种入口有什么区别" FontSize="11.5" FontWeight="SemiBold"
-                           Foreground="{DynamicResource Text}" />
-                <TextBlock FontSize="10.5" Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
-                           Margin="0,6,0,0" LineHeight="18">
-                    <Run Text="· 进大厅：任意版本都能进，只在大厅/生存区，不需要模组。" />
-                    <LineBreak />
-                    <Run Text="· 进模组服：自动装 1.21.1 + Fabric + AutoModpack，直接进宝可梦子服（首次同步约 1 GB）。" />
-                    <LineBreak />
-                    <Run Text="· 常用服务器：等同于「进大厅」，只是换个线路。" />
-                    <LineBreak />
-                    <Run Text="· 子服准入：宝可梦服 → 模组端；还原服等其它 → 纯净端；大厅 → 任意版本。" />
-                    <LineBreak />
-                    <Run Text="· 不要从大厅的菜单传送到宝可梦服——没装模组的客户端会卡在那里。" />
-                </TextBlock>
-
-                <TextBlock FontSize="10" Foreground="{DynamicResource Faint}" TextWrapping="Wrap" Margin="0,8,0,0">
-                    <Run Text="学生专线：mua.nxist.top（与 mc2/mc4 同一套导航，人少时更稳；它也是游戏服务器，不是认证地址）" />
-                </TextBlock>
-            </StackPanel>
-        </Border>
-    </Grid>
+    </ScrollViewer>
 </UserControl>

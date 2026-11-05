@@ -991,6 +991,8 @@ namespace NLMCL.App.ViewModels
                 StatusText = "进入大厅：" + target + "（" + chosen.Players + "/" + chosen.MaxPlayers + " 在线）";
 
                 await LaunchCoreAsync(target).ConfigureAwait(true);
+
+                RefreshJoinChecks();
             }
             catch (Exception ex)
             {
@@ -1075,6 +1077,8 @@ namespace NLMCL.App.ViewModels
                     StatusText = "启动 " + vanillaInstance.Name + " 并连接 " + target + " …";
                     JoinTrace("纯净分支：启动 " + vanillaInstance.FolderName + " → " + target);
                     await LaunchCoreAsync(target).ConfigureAwait(true);
+
+                RefreshJoinChecks();
                     return;
                 }
 
@@ -1159,6 +1163,8 @@ namespace NLMCL.App.ViewModels
                 StatusText = "启动 " + instance.Name + " 并连接 " + target + " …";
 
                 await LaunchCoreAsync(target).ConfigureAwait(true);
+
+                RefreshJoinChecks();
             }
             catch (Exception ex)
             {
@@ -1391,20 +1397,20 @@ namespace NLMCL.App.ViewModels
                 ? new ServerJoinCheck("账号", Account.Name + "（" + Account.TypeLabel + "）", true)
                 : new ServerJoinCheck("账号", "未登录（需要外置或正版账号）", false));
 
-            // ② 客户端实例
-            VersionItem? instance = FindProfileInstance(profile);
-            JoinChecks.Add(instance != null
-                ? new ServerJoinCheck("客户端", instance.Name + " 已就绪", true)
+            // ② 客户端实例：直接扫磁盘，不依赖异步扫描的集合（启动初期集合为空会误报"未安装"）
+            string? folder = FindInstanceOnDisk(profile);
+            JoinChecks.Add(folder != null
+                ? new ServerJoinCheck("客户端", folder + " 已就绪", true)
                 : new ServerJoinCheck("客户端", "未安装（点按钮会自动装 " + profile.Minecraft + " + " + profile.Loader + "）", false));
 
-            if (instance == null)
+            if (folder == null)
             {
                 JoinChecks.Add(new ServerJoinCheck("模组", "待安装 AutoModpack " + profile.AutoModpackVersion, false));
                 JoinChecks.Add(new ServerJoinCheck("整合包", "未同步（首次约 1 GB）", false));
                 return;
             }
 
-            string mods = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "mods");
+            string mods = Path.Combine(CurrentGameDirectory, "versions", folder, "mods");
             bool hasAutoModpack = Directory.Exists(mods)
                 && Directory.GetFiles(mods, "automodpack*.jar").Length > 0;
 
@@ -1413,13 +1419,13 @@ namespace NLMCL.App.ViewModels
                 : new ServerJoinCheck("模组", "缺 AutoModpack（点按钮会自动装）", false));
 
             // ③ 内存（100+ mod 的整合包 2 GB 会频繁 GC）
-            int memory = GetInstanceMemory(instance);
+            int memory = GetInstanceMemory(folder);
             JoinChecks.Add(memory >= 4096
                 ? new ServerJoinCheck("内存", memory + " MB", true)
                 : new ServerJoinCheck("内存", memory + " MB（建议 6144，点按钮会自动改）", false));
 
             // ④ 整合包是否同步过
-            string packs = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "automodpack", "modpacks");
+            string packs = Path.Combine(CurrentGameDirectory, "versions", folder, "automodpack", "modpacks");
             long size = 0;
 
             if (Directory.Exists(packs))
@@ -1435,12 +1441,40 @@ namespace NLMCL.App.ViewModels
                 : new ServerJoinCheck("整合包", "未同步（首次约 1 GB，视网速 10–60 分钟）", false));
         }
 
-        /// <summary>读实例设置里的内存；没有设置文件就返回全局默认。</summary>
-        private int GetInstanceMemory(VersionItem instance)
+        /// <summary>直接在 versions 目录里找匹配的实例目录名（不依赖异步扫描的集合）。</summary>
+        private string? FindInstanceOnDisk(ServerProfile profile)
         {
             try
             {
-                string settings = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "nlmcl-settings.json");
+                string versions = Path.Combine(CurrentGameDirectory, "versions");
+
+                if (!Directory.Exists(versions))
+                {
+                    return null;
+                }
+
+                foreach (string dir in Directory.GetDirectories(versions))
+                {
+                    string name = Path.GetFileName(dir);
+
+                    if (ProfileInstanceMatcher.Matches(name, profile.Minecraft, profile.Loader))
+                    {
+                        return name;
+                    }
+                }
+            }
+            catch (IOException)
+            {
+            }
+
+            return null;
+        }
+        /// <summary>读实例设置里的内存；没有设置文件就返回全局默认。</summary>
+        private int GetInstanceMemory(string folder)
+        {
+            try
+            {
+                string settings = Path.Combine(CurrentGameDirectory, "versions", folder, "nlmcl-settings.json");
 
                 if (File.Exists(settings))
                 {
@@ -2761,6 +2795,8 @@ namespace NLMCL.App.ViewModels
             {
                 IsBusy = false;
             }
+
+            RefreshJoinChecks();
         }
 
         private void UpdateSummary()
