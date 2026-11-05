@@ -56,6 +56,21 @@ namespace NLMCL.App.ViewModels
         /// <summary>外置登录所需的 authlib-injector（单测里可为 null）。</summary>
         private readonly IAuthlibInjector? _authlibInjector;
 
+        /// <summary>控制台里的会话列表（多开；退出的也保留，方便回看日志）。</summary>
+        public ObservableCollection<GameSessionItem> Sessions { get; } = new ObservableCollection<GameSessionItem>();
+
+        /// <summary>会话栏是否显示（没有会话时隐藏，省版面）。</summary>
+        [ObservableProperty]
+        private bool _hasSessions;
+
+        /// <summary>会话 → 列表项，事件回调时用它定位是哪个游戏。</summary>
+        private readonly Dictionary<IGameSession, GameSessionItem> _items =
+            new Dictionary<IGameSession, GameSessionItem>();
+
+        /// <summary>当前正在看哪个会话的日志。</summary>
+        [ObservableProperty]
+        private GameSessionItem? _selectedSession;
+
         /// <summary>所有仍在运行的会话（多开：允许同时跑多个游戏）。</summary>
         private readonly List<IGameSession> _sessions = new List<IGameSession>();
 
@@ -90,9 +105,29 @@ namespace NLMCL.App.ViewModels
 
             // 用集合变化驱动「是否有日志」，这样直接往 Lines 里加（测试、日志回放）也能正确切换占位提示。
             Lines.CollectionChanged += (_, __) => HasLines = Lines.Count > 0;
+            Sessions.CollectionChanged += (_, __) => HasSessions = Sessions.Count > 0;
         }
 
         public ObservableCollection<ConsoleLine> Lines { get; } = new ObservableCollection<ConsoleLine>();
+
+        partial void OnSelectedSessionChanged(GameSessionItem? value)
+        {
+            Lines.Clear();
+
+            if (value == null)
+            {
+                HasLines = false;
+                return;
+            }
+
+            foreach (ConsoleLine line in value.Buffer)
+            {
+                Lines.Add(line);
+            }
+
+            HasLines = Lines.Count > 0;
+            StatusText = value.IsRunning ? "查看中：" + value.Title : "查看中：" + value.Title + "（已退出）";
+        }
 
         /// <summary>本次会话的日志文件路径（为空表示还没写过）。</summary>
         public string LogFilePath { get; private set; } = string.Empty;
@@ -235,14 +270,17 @@ namespace NLMCL.App.ViewModels
             _exitHandled = false;
 
             _sessions.Add(session);
+
+            GameSessionItem item = new GameSessionItem(session.ProcessId, VersionId);
+            _items[session] = item;
+            Sessions.Add(item);
+            SelectedSession = item;
+
             session.Output += OnOutput;
             session.Exited += (sender, code) => OnExited(session, code);
 
             IsRunning = true;
-            StatusText = _sessions.Count <= 1
-                ? "运行中（PID " + session.ProcessId + "）"
-                : "运行中（共 " + _sessions.Count + " 个，最新 PID " + session.ProcessId + "）";
-
+            StatusText = "运行中（共 " + _sessions.Count + " 个，最新 PID " + session.ProcessId + "）";
             StartWatchdog();
 
             // JVM 秒退时，Exited 可能在订阅之前就广播完了——补查一次终态。
@@ -252,23 +290,69 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        /// <summary>结束进程。</summary>
+        /// <summary>结束选中会话（没选中就停最新那个）。</summary>
         [RelayCommand]
         public void Stop()
         {
-            if (_session == null)
+            IGameSession? target = _session;
+
+            if (SelectedSession != null)
+            {
+                foreach (KeyValuePair<IGameSession, GameSessionItem> pair in _items)
+                {
+                    if (ReferenceEquals(pair.Value, SelectedSession))
+                    {
+                        target = pair.Key;
+                        break;
+                    }
+                }
+            }
+
+            if (target == null)
             {
                 return;
             }
 
             try
             {
-                _session.Stop();
-                StatusText = "已请求结束进程";
+                target.Stop();
+                StatusText = "已请求结束 " + (SelectedSession?.Title ?? "当前游戏");
             }
             catch (Exception ex)
             {
                 StatusText = "结束进程失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>停止所有正在运行的游戏。</summary>
+        [RelayCommand]
+        public void StopAll()
+        {
+            int stopped = 0;
+
+            foreach (IGameSession session in new List<IGameSession>(_sessions))
+            {
+                try
+                {
+                    session.Stop();
+                    stopped++;
+                }
+                catch (Exception)
+                {
+                    // 个别失败不影响其它
+                }
+            }
+
+            StatusText = stopped == 0 ? "没有正在运行的游戏" : "已请求结束 " + stopped + " 个游戏";
+        }
+
+        /// <summary>切换当前查看的会话。</summary>
+        [RelayCommand]
+        public void SelectSession(GameSessionItem? item)
+        {
+            if (item != null)
+            {
+                SelectedSession = item;
             }
         }
 
@@ -283,13 +367,20 @@ namespace NLMCL.App.ViewModels
 
         private void OnOutput(object? sender, GameOutputLine line)
         {
+            GameSessionItem? item = null;
+
+            if (sender is IGameSession session)
+            {
+                _items.TryGetValue(session, out item);
+            }
+
             // 这条回调运行在进程输出泵线程上：直接改 Lines 会让 WPF 抛跨线程异常，
             // 而该异常在后台线程上无人捕获，会把整个启动器进程带走。统一封送到 UI 线程。
             _dispatcher.Post(() =>
             {
                 try
                 {
-                    AppendLine(line);
+                    AppendLine(line, item);
                 }
                 catch (Exception)
                 {
@@ -298,22 +389,30 @@ namespace NLMCL.App.ViewModels
             });
         }
 
-        private void AppendLine(GameOutputLine line)
+        private void AppendLine(GameOutputLine line, GameSessionItem? item)
         {
             MarkOutput();
             LogTag tag = LogClassifier.Classify(line.Text);
+            ConsoleLine entry = new ConsoleLine(line.Text, tag);
 
-            Lines.Add(new ConsoleLine(line.Text, tag));
-            AppendToLogFile(line.Text);
+            // 每个会话各自记账；界面只显示当前选中的那个
+            item?.Append(entry);
+
+            if (item == null || ReferenceEquals(item, SelectedSession))
+            {
+                Lines.Add(entry);
+
+                while (Lines.Count > MaxLines)
+                {
+                    Lines.RemoveAt(0);
+                }
+            }
+
+            AppendToLogFile((item == null ? string.Empty : "[PID " + item.ProcessId + "] ") + line.Text);
 
             if (tag != LogTag.Normal)
             {
                 ErrorCount++;
-            }
-
-            while (Lines.Count > MaxLines)
-            {
-                Lines.RemoveAt(0);
             }
         }
 
@@ -353,6 +452,11 @@ namespace NLMCL.App.ViewModels
         private void HandleExit(IGameSession session, int exitCode)
         {
             _sessions.Remove(session);
+
+            if (_items.TryGetValue(session, out GameSessionItem? finished))
+            {
+                finished.IsRunning = false;
+            }
 
             // 多开：还有别的游戏在跑，就不能把界面标记成"已退出"
             if (_sessions.Count > 0)

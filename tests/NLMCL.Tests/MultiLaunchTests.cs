@@ -38,6 +38,47 @@ namespace NLMCL.Tests
             Assert.False(console.IsRunning);
         }
 
+
+        [Fact]
+        public void Logs_are_kept_per_session_and_restored_on_switch()
+        {
+            LaunchConsoleViewModel console = TestSupport.CreateConsole(new NLMCL.Core.AppPaths(@"C:\Temp\roaming"));
+
+            FakeSession first = new FakeSession(2001);
+            FakeSession second = new FakeSession(2002);
+
+            console.Attach(first);
+            first.Emit("第一个游戏的日志");
+
+            console.Attach(second);
+            second.Emit("第二个游戏的日志");
+
+            // 界面上只显示当前选中的那个
+            Assert.Contains(console.Lines, l => l.Text.Contains("第二个"));
+            Assert.DoesNotContain(console.Lines, l => l.Text.Contains("第一个"));
+
+            // 切回第一个：日志要能重建
+            console.SelectSession(console.Sessions[0]);
+            Assert.Contains(console.Lines, l => l.Text.Contains("第一个"));
+        }
+
+        [Fact]
+        public void Stop_all_stops_every_running_game()
+        {
+            LaunchConsoleViewModel console = TestSupport.CreateConsole(new NLMCL.Core.AppPaths(@"C:\Temp\roaming"));
+
+            FakeSession first = new FakeSession(3001);
+            FakeSession second = new FakeSession(3002);
+
+            console.Attach(first);
+            console.Attach(second);
+
+            console.StopAll();
+
+            Assert.Equal(1, first.StopCalls);
+            Assert.Equal(1, second.StopCalls);
+        }
+
         private sealed class CountingSessions : IGameSessionLauncher
         {
             public Task<IGameSession> StartAsync(LaunchRequest request, CancellationToken cancellationToken)
@@ -61,7 +102,18 @@ namespace NLMCL.Tests
 
             public int? ExitCode { get; private set; }
 
-            public void Stop() => IsRunning = false;
+            public int StopCalls { get; private set; }
+
+            public void Stop()
+            {
+                StopCalls++;
+                IsRunning = false;
+            }
+
+            public void Emit(string text)
+            {
+                Output?.Invoke(this, new GameOutputLine(text, false));
+            }
 
             public void Exit(int code)
             {

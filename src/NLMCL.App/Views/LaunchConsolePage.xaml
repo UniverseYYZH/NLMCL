@@ -66,6 +66,10 @@
                 <Button Content="■  停止" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
                         Command="{Binding StopCommand}"
                         IsEnabled="{Binding IsRunning}" />
+                <Button Content="■  全部停止" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                        ToolTip="多开时一次停掉所有游戏"
+                        Command="{Binding StopAllCommand}"
+                        IsEnabled="{Binding IsRunning}" />
                 <Button Content="清空" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
                         Command="{Binding ClearCommand}" />
                 <Button Content="崩溃分析" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
@@ -93,6 +97,39 @@
                              Background="Transparent" BorderThickness="0" FontSize="11.5"
                              Foreground="{DynamicResource Text}" />
                 </Border>
+
+        <!-- 多开会话栏：点一下切换查看哪个游戏的日志 -->
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="12,10" Margin="0,0,0,10"
+                Visibility="{Binding HasSessions, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <TextBlock Text="正在运行的游戏" FontSize="10.5"
+                           Foreground="{DynamicResource Muted}" Margin="0,0,0,8" />
+                <ItemsControl ItemsSource="{Binding Sessions}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8" Padding="10,6"
+                                    HorizontalContentAlignment="Left"
+                                    ToolTip="{Binding Subtitle}"
+                                    Command="{Binding DataContext.SelectSessionCommand,
+                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="10.5"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding Subtitle}" FontSize="9"
+                                               Foreground="{DynamicResource Faint}" />
+                                </StackPanel>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
 
                 <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11"
                            Foreground="{DynamicResource Muted}" VerticalAlignment="Center"
