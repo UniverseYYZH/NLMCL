@@ -290,7 +290,10 @@ namespace NLMCL.Core.Installing
             string partsDirectory = targetPath + ".parts";
             Directory.CreateDirectory(partsDirectory);
 
-            List<(long Start, long End)> chunks = BuildChunks(length, ParallelConnections);
+            // 分块数自适应：大文件切更多块。
+            // 原来固定 6 块，93 MB 的包一块 15 MB，只要有一块慢，整体就卡在 70% 附近挪不动。
+            int chunkCount = ChunkCountFor(length);
+            List<(long Start, long End)> chunks = BuildChunks(length, chunkCount);
             bool[] failed = new bool[chunks.Count];
 
             using (SemaphoreSlim gate = new SemaphoreSlim(MaxPerConnection))
@@ -386,7 +389,17 @@ namespace NLMCL.Core.Installing
 
                 try
                 {
-                    await DownloadRangeAsync(url, start, end, partPath, cancellationToken).ConfigureAwait(false);
+                    long done = File.Exists(partPath) ? new FileInfo(partPath).Length : 0;
+
+                    if (done >= expected)
+                    {
+                        TryDelete(partPath);
+                        done = 0;
+                    }
+
+                    // 重要：重试时从断点继续，而不是把已经下好的部分丢掉重来
+                    await DownloadRangeAsync(url, start + done, end, partPath, done > 0, cancellationToken)
+                        .ConfigureAwait(false);
 
                     if (new FileInfo(partPath).Length == expected)
                     {
@@ -421,7 +434,7 @@ namespace NLMCL.Core.Installing
         /// 一个卡住的连接会让整次下载既不失败也不重试（成员审阅 3.5 指出的问题）。
         /// </summary>
         private static async Task DownloadRangeAsync(
-            string url, long start, long end, string partPath, CancellationToken cancellationToken)
+            string url, long start, long end, string partPath, bool append, CancellationToken cancellationToken)
         {
             using (CancellationTokenSource watchdog =
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
@@ -447,7 +460,7 @@ namespace NLMCL.Core.Installing
                                 .ReadAsStreamAsync()
                                 .ConfigureAwait(false))
                             using (FileStream local = new FileStream(
-                                partPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                                partPath, append ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
                             {
                                 byte[] buffer = new byte[81920];
                                 int read;
@@ -474,6 +487,18 @@ namespace NLMCL.Core.Installing
                     }
                 }
             }
+        }
+
+        /// <summary>按体积决定切几块：每块约 4 MB，最少 6 块、最多 16 块。</summary>
+        internal static int ChunkCountFor(long length)
+        {
+            if (length <= 0)
+            {
+                return ParallelConnections;
+            }
+
+            int bySize = (int)(length / (4L * 1024 * 1024));
+            return Math.Min(16, Math.Max(ParallelConnections, bySize));
         }
 
         /// <summary>把总长度切成 <paramref name="count"/> 段（最后一段收到末尾）。</summary>
