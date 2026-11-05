@@ -71,12 +71,8 @@ namespace NLMCL.Core.Resources
                 return ParseProfile(json, account.Name, "Minecraft Services");
             }
 
-            // 离线账号：名字可能正好是某个正版账号，按名字查一次 Mojang。
-            // 查不到就返回 null（界面显示"没有皮肤"，不伪造）。
-            if (account.Type == AccountType.Offline && !string.IsNullOrWhiteSpace(account.Name))
-            {
-                return await LookupOfflineByNameAsync(account.Name, cancellationToken).ConfigureAwait(false);
-            }
+            // 离线账号默认没有皮肤；仅在用户点「查同名正版皮肤」时才去 Mojang 查
+            // （自动按名字匹配会冒用他人皮肤，观感上也容易误会，见 FIX-14 讨论）。
 
             return null;
         }
@@ -85,7 +81,7 @@ namespace NLMCL.Core.Resources
         /// 用玩家名向 Mojang 查正版档案（离线账号往往就是玩家自己的正版名）。
         /// 名字不存在 / 网络失败都返回 null——不编造皮肤。
         /// </summary>
-        internal async Task<SkinInfo?> LookupOfflineByNameAsync(string playerName, CancellationToken cancellationToken)
+        public async Task<SkinInfo?> LookupByNameAsync(string playerName, CancellationToken cancellationToken)
         {
             try
             {

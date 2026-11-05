@@ -103,6 +103,12 @@ namespace NLMCL.Abstractions
         /// </summary>
         Task<string> GetDefaultSkinAsync(CancellationToken cancellationToken);
 
+        /// <summary>
+        /// 按玩家名向 Mojang 查正版皮肤（离线账号的可选操作，不自动执行）。
+        /// 名字不存在或网络失败返回 null。
+        /// </summary>
+        Task<SkinInfo?> LookupByNameAsync(string playerName, CancellationToken cancellationToken);
+
         /// <summary>内置的预设皮肤列表（Steve / Alex 等）。</summary>
         IReadOnlyList<SkinPreset> GetPresets();
 

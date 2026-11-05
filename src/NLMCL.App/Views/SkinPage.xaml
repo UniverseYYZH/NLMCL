@@ -68,6 +68,10 @@
                             Margin="8,0,0,0" Command="{Binding PickLocalCommand}" />
                     <Button Content="保存皮肤" Style="{StaticResource PrimaryButton}" Padding="14,7"
                             Margin="8,0,0,0" Command="{Binding SaveCommand}" />
+                    <Button Content="查同名正版皮肤" Style="{StaticResource GhostButton}" Padding="14,7"
+                            Margin="8,0,0,0" ToolTip="按当前离线名字向 Mojang 查同名正版账号的皮肤"
+                            Command="{Binding QueryByNameCommand}"
+                            Visibility="{Binding IsOfflineAccount, Converter={StaticResource BoolToVisibility}}" />
                 </StackPanel>
             </StackPanel>
         </Border>

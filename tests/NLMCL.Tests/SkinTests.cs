@@ -134,6 +134,10 @@ namespace NLMCL.Tests
 
             public string GetPresetPath(string presetId) => string.Empty;
 
+            public System.Threading.Tasks.Task<SkinInfo?> LookupByNameAsync(
+                string playerName, System.Threading.CancellationToken cancellationToken)
+                => System.Threading.Tasks.Task.FromResult<SkinInfo?>(null);
+
             public System.Threading.Tasks.Task<string> SavePresetAsync(
                 string presetId, string playerName, System.Threading.CancellationToken cancellationToken)
                 => System.Threading.Tasks.Task.FromResult(string.Empty);
@@ -309,6 +313,10 @@ namespace NLMCL.Tests
 
             public string GetPresetPath(string presetId) => string.Empty;
 
+            public System.Threading.Tasks.Task<SkinInfo?> LookupByNameAsync(
+                string playerName, System.Threading.CancellationToken cancellationToken)
+                => System.Threading.Tasks.Task.FromResult<SkinInfo?>(null);
+
             public System.Threading.Tasks.Task<string> SavePresetAsync(
                 string presetId, string playerName, System.Threading.CancellationToken cancellationToken)
                 => System.Threading.Tasks.Task.FromResult(string.Empty);
@@ -396,7 +404,7 @@ namespace NLMCL.Tests
             });
 
             SkinService service = new SkinService(download, new AppPaths(@"C:\Temp\roaming"));
-            SkinInfo? skin = await service.LookupOfflineByNameAsync("Notch", CancellationToken.None);
+            SkinInfo? skin = await service.LookupByNameAsync("Notch", CancellationToken.None);
 
             Assert.NotNull(skin);
             Assert.Contains("textures.minecraft.net", skin!.SkinUrl);
@@ -408,7 +416,7 @@ namespace NLMCL.Tests
             QueueDownload download = new QueueDownload(Array.Empty<string>());
             SkinService service = new SkinService(download, new AppPaths(@"C:\Temp\roaming"));
 
-            Assert.Null(await service.LookupOfflineByNameAsync("not-a-real-player-xyz", CancellationToken.None));
+            Assert.Null(await service.LookupByNameAsync("not-a-real-player-xyz", CancellationToken.None));
         }
 
         private sealed class QueueDownload : IDownloadService
@@ -470,6 +478,23 @@ namespace NLMCL.Tests
 
             Assert.True(File.Exists(path));
             Assert.True(new FileInfo(path).Length > 1024);
+        }
+
+        [Fact]
+        public async Task Offline_account_does_not_auto_lookup_premium_skin()
+        {
+            // ZW 这类名字可能撞上正版账号，但不该自动冒用别人的皮肤
+            QueueDownload download = new QueueDownload(new[]
+            {
+                "{\"id\":\"d32ca748724248ccb40e42884f1cc831\",\"name\":\"Zw\"}"
+            });
+
+            SkinService service = new SkinService(download, new AppPaths(@"C:\Temp\roaming"));
+            Account offline = new Account("ZW", "uuid", AccountType.Offline);
+
+            SkinInfo? skin = await service.GetAsync(offline, CancellationToken.None);
+
+            Assert.Null(skin);
         }
     }
 }

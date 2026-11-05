@@ -71,6 +71,7 @@ namespace NLMCL.App.ViewModels
         public void SetAccount(Account? account)
         {
             _account = account;
+            IsOfflineAccount = account != null && account.Type == AccountType.Offline;
             AccountText = account == null ? "未登录" : account.Name + "（" + account.TypeLabel + "）";
             _ = RefreshAsync();
         }
@@ -139,6 +140,63 @@ namespace NLMCL.App.ViewModels
             {
                 PreviewPath = null;
                 StatusText = "读取皮肤失败：" + ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        /// <summary>是否离线账号（决定「查同名正版皮肤」按钮是否显示）。</summary>
+        [ObservableProperty]
+        private bool _isOfflineAccount;
+
+        /// <summary>
+        /// 离线账号的手动操作：按名字去 Mojang 查同名正版皮肤。
+        /// 不自动执行——自动匹配会冒用他人皮肤，容易引起误会。
+        /// </summary>
+        [RelayCommand]
+        public async Task QueryByNameAsync()
+        {
+            if (_account == null || IsBusy)
+            {
+                return;
+            }
+
+            IsBusy = true;
+            StatusText = "正在查询同名正版账号…";
+
+            try
+            {
+                SkinInfo? skin = await _skins
+                    .LookupByNameAsync(_account.Name, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (skin?.SkinUrl == null)
+                {
+                    StatusText = "没有找到同名正版账号（" + _account.Name + "），继续使用默认皮肤";
+                    return;
+                }
+
+                _current = skin;
+                ModelText = skin.ModelLabel;
+
+                string source = Path.Combine(
+                    Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
+
+                await _skins.SavePreviewAsync(skin.SkinUrl, source, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                _skinPng = source;
+                _slim = string.Equals(skin.Model, "slim", StringComparison.OrdinalIgnoreCase);
+
+                await RenderAsync().ConfigureAwait(true);
+
+                StatusText = "已找到同名正版账号的皮肤（" + skin.Source + "），仅本机预览";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "查询失败：" + ex.Message;
             }
             finally
             {
