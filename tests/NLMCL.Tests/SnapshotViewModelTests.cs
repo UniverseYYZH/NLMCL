@@ -162,5 +162,32 @@ namespace NLMCL.Tests
             Assert.False(vm.IsVersionsSection);
             Assert.Equal(ShellSection.Snapshot, vm.SelectedNavigation!.Section);
         }
+
+        [Fact]
+        public async Task Leaving_snapshot_page_hides_it()
+        {
+            FakeSnapshots snapshots = new FakeSnapshots();
+            MainViewModel vm = TestSupport.CreateMain(
+                new OneVersionCatalog(), new AppPaths(@"C:\Temp\roaming"), snapshotService: snapshots);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+
+            NavigationItem snapshotNav = vm.NavigationGroups
+                .SelectMany(g => g.Items)
+                .First(i => i.Section == ShellSection.Snapshot);
+            NavigationItem lanNav = vm.NavigationGroups
+                .SelectMany(g => g.Items)
+                .First(i => i.Section == ShellSection.LanScan);
+
+            vm.SelectSection(snapshotNav);
+            Assert.True(vm.IsSnapshotSection);
+
+            vm.SelectSection(lanNav);
+
+            // 两页同时可见会叠在一起（实测截图里就出现了）
+            Assert.False(vm.IsSnapshotSection);
+            Assert.True(vm.IsLanScanSection);
+        }
     }
 }

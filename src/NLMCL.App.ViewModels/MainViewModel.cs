@@ -752,12 +752,10 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            // 「实例快照」不是独立页面，而是覆盖层：点了直接弹出面板。
-            // 以前它会切到一个没有页面绑定的 Section，结果内容区一片空白。
+            // 「实例快照」是独立页面：切过去时加载列表。
             if (item.Section == ShellSection.Snapshot)
             {
-                IsSnapshotSection = true;
-                _ = OpenSnapshotsAsync();
+                _ = LoadSnapshotPageAsync();
             }
 
             foreach (NavigationGroup group in NavigationGroups)
@@ -785,6 +783,7 @@ namespace NLMCL.App.ViewModels
                 RefreshModsInstance();
             }
             IsLanScanSection = item.Section == ShellSection.LanScan;
+            IsSnapshotSection = item.Section == ShellSection.Snapshot;
 
             if (IsSkinSection)
             {
