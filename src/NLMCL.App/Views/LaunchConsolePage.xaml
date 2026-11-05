@@ -104,7 +104,8 @@
             <StackPanel>
                 <TextBlock Text="正在运行的游戏" FontSize="10.5"
                            Foreground="{DynamicResource Muted}" Margin="0,0,0,8" />
-                <ItemsControl ItemsSource="{Binding Sessions}">
+                <ItemsControl ItemsSource="{Binding BarSessions}"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <WrapPanel />

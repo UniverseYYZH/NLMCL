@@ -59,6 +59,17 @@ namespace NLMCL.App.ViewModels
         /// <summary>控制台里的会话列表（多开；退出的也保留，方便回看日志）。</summary>
         public ObservableCollection<GameSessionItem> Sessions { get; } = new ObservableCollection<GameSessionItem>();
 
+        /// <summary>会话栏里实际显示的条目（默认只显示运行中的）。</summary>
+        public ObservableCollection<GameSessionItem> BarSessions { get; } = new ObservableCollection<GameSessionItem>();
+
+        /// <summary>是否在会话栏里也列出已退出的游戏。</summary>
+        [ObservableProperty]
+        private bool _showExitedSessions;
+
+        /// <summary>已退出的会话数量（用于「显示已退出 (N)」）。</summary>
+        [ObservableProperty]
+        private string _exitedSessionsLabel = string.Empty;
+
         /// <summary>会话栏是否显示（没有会话时隐藏，省版面）。</summary>
         [ObservableProperty]
         private bool _hasSessions;
@@ -105,10 +116,62 @@ namespace NLMCL.App.ViewModels
 
             // 用集合变化驱动「是否有日志」，这样直接往 Lines 里加（测试、日志回放）也能正确切换占位提示。
             Lines.CollectionChanged += (_, __) => HasLines = Lines.Count > 0;
-            Sessions.CollectionChanged += (_, __) => HasSessions = Sessions.Count > 0;
+            Sessions.CollectionChanged += (_, __) => SyncBarSessions();
         }
 
         public ObservableCollection<ConsoleLine> Lines { get; } = new ObservableCollection<ConsoleLine>();
+
+        /// <summary>重建会话栏：默认只列运行中的，避免历史记录一直占版面。</summary>
+        private void SyncBarSessions()
+        {
+            BarSessions.Clear();
+
+            int exited = 0;
+
+            foreach (GameSessionItem item in Sessions)
+            {
+                if (!item.IsRunning)
+                {
+                    exited++;
+                }
+
+                if (item.IsRunning || ShowExitedSessions)
+                {
+                    BarSessions.Add(item);
+                }
+            }
+
+            ExitedSessionsLabel = exited == 0 ? string.Empty : "显示已退出 (" + exited + ")";
+            HasSessions = BarSessions.Count > 0;
+        }
+
+        partial void OnShowExitedSessionsChanged(bool value) => SyncBarSessions();
+
+        /// <summary>显示 / 隐藏已退出的会话。</summary>
+        [RelayCommand]
+        public void ToggleExitedSessions() => ShowExitedSessions = !ShowExitedSessions;
+
+        /// <summary>清掉已退出的会话（释放日志缓冲）。</summary>
+        [RelayCommand]
+        public void ClearExitedSessions()
+        {
+            foreach (GameSessionItem item in Sessions.Where(s => !s.IsRunning).ToList())
+            {
+                Sessions.Remove(item);
+            }
+
+            // 映射里也要清掉这些会话，否则事件还会路由到已删除的条目
+            foreach (IGameSession session in _items.Keys.ToList())
+            {
+                if (!Sessions.Contains(_items[session]))
+                {
+                    _items.Remove(session);
+                }
+            }
+
+            SyncBarSessions();
+            StatusText = "已清理退出的会话";
+        }
 
         partial void OnSelectedSessionChanged(GameSessionItem? value)
         {
@@ -457,6 +520,8 @@ namespace NLMCL.App.ViewModels
             {
                 finished.IsRunning = false;
             }
+
+            SyncBarSessions();
 
             // 多开：还有别的游戏在跑，就不能把界面标记成"已退出"
             if (_sessions.Count > 0)

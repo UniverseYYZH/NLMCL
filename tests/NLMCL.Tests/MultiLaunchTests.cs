@@ -79,6 +79,35 @@ namespace NLMCL.Tests
             Assert.Equal(1, second.StopCalls);
         }
 
+
+        [Fact]
+        public void Exited_sessions_are_hidden_from_the_bar_by_default()
+        {
+            LaunchConsoleViewModel console = TestSupport.CreateConsole(new NLMCL.Core.AppPaths(@"C:\Temp\roaming"));
+
+            FakeSession running = new FakeSession(4001);
+            FakeSession exited = new FakeSession(4002);
+
+            console.Attach(running);
+            console.Attach(exited);
+
+            exited.Exit(0);
+
+            // 历史记录不该一直占着会话栏
+            Assert.Single(console.BarSessions);
+            Assert.True(console.BarSessions[0].IsRunning);
+            Assert.Contains("1", console.ExitedSessionsLabel);
+
+            // 打开开关能看到它
+            console.ToggleExitedSessions();
+            Assert.Equal(2, console.BarSessions.Count);
+
+            // 清理后彻底移除
+            console.ClearExitedSessions();
+            Assert.Single(console.Sessions);
+            Assert.Single(console.BarSessions);
+        }
+
         private sealed class CountingSessions : IGameSessionLauncher
         {
             public Task<IGameSession> StartAsync(LaunchRequest request, CancellationToken cancellationToken)
