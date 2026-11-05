@@ -57,4 +57,9 @@ namespace NLMCL.Abstractions
             IReadOnlyDictionary<string, string> fields,
             CancellationToken cancellationToken);
     }
+    /// <summary>下载镜像开关（实现：MirroredDownloadService）。设置页改它，运行时立即生效。</summary>
+    public interface IMirrorSwitch
+    {
+        bool Enabled { get; set; }
+    }
 }

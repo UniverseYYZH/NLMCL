@@ -55,5 +55,8 @@ namespace NLMCL.Abstractions
         Task SaveAsync(
             string minecraftDirectory, string versionId, InstanceSettings settings,
             CancellationToken cancellationToken);
+
+        /// <summary>这个实例是否已经有设置文件（没有就说明是新建的，可以用全局默认值）。</summary>
+        bool Exists(string minecraftDirectory, string versionId);
     }
 }

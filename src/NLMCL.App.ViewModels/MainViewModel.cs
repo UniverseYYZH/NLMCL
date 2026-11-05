@@ -34,6 +34,7 @@ namespace NLMCL.App.ViewModels
         private readonly IClipboard _clipboard;
         private readonly IFolderPicker _folderPicker;
         private readonly IAppSettingsStore _appSettings;
+    private readonly IMirrorSwitch? _mirror;
 
         /// <summary>没有合适的 Java 时按版本要求自动下载（组合根注入；单测里可为 null）。</summary>
         private readonly IJavaRuntimeInstaller? _javaInstaller;
@@ -150,7 +151,8 @@ namespace NLMCL.App.ViewModels
             IVersionInstaller? versionInstaller = null,
             IFileDownloader? fileDownloader = null,
             IResourceCatalog? resourceCatalog = null,
-            IFabricLoaderCatalog? fabricCatalog = null)
+            IFabricLoaderCatalog? fabricCatalog = null,
+            IMirrorSwitch? mirror = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -164,6 +166,7 @@ namespace NLMCL.App.ViewModels
             _folderPicker = folderPicker ?? throw new ArgumentNullException(nameof(folderPicker));
             _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
             _javaInstaller = javaInstaller;
+            _mirror = mirror;
             _sessionLauncher = sessionLauncher;
             _externalAuthenticator = externalAuthenticator;
             _authlibInjector = authlibInjector;
@@ -596,6 +599,47 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string _selectedThreads = "6";
 
+        /// <summary>默认内存（MB）：新建实例第一次启动时使用。</summary>
+        [ObservableProperty]
+        private int _defaultMemoryMb = 2048;
+
+        /// <summary>下载是否走国内镜像（BMCLAPI）。</summary>
+        [ObservableProperty]
+        private bool _useMirror = true;
+
+        /// <summary>内存预设，点一下直接填。</summary>
+        public IReadOnlyList<string> MemoryPresets { get; } = new[] { "2048", "4096", "6144", "8192" };
+
+        /// <summary>点内存预设：直接填进默认内存。</summary>
+        [RelayCommand]
+        private void UseMemoryPreset(string? preset)
+        {
+            if (int.TryParse(preset, out int value) && value >= 512)
+            {
+                DefaultMemoryMb = value;
+            }
+        }
+
+        partial void OnUseMirrorChanged(bool value)
+        {
+            if (!_settingsLoaded)
+            {
+                return;
+            }
+
+            _ = SaveAppearanceAsync();
+        }
+
+        partial void OnDefaultMemoryMbChanged(int value)
+        {
+            if (!_settingsLoaded)
+            {
+                return;
+            }
+
+            _ = SaveAppearanceAsync();
+        }
+
         partial void OnSelectedThreadsChanged(string value)
         {
             if (!_settingsLoaded)
@@ -728,8 +772,15 @@ namespace NLMCL.App.ViewModels
                 settings.UiScale = ClampPercent(UiScalePercent) / 100.0;
                 settings.UiScaleMaximized = ClampMaximizedPercent(UiScaleMaximizedPercent) / 100.0;
                 settings.DownloadThreads = int.TryParse(SelectedThreads, out int threads) ? threads : 6;
+                settings.DefaultMemoryMb = DefaultMemoryMb <= 0 ? 2048 : DefaultMemoryMb;
+                settings.UseMirror = UseMirror;
 
                 await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
+
+                if (_mirror != null)
+                {
+                    _mirror.Enabled = UseMirror;
+                }
 
                 StatusText = "设置已保存";
             }
@@ -1835,7 +1886,10 @@ namespace NLMCL.App.ViewModels
                     .LoadAsync(CurrentGameDirectory, item.FolderName, CancellationToken.None)
                     .ConfigureAwait(true);
 
-                MemoryMb = settings.MemoryMb;
+                // 新实例还没有设置文件：用设置页里的"默认内存"
+                bool fresh = !_instanceSettings.Exists(CurrentGameDirectory, item.FolderName);
+
+                MemoryMb = fresh && DefaultMemoryMb > 0 ? DefaultMemoryMb : settings.MemoryMb;
                 JavaPath = settings.JavaPath ?? string.Empty;
                 ExtraArguments = settings.ExtraArguments ?? string.Empty;
                 WindowWidth = settings.WindowWidth;
@@ -2281,6 +2335,14 @@ namespace NLMCL.App.ViewModels
                 _downloadTuning?.ApplyThreadCount(settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads);
                 Download.Parallelism = settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads;
 
+
+                DefaultMemoryMb = settings.DefaultMemoryMb <= 0 ? 2048 : settings.DefaultMemoryMb;
+                UseMirror = settings.UseMirror;
+
+                if (_mirror != null)
+                {
+                    _mirror.Enabled = settings.UseMirror;
+                }
                 _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
 
                 // 窗口最大化/还原时按对应档位重算（只订阅一次）

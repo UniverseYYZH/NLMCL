@@ -41,6 +41,7 @@ namespace NLMCL.Core.Settings
                     UiScaleMaximized = root.Value<double?>("uiScaleMaximized") ?? 1.5,
                     DownloadThreads = root.Value<int?>("downloadThreads") ?? 6,
                     DefaultMemoryMb = root.Value<int?>("defaultMemoryMb") ?? 2048,
+            UseMirror = root.Value<bool?>("useMirror") ?? true,
                     WizardCompleted = root.Value<bool?>("wizardCompleted") ?? false
                 });
             }
@@ -89,6 +90,7 @@ namespace NLMCL.Core.Settings
                 ["uiScaleMaximized"] = settings.UiScaleMaximized,
                 ["downloadThreads"] = settings.DownloadThreads,
                 ["defaultMemoryMb"] = settings.DefaultMemoryMb,
+            ["useMirror"] = settings.UseMirror,
                 ["wizardCompleted"] = settings.WizardCompleted
             };
 

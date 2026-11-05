@@ -269,6 +269,9 @@ namespace NLMCL.Tests
                 Items[versionId] = settings;
                 return Task.CompletedTask;
             }
+
+            public bool Exists(string minecraftDirectory, string versionId) => Items.ContainsKey(versionId);
+
         }
 
         /// <summary>假的网络信息：地址固定，端口可按需"开/关"。</summary>

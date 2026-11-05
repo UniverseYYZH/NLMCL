@@ -59,6 +59,11 @@ namespace NLMCL.Core.Settings
             }
         }
 
+        public bool Exists(string minecraftDirectory, string versionId)
+        {
+            return File.Exists(PathOf(minecraftDirectory, versionId));
+        }
+
         public Task SaveAsync(
             string minecraftDirectory, string versionId, InstanceSettings settings,
             CancellationToken cancellationToken)

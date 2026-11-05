@@ -180,9 +180,10 @@ namespace NLMCL.App
 
             // Mojang 域名优先走 BMCLAPI 镜像，失败自动回退官方：
             // 安装器/Java 下载/版本列表都只认 IDownloadService，因此这里包一层即可
-            services.AddSingleton<IDownloadService>(sp =>
+            services.AddSingleton<MirroredDownloadService>(sp =>
                 new MirroredDownloadService(sp.GetRequiredService<PclDownloadService>()));
-
+            services.AddSingleton<IDownloadService>(sp => sp.GetRequiredService<MirroredDownloadService>());
+            services.AddSingleton<IMirrorSwitch>(sp => sp.GetRequiredService<MirroredDownloadService>());
             // 安装编排（§2.1a 豁免项：只依赖端口，实现见 NLMCL.Core）
             services.AddSingleton(new InstallOptions());
             services.AddSingleton<VanillaVersionInstaller>();

@@ -14,9 +14,21 @@ namespace NLMCL.Core.Installing
     /// 而多一个开关就多一份需要用户理解的东西（真需要再加）。
     /// 安装器本身（版本、资产、Java 运行时）不需要知道这件事——它们只认下载端口。
     /// </summary>
-    public sealed class MirroredDownloadService : IDownloadService
+    public sealed class MirroredDownloadService : IDownloadService, IMirrorSwitch
     {
         private readonly IDownloadService _inner;
+
+        /// <summary>
+        /// 开关：false 时直接走原始下载服务（官方源）。
+        /// 由设置页控制，运行时可随时切换，不需要重启。
+        /// </summary>
+        public bool Enabled { get; set; } = true;
+
+        /// <summary>
+        /// 开关关掉时返回 null，调用方就会按"没有可用镜像"走官方源。
+        /// </summary>
+        private string? RewriteIfEnabled(string url)
+            => Enabled ? MojangMirror.TryRewrite(url) : null;
 
         public MirroredDownloadService(IDownloadService inner)
         {
@@ -25,7 +37,7 @@ namespace NLMCL.Core.Installing
 
         public async Task DownloadFileAsync(string url, string localPath, CancellationToken cancellationToken)
         {
-            string? mirror = MojangMirror.TryRewrite(url);
+            string? mirror = RewriteIfEnabled(url);
 
             if (mirror == null)
             {
@@ -51,7 +63,7 @@ namespace NLMCL.Core.Installing
 
         public async Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
         {
-            string? mirror = MojangMirror.TryRewrite(url);
+            string? mirror = RewriteIfEnabled(url);
 
             if (mirror == null)
             {
@@ -75,7 +87,7 @@ namespace NLMCL.Core.Installing
         public async Task<string> GetStringAsync(
             string url, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
         {
-            string? mirror = MojangMirror.TryRewrite(url);
+            string? mirror = RewriteIfEnabled(url);
 
             if (mirror == null)
             {
