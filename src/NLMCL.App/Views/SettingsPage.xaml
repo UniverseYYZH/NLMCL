@@ -135,5 +135,26 @@
             </StackPanel>
         </Border>
 
+            <!-- 分区重置：只恢复设置默认值，不动账号/实例/存档 -->
+            <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10">
+                <StackPanel>
+                    <TextBlock Text="重置" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="只恢复设置默认值；账号、游戏目录、实例设置、存档都不动"
+                               FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
+
+                    <WrapPanel Margin="0,10,0,0">
+                        <Button Content="重置外观" Style="{StaticResource GhostButton}" Padding="12,6"
+                                Margin="0,0,8,8" Command="{Binding ResetAppearanceDefaultsCommand}" />
+                        <Button Content="重置下载" Style="{StaticResource GhostButton}" Padding="12,6"
+                                Margin="0,0,8,8" Command="{Binding ResetDownloadDefaultsCommand}" />
+                        <Button Content="重置启动" Style="{StaticResource GhostButton}" Padding="12,6"
+                                Margin="0,0,8,8" Command="{Binding ResetLaunchDefaultsCommand}" />
+                        <Button Content="全部重置" Style="{StaticResource GhostButton}" Padding="12,6"
+                                Command="{Binding ResetAllDefaultsCommand}" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
     </StackPanel>
 </UserControl>

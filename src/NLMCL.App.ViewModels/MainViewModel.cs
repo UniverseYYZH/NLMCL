@@ -913,6 +913,99 @@ namespace NLMCL.App.ViewModels
         private static double ClampMaximizedPercent(double percent)
             => Math.Max(100, Math.Min(200, Math.Round(percent)));
 
+// ---------- 分区重置 ----------
+
+        /// <summary>重置外观（主题 / 缩放），不影响其它设置。</summary>
+        [RelayCommand]
+        public async Task ResetAppearanceDefaultsAsync()
+        {
+            if (!ConfirmReset("外观", "主题、窗口缩放、最大化缩放"))
+            {
+                return;
+            }
+
+            SelectedTheme = "浅色";
+            UiScalePercent = 100;
+            UiScaleMaximizedPercent = 150;
+
+            await SaveAppearanceAsync().ConfigureAwait(true);
+            StatusText = "已重置外观设置";
+        }
+
+        /// <summary>重置下载（线程 / 镜像开关）。</summary>
+        [RelayCommand]
+        public async Task ResetDownloadDefaultsAsync()
+        {
+            if (!ConfirmReset("下载", "下载线程、镜像源开关"))
+            {
+                return;
+            }
+
+            SelectedThreads = "6";
+            UseMirror = true;
+
+            await SaveAppearanceAsync().ConfigureAwait(true);
+            StatusText = "已重置下载设置";
+        }
+
+        /// <summary>重置启动（默认内存 / 默认 Java / 全局 JVM 参数）。</summary>
+        [RelayCommand]
+        public async Task ResetLaunchDefaultsAsync()
+        {
+            if (!ConfirmReset("启动", "新实例默认内存、默认 Java、全局 JVM 参数"))
+            {
+                return;
+            }
+
+            DefaultMemoryMb = 2048;
+            DefaultJavaPath = null;
+            DefaultJvmArgs = string.Empty;
+
+            await SaveAppearanceAsync().ConfigureAwait(true);
+
+            if (JavaOptions.Count > 0)
+            {
+                SelectedJava = JavaOptions[0];
+            }
+
+            StatusText = "已重置启动设置";
+        }
+
+        /// <summary>重置全部设置（保留账号与游戏目录）。</summary>
+        [RelayCommand]
+        public async Task ResetAllDefaultsAsync()
+        {
+            if (!ConfirmReset("全部", "主题、缩放、下载、镜像、内存、Java、JVM 参数"))
+            {
+                return;
+            }
+
+            SelectedTheme = "浅色";
+            UiScalePercent = 100;
+            UiScaleMaximizedPercent = 150;
+            SelectedThreads = "6";
+            UseMirror = true;
+            DefaultMemoryMb = 2048;
+            DefaultJavaPath = null;
+            DefaultJvmArgs = string.Empty;
+
+            await SaveAppearanceAsync().ConfigureAwait(true);
+
+            if (JavaOptions.Count > 0)
+            {
+                SelectedJava = JavaOptions[0];
+            }
+
+            StatusText = "已重置全部设置（账号与游戏目录保留）";
+        }
+
+        private bool ConfirmReset(string section, string items)
+        {
+            return _dialogs == null || _dialogs.Confirm(
+                "重置" + section + "设置",
+                "将把以下设置恢复默认：\n\n" + items + "\n\n账号、游戏目录、实例设置不受影响。继续吗？");
+        }
+
         private async Task SaveAppearanceAsync()
         {
             try
