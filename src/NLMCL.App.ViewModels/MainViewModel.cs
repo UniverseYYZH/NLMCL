@@ -653,6 +653,10 @@ namespace NLMCL.App.ViewModels
         private string _defaultJvmArgs = string.Empty;
 
         /// <summary>内存预设，点一下直接填。</summary>
+
+        /// <summary>全局默认 Java 的可执行文件路径；空表示自动。</summary>
+        [ObservableProperty]
+        private string? _defaultJavaPath;
         public IReadOnlyList<string> MemoryPresets { get; } = new[] { "2048", "4096", "6144", "8192" };
 
         /// <summary>打开日志目录（%APPDATA%\NLMCL\logs）。</summary>
@@ -922,6 +926,7 @@ namespace NLMCL.App.ViewModels
                 settings.DefaultMemoryMb = DefaultMemoryMb <= 0 ? 2048 : DefaultMemoryMb;
                 settings.UseMirror = UseMirror;
                 settings.DefaultJvmArgs = string.IsNullOrWhiteSpace(DefaultJvmArgs) ? null : DefaultJvmArgs.Trim();
+                settings.DefaultJavaPath = string.IsNullOrWhiteSpace(DefaultJavaPath) ? null : DefaultJavaPath;
 
                 await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
 
@@ -986,6 +991,11 @@ namespace NLMCL.App.ViewModels
 
             // 首次进入这两页时自动拉数据，避免"点进去一片空白，要手动刷新"
             if (IsDownloadSection)
+            if (IsSettingsSection)
+            {
+                _ = EnsureJavaScannedAsync();
+            }
+
             {
                 _ = Download.EnsureLoadedAsync();
             }
@@ -2049,8 +2059,111 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        /// <summary>把界面上的设置写回实例目录。</summary>
+// ---------- Java 运行时管理 ----------
+
+        /// <summary>探测到的 Java 列表（第一项固定是「自动」）。</summary>
+        public ObservableCollection<JavaOption> JavaOptions { get; } = new ObservableCollection<JavaOption>();
+
+        /// <summary>当前选中的默认 Java；null 表示自动。</summary>
+        [ObservableProperty]
+        private JavaOption? _selectedJava;
+
+        /// <summary>是否正在探测 Java。</summary>
+        [ObservableProperty]
+        private bool _isScanningJava;
+
+        /// <summary>Java 列表的状态说明（探测数量 / 默认项）。</summary>
+        [ObservableProperty]
+        private string _javaStatus = "尚未探测";
+
+        /// <summary>重新探测本机 Java，并刷新可选列表。</summary>
         [RelayCommand]
+        public async Task RefreshJavaAsync()
+        {
+            if (IsScanningJava)
+            {
+                return;
+            }
+
+            IsScanningJava = true;
+            JavaStatus = "正在探测 Java…";
+
+            try
+            {
+                IReadOnlyList<JavaRuntime> javas = await _javaLocator
+                    .FindInstalledAsync(CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                JavaOptions.Clear();
+
+                JavaOptions.Add(new JavaOption(null, "自动（按版本要求）", "由启动器按每个实例需要的 Java 版本挑选"));
+
+                foreach (JavaRuntime java in javas.OrderByDescending(item => item.Major))
+                {
+                    JavaOptions.Add(new JavaOption(
+                        java.ExecutablePath,
+                        "Java " + (java.Major > 0 ? java.Major.ToString() : "?") + " · " + java.Home,
+                        java.Exists ? java.ExecutablePath : java.ExecutablePath + "（文件不存在）"));
+                }
+
+                // 恢复选中项：优先配置里的默认 Java
+                string? configured = DefaultJavaPath;
+                JavaOption? match = JavaOptions.FirstOrDefault(option =>
+                    option.Path != null
+                    && (string.Equals(option.Path, configured, StringComparison.OrdinalIgnoreCase)));
+
+                SelectedJava = match ?? JavaOptions[0];
+                SyncJavaSelection();
+
+                JavaStatus = javas.Count == 0
+                    ? "没有探测到 Java；启动时会尝试自动下载 Mojang 运行时"
+                    : "探测到 " + javas.Count + " 个 Java"
+                      + (match == null ? "（当前为自动）" : "（默认：" + match.Title + "）");
+            }
+            catch (Exception ex)
+            {
+                JavaStatus = "探测失败：" + ex.Message;
+            }
+            finally
+            {
+                IsScanningJava = false;
+            }
+        }
+
+        partial void OnSelectedJavaChanged(JavaOption? value)
+        {
+            DefaultJavaPath = value?.Path;
+
+            SyncJavaSelection();
+            _ = SaveAppearanceAsync();
+        }
+
+        /// <summary>让列表里的单选按钮与 SelectedJava 保持一致。</summary>
+        private void SyncJavaSelection()
+        {
+            foreach (JavaOption option in JavaOptions)
+            {
+                option.IsSelected = ReferenceEquals(option, SelectedJava);
+            }
+        }
+
+        /// <summary>选出真正要用的 Java 路径：默认 Java &gt; 实例手填 &gt; 自动挑。</summary>
+        internal static string? PickConfiguredJava(
+            string? defaultJavaPath, string? instanceJavaPath, IReadOnlyList<JavaRuntime> javas, int? required)
+        {
+            if (!string.IsNullOrWhiteSpace(defaultJavaPath) && File.Exists(defaultJavaPath))
+            {
+                return defaultJavaPath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(instanceJavaPath) && File.Exists(instanceJavaPath))
+            {
+                return instanceJavaPath;
+            }
+
+            return JavaRequirements.Pick(javas, required)?.ExecutablePath;
+        }
+
         public async Task SaveSettingsAsync()
         {
             if (SelectedVersion == null)
@@ -2492,6 +2605,7 @@ namespace NLMCL.App.ViewModels
                 DefaultMemoryMb = settings.DefaultMemoryMb <= 0 ? 2048 : settings.DefaultMemoryMb;
                 UseMirror = settings.UseMirror;
                 DefaultJvmArgs = settings.DefaultJvmArgs ?? string.Empty;
+                DefaultJavaPath = settings.DefaultJavaPath;
 
                 if (_mirror != null)
                 {
@@ -2580,6 +2694,17 @@ namespace NLMCL.App.ViewModels
 
             IsAccountPopupOpen = false;
         }
+        /// <summary>首次进入设置页时探测一次 Java（避免启动就扫盘拖慢）。</summary>
+        public async Task EnsureJavaScannedAsync()
+        {
+            if (JavaOptions.Count > 0 || IsScanningJava)
+            {
+                return;
+            }
+
+            await RefreshJavaAsync().ConfigureAwait(true);
+        }
+
         /// <summary>启动时读回上次的账号（只做一次）。</summary>
         public async Task LoadAccountAsync()
         {
@@ -2703,19 +2828,28 @@ namespace NLMCL.App.ViewModels
                     .FindInstalledAsync(CancellationToken.None)
                     .ConfigureAwait(true);
 
-                // 指定了 Java 就用它；否则按「该版本要求的 Java」挑，而不是无脑挑最高。
-                string? javaExecutable;
+                // 优先级：设置里的全局默认 Java > 实例手填 > 按版本要求自动挑。
+                string? javaExecutable = null;
                 Version? javaVersion = null;
-                if (!string.IsNullOrWhiteSpace(JavaPath))
+
+                if (!string.IsNullOrWhiteSpace(DefaultJavaPath) && File.Exists(DefaultJavaPath))
+                {
+                    javaExecutable = DefaultJavaPath;
+                    javaVersion = JavaVersionProbe.TryRead(javaExecutable);
+
+                    if (javaVersion == null)
+                    {
+                        StatusText = "全局默认 Java 读不到版本，已回退到自动选择";
+                        javaExecutable = null;
+                    }
+                }
+
+                if (javaExecutable == null && !string.IsNullOrWhiteSpace(JavaPath))
                 {
                     javaExecutable = JavaPath;
-
-                    // 手填路径时没有"探测"环节，版本号会留空 → PCL 按默认 Java 17 生成
-                    // JVM 参数（给 Java 8 加 -XX:+UseZGC 之类的）→ JVM 拒绝启动，窗口一闪而过。
-                    // 从 JDK 自带的 release 文件里读真实版本补上。
-                    javaVersion = JavaVersionProbe.TryRead(javaExecutable);
                 }
-                else
+
+                if (javaExecutable == null)
                 {
                     int? required = JavaRequirements.ReadRequiredMajor(
                         CurrentGameDirectory, SelectedVersion.FolderName);

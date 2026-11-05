@@ -46,6 +46,12 @@ namespace NLMCL.Abstractions
         /// </summary>
         public bool UseMirror { get; set; } = true;
 
+        /// <summary>
+        /// 全局默认 Java 的可执行文件路径（javaw.exe）。
+        /// 为空表示「自动」：按实例要求挑选最高的兼容版本。
+        /// </summary>
+        public string? DefaultJavaPath { get; set; }
+
         public bool WizardCompleted { get; set; }
     }
 

@@ -171,4 +171,31 @@ namespace NLMCL.App.ViewModels
             }
         }
     }
+
+    /// <summary>
+    /// 设置页「Java 运行时」列表里的一项。
+    /// Path 为空表示"自动"（按实例要求挑）。
+    /// </summary>
+    public sealed partial class JavaOption : CommunityToolkit.Mvvm.ComponentModel.ObservableObject
+    {
+        /// <summary>是否为当前选中的默认 Java（单选按钮绑定）。</summary>
+        [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+        private bool _isSelected;
+
+        public JavaOption(string? path, string title, string subtitle)
+        {
+            Path = path;
+            Title = title;
+            Subtitle = subtitle;
+        }
+
+        /// <summary>javaw.exe 的路径；null 表示自动。</summary>
+        public string? Path { get; }
+
+        public string Title { get; }
+
+        public string Subtitle { get; }
+
+        public bool IsAuto => string.IsNullOrEmpty(Path);
+    }
 }
