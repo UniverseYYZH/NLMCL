@@ -76,6 +76,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>常用服务器（快捷入口）。</summary>
         private readonly IServerBookmarkStore? _bookmarks;
 
+        /// <summary>实例游戏目录解析（版本隔离由 PCL 决定，必须跟启动共用同一答案）。</summary>
+        private readonly IInstancePathResolver? _instancePaths;
+
         /// <summary>SLP 探测（诊断用）。</summary>
         private readonly IServerPinger? _pinger;
         private readonly IServerAddressResolver? _addressResolver;
@@ -141,6 +144,7 @@ namespace NLMCL.App.ViewModels
             LanScanViewModel? lanScan = null,
             ISkinService? skins = null,
             IServerBookmarkStore? bookmarks = null,
+        IInstancePathResolver? instancePaths = null,
             IServerPinger? pinger = null,
             ModsViewModel? mods = null,
             IVersionRepairer? repairer = null,
@@ -181,6 +185,7 @@ namespace NLMCL.App.ViewModels
             _lanScan = lanScan;
             _skins = skins;
             _bookmarks = bookmarks;
+            _instancePaths = instancePaths;
             _pinger = pinger;
             _addressResolver = addressResolver;
             _profileStore = profileStore;
@@ -1824,9 +1829,24 @@ namespace NLMCL.App.ViewModels
             return 2048;
         }
 
-        /// <summary>模组目录：与启动参数 --gameDir 保持一致（.minecraft\mods）。</summary>
-        internal static string ModsDirectoryFor(string minecraftDirectory)
-            => Path.Combine(minecraftDirectory, "mods");
+        /// <summary>实例实际使用的游戏目录：优先问 PCL（版本隔离规则），失败退回版本目录。</summary>
+        internal static string ResolveGameDirectory(
+            IInstancePathResolver? resolver, string minecraftDirectory, string versionFolder)
+        {
+            try
+            {
+                if (resolver != null)
+                {
+                    return resolver.GetGameDirectory(minecraftDirectory, versionFolder);
+                }
+            }
+            catch (Exception)
+            {
+                // 解析失败就按隔离处理，至少和"版本目录里有 mods"的常见情况一致
+            }
+
+            return Path.Combine(minecraftDirectory, "versions", versionFolder);
+        }
 
         private void RefreshModsInstance()
         {
@@ -1844,10 +1864,10 @@ namespace NLMCL.App.ViewModels
             string minecraft = CurrentGameDirectory;
             string folder = SelectedVersion.FolderName;
 
-            // 必须和游戏实际用的目录一致：启动参数的 --gameDir 是 .minecraft 根，
-            // 所以 mods 也在根下的 mods\（以前这里错误地指向 versions\<id>\mods，
-            // 界面里"启用"改的是游戏不会读的目录，模组当然没生效）。
-            string modsDirectory = ModsDirectoryFor(minecraft);
+            // 版本隔离由 PCL 决定（版本目录里有 mods/saves 就隔离）：必须问同一个解析器，
+            // 否则「Mod 管理」看到的目录和游戏实际读取的目录会对不上。
+            string modsDirectory = Path.Combine(
+                ResolveGameDirectory(_instancePaths, minecraft, folder), "mods");
             string loader = folder.IndexOf("fabric", StringComparison.OrdinalIgnoreCase) >= 0 ? "fabric"
                 : folder.IndexOf("forge", StringComparison.OrdinalIgnoreCase) >= 0 ? "forge"
                 : folder.IndexOf("neoforge", StringComparison.OrdinalIgnoreCase) >= 0 ? "neoforge"

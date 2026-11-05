@@ -163,6 +163,7 @@ namespace NLMCL.App
             services.AddSingleton<ISkinService, SkinService>();
             services.AddSingleton<IServerBookmarkStore, Core.Servers.ServerBookmarkStore>();
             services.AddSingleton<IModManager, Core.Mods.ModManager>();
+        services.AddSingleton<IInstancePathResolver, PclInstancePathResolver>();
             services.AddSingleton<IVersionRepairer, Core.Repair.VersionRepairer>();
             services.AddSingleton<ICrashAnalyzer, Core.Crash.CrashAnalyzer>();
             services.AddSingleton<IVersionManager, Core.Versions.VersionManager>();

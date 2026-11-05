@@ -59,4 +59,14 @@ namespace NLMCL.Abstractions
         /// <summary>这个实例是否已经有设置文件（没有就说明是新建的，可以用全局默认值）。</summary>
         bool Exists(string minecraftDirectory, string versionId);
     }
+
+    /// <summary>
+    /// 解析某个实例实际使用的游戏目录（.minecraft 根或 versions\&lt;id&gt;\）。
+    /// 版本隔离规则由 PCL 决定（版本目录里有 mods/saves 会自动隔离），
+    /// 启动模组和「Mod 管理」必须用同一个答案，否则会像以前那样对不上。
+    /// </summary>
+    public interface IInstancePathResolver
+    {
+        string GetGameDirectory(string minecraftDirectory, string versionId);
+    }
 }
