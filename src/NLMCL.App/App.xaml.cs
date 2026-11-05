@@ -141,12 +141,12 @@ namespace NLMCL.App
             services.AddSingleton<IUiDispatcher, Services.WpfUiDispatcher>();
             // 主题 / 缩放：同样只在 App 层碰 WPF
             services.AddSingleton<IAppearance, Services.AppearanceService>();
-            // 微软登录：client_id 不内置（与 PCL 一致），从环境变量读。
+            // 微软登录：client id 优先级 设置 > 环境变量 > 内置公共 id（开箱可用）
             // 外面包一层 OAuthDownloadService：OAuth/Xbox 的错误是 4xx + 正文，
             // 不把正文放回来，认证器里的 authorization_pending / XErr 分支就是死代码。
             services.AddSingleton<IMicrosoftAuthenticator>(sp => new MicrosoftAuthenticator(
                 new OAuthDownloadService(sp.GetRequiredService<IDownloadService>()),
-                Environment.GetEnvironmentVariable("NLMCL_MS_CLIENT_ID")));
+                ResolveMicrosoftClientId(sp.GetRequiredService<IAppSettingsStore>())));
 
             // 外置登录（MUA 联合认证 / Blessing Skin 皮肤站）：Yggdrasil 协议。
             // 同样需要把 4xx 的正文放回来，否则"密码错误"只会显示成一串异常。
@@ -216,6 +216,38 @@ namespace NLMCL.App
             services.AddTransient<MainViewModel>();
             services.AddTransient<MainWindow>();
             services.AddTransient<Views.WizardWindow>();
+        }
+
+        /// <summary>
+        /// 微软 client id 的优先级：设置里填的 &gt; 环境变量 &gt; 内置公共 id。
+        /// 这样新用户开箱可用，团队也能随时换成自己注册的应用。
+        /// </summary>
+        private static string ResolveMicrosoftClientId(IAppSettingsStore store)
+        {
+            AppSettings? settings = null;
+
+            try
+            {
+                settings = store.LoadAsync(CancellationToken.None).GetAwaiter().GetResult();
+            }
+            catch (Exception)
+            {
+                // 读不到设置不影响登录：退回环境变量/内置 id
+            }
+
+            if (!string.IsNullOrWhiteSpace(settings?.MicrosoftClientId))
+            {
+                return settings!.MicrosoftClientId!.Trim();
+            }
+
+            string? fromEnvironment = Environment.GetEnvironmentVariable("NLMCL_MS_CLIENT_ID");
+
+            if (!string.IsNullOrWhiteSpace(fromEnvironment))
+            {
+                return fromEnvironment.Trim();
+            }
+
+            return MicrosoftAuthenticator.DefaultClientId;
         }
 
         protected override void OnExit(ExitEventArgs e)

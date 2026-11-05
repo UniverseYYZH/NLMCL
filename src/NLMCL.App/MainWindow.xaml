@@ -858,12 +858,21 @@
                                 <StackPanel>
                                     <TextBlock Text="在浏览器里输入这个码" FontSize="9.5"
                                                Foreground="{DynamicResource Muted}" />
-                                    <TextBlock Text="{Binding DeviceCodeText}" FontSize="17"
-                                               FontWeight="Bold" Foreground="{DynamicResource Primary}"
-                                               Margin="0,2,0,0" />
+
+                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding DeviceCodeText}" FontSize="17"
+                                                   FontWeight="Bold" Foreground="{DynamicResource Primary}"
+                                                   VerticalAlignment="Center" />
+                                        <Button Content="复制" Style="{StaticResource GhostButton}"
+                                                Margin="10,0,0,0" Padding="10,3" FontSize="10"
+                                                Command="{Binding CopyDeviceCodeCommand}" />
+                                    </StackPanel>
+
+                                    <TextBlock Text="{Binding DeviceCodeHint}" FontSize="9"
+                                               Foreground="{DynamicResource Faint}"
+                                               Margin="0,4,0,0" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
-
                             <!-- 微软登录的 Azure 应用 ID -->
                             <Border Background="{DynamicResource BorderColor}" Height="1" Margin="0,12,0,10" />
                             <TextBlock Text="微软登录需要 Azure 应用 ID（client id）"

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
@@ -28,6 +28,15 @@ namespace NLMCL.Core.Accounts
     /// </summary>
     public sealed class MicrosoftAuthenticator : IMicrosoftAuthenticator
     {
+        /// <summary>
+        /// 内置的公共设备码 client id（与旧版 Python 实现同一个，来源 mcauth3）。
+        ///
+        /// 为什么要内置：不内置的话第一次点"微软登录"必然失败，玩家不会去注册 Azure 应用。
+        /// 风险：这是别人的应用注册，被吊销后所有用户都要重新登录；可用
+        /// 环境变量 <c>NLMCL_MS_CLIENT_ID</c> 或设置页覆盖。
+        /// </summary>
+        public const string DefaultClientId = "4a07b708-b86d-4365-a55f-f4f23ecb85ab";
+
         public const string DeviceCodeUrl =
             "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
         public const string TokenUrl =

@@ -417,6 +417,23 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string _deviceCodeText = string.Empty;
 
+        /// <summary>设备码下方的说明（有效期 / 等待状态）。</summary>
+        [ObservableProperty]
+        private string _deviceCodeHint = string.Empty;
+
+        /// <summary>复制设备码到剪贴板。</summary>
+        [RelayCommand]
+        private void CopyDeviceCode()
+        {
+            if (string.IsNullOrWhiteSpace(DeviceCodeText))
+            {
+                return;
+            }
+
+            _clipboard.SetText(DeviceCodeText);
+            StatusText = "已复制设备码：" + DeviceCodeText;
+        }
+
         /// <summary>展开/收起账号弹层。</summary>
         [RelayCommand]
         public void ToggleAccountPopup()
@@ -1978,6 +1995,9 @@ namespace NLMCL.App.ViewModels
                     .ConfigureAwait(true);
 
                 DeviceCodeText = challenge.UserCode;
+
+                int minutes = Math.Max(1, (int)Math.Round((challenge.ExpiresAt - DateTimeOffset.Now).TotalMinutes));
+                DeviceCodeHint = "有效约 " + minutes + " 分钟 · 浏览器输入后这里会自动继续，不用关窗口";
                 StatusText = "请在浏览器里输入设备码：" + challenge.UserCode;
 
                 // 打开授权页。失败不影响流程——用户也能手动访问地址
