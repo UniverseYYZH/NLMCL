@@ -2772,12 +2772,6 @@ namespace NLMCL.App.ViewModels
 
                 StatusText = "正在启动 " + SelectedVersion.Name + "（内存 " + MemoryMb + " MB）…";
 
-                if (Console.IsRunning)
-                {
-                    StatusText = "游戏已经在运行，日志见「启动与日志」";
-                    return;
-                }
-
                 LaunchRequest request = new LaunchRequest(CurrentGameDirectory, SelectedVersion.FolderName)
                 {
                     JavaExecutable = javaExecutable,

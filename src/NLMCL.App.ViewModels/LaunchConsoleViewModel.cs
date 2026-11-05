@@ -56,6 +56,10 @@ namespace NLMCL.App.ViewModels
         /// <summary>外置登录所需的 authlib-injector（单测里可为 null）。</summary>
         private readonly IAuthlibInjector? _authlibInjector;
 
+        /// <summary>所有仍在运行的会话（多开：允许同时跑多个游戏）。</summary>
+        private readonly List<IGameSession> _sessions = new List<IGameSession>();
+
+        /// <summary>最近一次启动的会话（「停止」按钮作用于它）。</summary>
         private IGameSession? _session;
 
         /// <summary>
@@ -230,19 +234,21 @@ namespace NLMCL.App.ViewModels
             _session = session;
             _exitHandled = false;
 
-            _session.Output += OnOutput;
-            _session.Exited += OnExited;
+            _sessions.Add(session);
+            session.Output += OnOutput;
+            session.Exited += (sender, code) => OnExited(session, code);
 
             IsRunning = true;
-            StatusText = "运行中（PID " + _session.ProcessId + "）";
+            StatusText = _sessions.Count <= 1
+                ? "运行中（PID " + session.ProcessId + "）"
+                : "运行中（共 " + _sessions.Count + " 个，最新 PID " + session.ProcessId + "）";
 
             StartWatchdog();
 
-            // JVM 秒退时，Exited 可能在订阅之前就广播完了——补查一次终态，
-            // 否则界面永远停在"运行中"，StartCommand 会一直拒绝再次启动。
-            if (_session.ExitCode.HasValue)
+            // JVM 秒退时，Exited 可能在订阅之前就广播完了——补查一次终态。
+            if (session.ExitCode.HasValue)
             {
-                HandleExit(_session.ExitCode.Value);
+                HandleExit(session, session.ExitCode.Value);
             }
         }
 
@@ -339,14 +345,25 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        private void OnExited(object? sender, int exitCode)
+        private void OnExited(IGameSession session, int exitCode)
         {
-            _dispatcher.Post(() => HandleExit(exitCode));
+            _dispatcher.Post(() => HandleExit(session, exitCode));
         }
 
-        private void HandleExit(int exitCode)
+        private void HandleExit(IGameSession session, int exitCode)
         {
+            _sessions.Remove(session);
+
+            // 多开：还有别的游戏在跑，就不能把界面标记成"已退出"
+            if (_sessions.Count > 0)
+            {
+                IsRunning = true;
+                StatusText = "还有 " + _sessions.Count + " 个游戏在运行";
+                return;
+            }
+
             StopWatchdog();
+
             if (_exitHandled)
             {
                 return;
