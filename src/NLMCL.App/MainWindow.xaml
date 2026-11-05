@@ -216,7 +216,10 @@
 
                 <!-- 分组导航 -->
                 <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
+                              Background="Transparent" HorizontalScrollBarVisibility="Disabled">
+                    <ScrollViewer.Resources>
+                        <Style TargetType="ScrollBar" BasedOn="{StaticResource SidebarScrollBar}" />
+                    </ScrollViewer.Resources>
                     <ItemsControl ItemsSource="{Binding NavigationGroups}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
