@@ -52,10 +52,10 @@ namespace NLMCL.Tests
 
                 IReadOnlyList<ServerBookmark> servers = await store.LoadAsync(CancellationToken.None);
 
-                Assert.Equal(2, servers.Count);
+                Assert.Equal(3, servers.Count);
                 Assert.Contains(servers, s => s.Address == "mc2.nxist.top");
                 Assert.Contains(servers, s => s.Address == "mc4.nxist.top");
-                Assert.DoesNotContain(servers, s => s.Address == "mua.nxist.top");
+                Assert.Contains(servers, s => s.Address == "mua.nxist.top");
 
                 // 首次加载应落盘
                 Assert.True(File.Exists(Path.Combine(root, "NLMCL", "servers.json")));

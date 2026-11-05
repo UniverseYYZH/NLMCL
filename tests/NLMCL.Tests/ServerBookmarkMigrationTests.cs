@@ -25,12 +25,13 @@ namespace NLMCL.Tests
         {
             IReadOnlyList<ServerBookmark> builtIn = ServerBookmarkStore.BuiltIn;
 
-            Assert.Equal(2, builtIn.Count);
+            Assert.Equal(3, builtIn.Count);
             Assert.Equal("方块宁理 · 大厅（线路一）", builtIn[0].Name);
             Assert.Equal("mc2.nxist.top", builtIn[0].Address);
             Assert.Equal("方块宁理 · 大厅（线路二）", builtIn[1].Name);
             Assert.Equal("mc4.nxist.top", builtIn[1].Address);
-            // 认证服（mua.nxist.top）已从游戏列表移除：它不是游戏服务器
+            Assert.Contains("学生专线", builtIn[2].Name);
+            Assert.Equal("mua.nxist.top", builtIn[2].Address);
         }
 
         [Fact]

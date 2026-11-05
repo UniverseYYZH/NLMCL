@@ -21,7 +21,8 @@ namespace NLMCL.Core.Servers
         public static readonly IReadOnlyList<ServerBookmark> BuiltIn = new[]
         {
             new ServerBookmark("方块宁理 · 大厅（线路一）", "mc2.nxist.top"),
-            new ServerBookmark("方块宁理 · 大厅（线路二）", "mc4.nxist.top")
+            new ServerBookmark("方块宁理 · 大厅（线路二）", "mc4.nxist.top"),
+            new ServerBookmark("方块宁理 · 学生专线", "mua.nxist.top")
         };
 
         private readonly IAppPaths _paths;
@@ -101,17 +102,14 @@ namespace NLMCL.Core.Servers
                 }
             }
 
-            // 把"认证服"从游戏服务器列表里清掉：
-            // mua.nxist.top 是高校联盟的账号认证 API，不是游戏服，点了必然连不上。
-            // 只删内置命名的那一条，用户自己起的名字不动。
-            for (int i = servers.Count - 1; i >= 0; i--)
+            // 修正历史误判：mua.nxist.top 是「学生专线」游戏入口（同一套 Velocity 导航），
+            // 不是账号认证 API。之前把它标成"非游戏服"并删除是错的，这里改回"学生专线"。
+            for (int i = 0; i < servers.Count; i++)
             {
-                bool isAuth = servers[i].Address.StartsWith("mua.nxist.top", StringComparison.OrdinalIgnoreCase);
-                bool seededName = servers[i].Name.Contains("认证") || servers[i].Name.Contains("学生专线");
-
-                if (isAuth && seededName)
+                if (servers[i].Address.StartsWith("mua.nxist.top", StringComparison.OrdinalIgnoreCase)
+                    && (servers[i].Name.Contains("认证") || servers[i].Name.Contains("高校联盟")))
                 {
-                    servers.RemoveAt(i);
+                    servers[i] = new ServerBookmark("方块宁理 · 学生专线", servers[i].Address);
                     changed = true;
                 }
             }

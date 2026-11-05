@@ -313,7 +313,7 @@
                 </TextBlock>
 
                 <TextBlock FontSize="10" Foreground="{DynamicResource Faint}" TextWrapping="Wrap" Margin="0,8,0,0">
-                    <Run Text="高校联盟账号认证地址：mua.nxist.top（在「账号 → 外置登录」里填，它不是游戏服务器）" />
+                    <Run Text="学生专线：mua.nxist.top（与 mc2/mc4 同一套导航，人少时更稳；它也是游戏服务器，不是认证地址）" />
                 </TextBlock>
             </StackPanel>
         </Border>
