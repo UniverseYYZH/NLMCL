@@ -1000,9 +1000,9 @@ namespace NLMCL.App.ViewModels
 
             if (IsSkinSection)
             {
+                _skin?.EnsurePresets();
                 _skin?.SetAccount(Account);
             }
-
             if (IsImportSection && _resource != null)
             {
                 _resource.SyncFromInstance(CurrentGameDirectory, SelectedVersion?.FolderName ?? string.Empty);

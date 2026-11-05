@@ -261,6 +261,69 @@ namespace NLMCL.Core.Resources
             return avatar;
         }
 
+        // ---------- 内置预设皮肤 ----------
+
+        private static readonly SkinPreset[] PresetTable =
+        {
+            new SkinPreset("steve", "Steve（经典）", "default", 64),
+            new SkinPreset("alex", "Alex（纤细）", "slim", 64),
+            new SkinPreset("notch", "Notch（经典）", "default", 32),
+            new SkinPreset("jeb", "jeb_（经典）", "default", 32)
+        };
+
+        public IReadOnlyList<SkinPreset> GetPresets() => PresetTable;
+
+        public string GetPresetPath(string presetId)
+        {
+            SkinPreset? preset = PresetTable.FirstOrDefault(
+                p => string.Equals(p.Id, presetId, StringComparison.OrdinalIgnoreCase));
+
+            if (preset == null)
+            {
+                throw new InvalidOperationException("没有这个预设皮肤：" + presetId);
+            }
+
+            string directory = Path.Combine(Path.GetTempPath(), "nlmcl-presets");
+            Directory.CreateDirectory(directory);
+
+            string target = Path.Combine(directory, preset.Id + ".png");
+
+            if (File.Exists(target) && new FileInfo(target).Length > 256)
+            {
+                return target;
+            }
+
+            using (Stream? resource = typeof(SkinService).Assembly
+                .GetManifestResourceStream("NLMCL.Core.Assets.presets." + preset.Id + ".png"))
+            {
+                if (resource == null)
+                {
+                    throw new InvalidOperationException("预设皮肤资源缺失：" + preset.Id);
+                }
+
+                using (FileStream file = File.Create(target))
+                {
+                    resource.CopyTo(file);
+                }
+            }
+
+            return target;
+        }
+
+        public Task<string> SavePresetAsync(string presetId, string playerName, CancellationToken cancellationToken)
+        {
+            string source = GetPresetPath(presetId);
+
+            Directory.CreateDirectory(_paths.SkinDirectory);
+
+            string name = SafeName(playerName) + "-preset-" + presetId + "-"
+                + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png";
+
+            string target = Path.Combine(_paths.SkinDirectory, name);
+            File.Copy(source, target, overwrite: true);
+
+            return Task.FromResult(target);
+        }
         /// <summary>PNG 魔数：89 50 4E 47 0D 0A 1A 0A。只认 PNG，避免把 jpg 改名混进来。</summary>
         internal static bool HasPngHeader(string path)
         {

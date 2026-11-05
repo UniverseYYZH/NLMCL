@@ -1,9 +1,37 @@
+using System.Collections.Generic;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace NLMCL.Abstractions
 {
+    /// <summary>
+    /// 内置预设皮肤（经典 Steve / Alex 等），离线玩家可以直接挑一个换外观。
+    /// 只影响本地预览与保存的文件，不会改变服务器上的皮肤。
+    /// </summary>
+    public sealed class SkinPreset
+    {
+        public SkinPreset(string id, string name, string model, int width)
+        {
+            Id = id ?? throw new ArgumentNullException(nameof(id));
+            Name = name ?? string.Empty;
+            Model = model ?? "default";
+            Width = width;
+        }
+
+        public string Id { get; }
+
+        public string Name { get; }
+
+        /// <summary>default（经典）或 slim（纤细）。</summary>
+        public string Model { get; }
+
+        /// <summary>原图宽度（64 为现代格式，32 为旧版格式）。</summary>
+        public int Width { get; }
+
+        public string Label => Width >= 64 ? Name : Name + "（旧版格式）";
+    }
+
     /// <summary>当前账号的皮肤信息。</summary>
     public sealed class SkinInfo
     {
@@ -68,5 +96,14 @@ namespace NLMCL.Abstractions
 
         /// <summary>内置默认皮肤 PNG 的本地路径（账号没有自定义皮肤时兜底预览）。</summary>
         string GetDefaultSkinPath();
+
+        /// <summary>内置的预设皮肤列表（Steve / Alex 等）。</summary>
+        IReadOnlyList<SkinPreset> GetPresets();
+
+        /// <summary>把某个预设皮肤解出到临时目录，返回 PNG 路径（供预览）。</summary>
+        string GetPresetPath(string presetId);
+
+        /// <summary>把预设皮肤复制进本地皮肤目录，返回保存后的路径。</summary>
+        Task<string> SavePresetAsync(string presetId, string playerName, CancellationToken cancellationToken);
     }
 }

@@ -72,6 +72,28 @@
                     <Button Content="皮肤自检" Style="{StaticResource GhostButton}" Padding="14,7"
                             Margin="8,0,0,0" ToolTip="列出账号类型 / injector / 皮肤来源 / PNG 可下载性"
                             Command="{Binding SelfCheckCommand}" />
+                <!-- 预设皮肤：离线玩家挑一个换外观（只影响本地预览与保存） -->
+                <TextBlock Text="预设皮肤" FontSize="10.5" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" Margin="0,14,0,6" />
+                <ItemsControl ItemsSource="{Binding Presets}"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8" Padding="12,6"
+                                    Command="{Binding DataContext.ApplyPresetCommand,
+                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                    CommandParameter="{Binding}">
+                                <TextBlock Text="{Binding Label}" FontSize="10.5" />
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
                 </StackPanel>
             </StackPanel>
         </Border>

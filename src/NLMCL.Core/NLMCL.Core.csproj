@@ -33,4 +33,5 @@
   <ItemGroup>
     <!-- 默认皮肤：账号没有自定义皮肤时也要能预览（经典 Steve 布局） -->
     <EmbeddedResource Include="Assets\default-skin.png" />
+    <EmbeddedResource Include="Assets\presets\*.png" />
   </ItemGroup></Project>

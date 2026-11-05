@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System;
 using System.IO;
 using System.Threading;
@@ -147,6 +148,75 @@ namespace NLMCL.App.ViewModels
         }
 
 
+
+        // ---------- 预设皮肤（离线玩家挑一个换外观） ----------
+
+        /// <summary>内置预设皮肤。</summary>
+        public ObservableCollection<SkinPreset> Presets { get; } = new ObservableCollection<SkinPreset>();
+
+        /// <summary>是否已加载过预设（避免重复填充）。</summary>
+        private bool _presetsLoaded;
+
+        /// <summary>应用一个预设皮肤：渲染预览并复制到本地皮肤目录。</summary>
+        [RelayCommand]
+        public async Task ApplyPresetAsync(SkinPreset? preset)
+        {
+            if (preset == null)
+            {
+                return;
+            }
+
+            if (IsBusy)
+            {
+                return;
+            }
+
+            IsBusy = true;
+            StatusText = "正在应用预设：" + preset.Name;
+
+            try
+            {
+                string source = _skins.GetPresetPath(preset.Id);
+
+                _skinPng = source;
+                _slim = string.Equals(preset.Model, "slim", StringComparison.OrdinalIgnoreCase);
+
+                await RenderAsync().ConfigureAwait(true);
+
+                string saved = await _skins
+                    .SavePresetAsync(preset.Id, _account?.Name ?? "player", CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                StatusText = _account == null
+                    ? "已应用 " + preset.Name + "（仅本机预览，保存到 " + saved + "）"
+                    : "已应用 " + preset.Name + "：本机预览已更新，副本保存在 " + saved
+                      + "（服务器上的皮肤不会因此改变）";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "应用预设失败：" + ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
+        }
+
+        /// <summary>填充预设列表（只做一次）。</summary>
+        public void EnsurePresets()
+        {
+            if (_presetsLoaded)
+            {
+                return;
+            }
+
+            _presetsLoaded = true;
+
+            foreach (SkinPreset preset in _skins.GetPresets())
+            {
+                Presets.Add(preset);
+            }
+        }
         // ---------- 皮肤自检：定位"我的皮肤为什么和别人看到的不一样" ----------
 
         /// <summary>账号类型（微软 / 外置 / 离线）。</summary>

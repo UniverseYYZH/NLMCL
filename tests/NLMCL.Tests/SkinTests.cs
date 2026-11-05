@@ -126,6 +126,14 @@ namespace NLMCL.Tests
 
             public string GetDefaultSkinPath()
                 => System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nlmcl-default-skin.png");
+            public System.Collections.Generic.IReadOnlyList<SkinPreset> GetPresets()
+                => System.Array.Empty<SkinPreset>();
+
+            public string GetPresetPath(string presetId) => string.Empty;
+
+            public System.Threading.Tasks.Task<string> SavePresetAsync(
+                string presetId, string playerName, System.Threading.CancellationToken cancellationToken)
+                => System.Threading.Tasks.Task.FromResult(string.Empty);
         }
 
         [Fact]
@@ -290,6 +298,14 @@ namespace NLMCL.Tests
 
             public string GetDefaultSkinPath()
                 => @"C:\skins\default.png";
+            public System.Collections.Generic.IReadOnlyList<SkinPreset> GetPresets()
+                => System.Array.Empty<SkinPreset>();
+
+            public string GetPresetPath(string presetId) => string.Empty;
+
+            public System.Threading.Tasks.Task<string> SavePresetAsync(
+                string presetId, string playerName, System.Threading.CancellationToken cancellationToken)
+                => System.Threading.Tasks.Task.FromResult(string.Empty);
         }
 
         [Fact]
