@@ -121,6 +121,9 @@ namespace NLMCL.Tests
 
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => Task.FromResult<string?>(null);
+
+            public string GetDefaultSkinPath()
+                => System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nlmcl-default-skin.png");
         }
 
         [Fact]
@@ -282,6 +285,9 @@ namespace NLMCL.Tests
 
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => Task.FromResult<string?>(@"C:\skins\avatar.png");
+
+            public string GetDefaultSkinPath()
+                => @"C:\skins\default.png";
         }
 
         [Fact]
@@ -327,6 +333,27 @@ namespace NLMCL.Tests
             Assert.Equal("未登录", vm.AccountText);
             Assert.Contains("未登录", vm.StatusText);
             Assert.False(vm.HasPreview);
+        }
+
+        [Fact]
+        public async Task Account_without_skin_still_gets_a_preview()
+        {
+            // 真实服务：没有自定义皮肤时返回默认皮肤路径，界面不该留空白
+            NLMCL.Core.Resources.SkinService service = new NLMCL.Core.Resources.SkinService(
+                new NoopDownload(),
+                new NLMCL.Core.AppPaths(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nlmcl-skin-default")));
+
+            string path = service.GetDefaultSkinPath();
+
+            Assert.True(System.IO.File.Exists(path));
+            Assert.True(new System.IO.FileInfo(path).Length > 256);
+
+            // 默认皮肤能被渲染器读出来（否则头像会崩）
+            string rendered = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-default-head-" + System.Guid.NewGuid().ToString("N") + ".png");
+            NLMCL.Core.Skins.SkinAvatarRenderer.RenderHead(path, rendered, 8);
+
+            Assert.True(System.IO.File.Exists(rendered));
         }
     }
 }

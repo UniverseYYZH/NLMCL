@@ -103,17 +103,27 @@ namespace NLMCL.App.ViewModels
                 _current = skin;
                 ModelText = skin?.ModelLabel ?? string.Empty;
 
-                if (skin?.SkinUrl == null)
-                {
-                    PreviewPath = null;
-                    StatusText = skin == null
-                        ? "离线账号没有服务器皮肤。可以点「打开本地皮肤」预览自己的 PNG。"
-                        : "该账号还没有设置皮肤。";
-                    return;
-                }
-
                 string source = Path.Combine(
                     Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
+
+                if (skin?.SkinUrl == null)
+                {
+                    // 没有自定义皮肤也要能预览：用内置默认皮肤兜底，
+                    // 否则玩家登录后看到的是一片空白，不知道是"没有皮肤"还是"功能坏了"。
+                    string fallback = _skins.GetDefaultSkinPath();
+                    File.Copy(fallback, source, overwrite: true);
+
+                    _skinPng = source;
+                    _slim = false;
+
+                    await RenderAsync().ConfigureAwait(true);
+
+                    StatusText = _account?.Type == AccountType.Offline
+                        ? "离线账号 · 显示的是默认皮肤（经典 Steve）"
+                        : "该账号没有自定义皮肤 · 显示的是默认皮肤（经典 Steve）";
+
+                    return;
+                }
 
                 await _skins.SavePreviewAsync(skin.SkinUrl, source, CancellationToken.None)
                     .ConfigureAwait(true);

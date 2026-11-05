@@ -30,4 +30,7 @@
     <!-- DPAPI（ProtectedData）用于加密账号令牌 -->
     <Reference Include="System.Security" />
   </ItemGroup>
-</Project>
+  <ItemGroup>
+    <!-- 默认皮肤：账号没有自定义皮肤时也要能预览（经典 Steve 布局） -->
+    <EmbeddedResource Include="Assets\default-skin.png" />
+  </ItemGroup></Project>

@@ -146,19 +146,63 @@ namespace NLMCL.Core.Resources
             return output;
         }
 
+        /// <summary>
+        /// 内置默认皮肤（经典 Steve 布局）的临时文件路径。
+        /// 账号没有自定义皮肤时用它兜底：头像与预览都要有东西可看，而不是留个 "?"。
+        /// </summary>
+        public string GetDefaultSkinPath()
+        {
+            string target = Path.Combine(Path.GetTempPath(), "nlmcl-default-skin.png");
+
+            if (File.Exists(target) && new FileInfo(target).Length > 256)
+            {
+                return target;
+            }
+
+            using (Stream? resource = typeof(SkinService).Assembly
+                .GetManifestResourceStream("NLMCL.Core.Assets.default-skin.png"))
+            {
+                if (resource == null)
+                {
+                    throw new InvalidOperationException("默认皮肤资源缺失（NLMCL.Core.Assets.default-skin.png）");
+                }
+
+                using (FileStream file = File.Create(target))
+                {
+                    resource.CopyTo(file);
+                }
+            }
+
+            return target;
+        }
+
         public async Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
         {
-            SkinInfo? skin = await GetAsync(account, cancellationToken).ConfigureAwait(false);
+            SkinInfo? skin;
+
+            try
+            {
+                skin = await GetAsync(account, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // 皮肤接口挂了不该让头像消失：退回默认皮肤
+                skin = null;
+            }
+
+            string source;
 
             if (skin == null || string.IsNullOrWhiteSpace(skin.SkinUrl))
             {
-                return null;
+                source = GetDefaultSkinPath();
             }
+            else
+            {
+                source = Path.Combine(
+                    Path.GetTempPath(), "nlmcl-skin-src-" + SafeName(account.Name) + ".png");
 
-            string source = Path.Combine(
-                Path.GetTempPath(), "nlmcl-skin-src-" + SafeName(account.Name) + ".png");
-
-            await _download.DownloadFileAsync(skin.SkinUrl!, source, cancellationToken).ConfigureAwait(false);
+                await _download.DownloadFileAsync(skin.SkinUrl!, source, cancellationToken).ConfigureAwait(false);
+            }
 
             string avatar = Path.Combine(
                 Path.GetTempPath(), "nlmcl-avatar-" + SafeName(account.Name) + ".png");
