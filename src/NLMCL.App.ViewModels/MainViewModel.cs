@@ -436,6 +436,28 @@ namespace NLMCL.App.ViewModels
             StatusText = "已复制设备码：" + DeviceCodeText;
         }
 
+
+        /// <summary>登录过程中的验证页地址（用于「重新打开网页」）。</summary>
+        private string? _deviceVerificationUri;
+
+        /// <summary>重新打开微软验证页：浏览器被关掉或没自动弹出时用。</summary>
+        [RelayCommand]
+        private void ReopenDeviceCodePage()
+        {
+            string uri = string.IsNullOrWhiteSpace(_deviceVerificationUri)
+                ? "https://www.microsoft.com/link"
+                : _deviceVerificationUri!;
+
+            try
+            {
+                Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
+                StatusText = "已重新打开验证页：" + uri;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "打不开浏览器，请手动访问 " + uri + "（" + ex.Message + "）";
+            }
+        }
         /// <summary>展开/收起账号弹层。</summary>
         [RelayCommand]
         public void ToggleAccountPopup()
@@ -2104,6 +2126,9 @@ namespace NLMCL.App.ViewModels
                     .ConfigureAwait(true);
 
                 DeviceCodeText = challenge.UserCode;
+                _deviceVerificationUri = string.IsNullOrWhiteSpace(challenge.VerificationUri)
+                    ? "https://www.microsoft.com/link"
+                    : challenge.VerificationUri;
 
                 int minutes = Math.Max(1, (int)Math.Round((challenge.ExpiresAt - DateTimeOffset.Now).TotalMinutes));
                 DeviceCodeHint = "有效约 " + minutes + " 分钟 · 浏览器输入后这里会自动继续，不用关窗口";

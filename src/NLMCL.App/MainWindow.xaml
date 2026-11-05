@@ -866,6 +866,10 @@
                                         <Button Content="复制" Style="{StaticResource GhostButton}"
                                                 Margin="10,0,0,0" Padding="10,3" FontSize="10"
                                                 Command="{Binding CopyDeviceCodeCommand}" />
+                                        <Button Content="重新打开网页" Style="{StaticResource GhostButton}"
+                                                Margin="6,0,0,0" Padding="10,3" FontSize="10"
+                                                ToolTip="浏览器被关掉或没自动弹出时用"
+                                                Command="{Binding ReopenDeviceCodePageCommand}" />
                                     </StackPanel>
 
                                     <TextBlock Text="{Binding DeviceCodeHint}" FontSize="9"
