@@ -110,7 +110,7 @@ namespace NLMCL.App.ViewModels
                 {
                     // 没有自定义皮肤也要能预览：用内置默认皮肤兜底，
                     // 否则玩家登录后看到的是一片空白，不知道是"没有皮肤"还是"功能坏了"。
-                    string fallback = _skins.GetDefaultSkinPath();
+                    string fallback = await _skins.GetDefaultSkinAsync(CancellationToken.None).ConfigureAwait(true);
                     File.Copy(fallback, source, overwrite: true);
 
                     _skinPng = source;

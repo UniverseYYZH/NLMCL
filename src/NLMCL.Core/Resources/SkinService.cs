@@ -199,11 +199,42 @@ namespace NLMCL.Core.Resources
         /// 内置默认皮肤（经典 Steve 布局）的临时文件路径。
         /// 账号没有自定义皮肤时用它兜底：头像与预览都要有东西可看，而不是留个 "?"。
         /// </summary>
+        /// <summary>官方 Steve 皮肤的下载地址（mc-heads 直接给 64x64 PNG）。</summary>
+        public const string DefaultSkinUrl = "https://mc-heads.net/skin/Steve";
+
+        public async Task<string> GetDefaultSkinAsync(CancellationToken cancellationToken)
+        {
+            string target = GetDefaultSkinPath();
+            string cached = Path.Combine(Path.GetTempPath(), "nlmcl-default-skin-downloaded.png");
+
+            if (File.Exists(cached) && new FileInfo(cached).Length > 1024 && HasPngHeader(cached))
+            {
+                return cached;
+            }
+
+            try
+            {
+                await _download.DownloadFileAsync(DefaultSkinUrl, cached, cancellationToken).ConfigureAwait(false);
+
+                if (File.Exists(cached) && HasPngHeader(cached) && new FileInfo(cached).Length > 1024)
+                {
+                    return cached;
+                }
+            }
+            catch (Exception)
+            {
+                // 联网失败就用内置副本（内置的也是真实 Steve 皮肤，不是生成的）
+            }
+
+            return target;
+        }
+
         public string GetDefaultSkinPath()
         {
             string target = Path.Combine(Path.GetTempPath(), "nlmcl-default-skin.png");
 
-            if (File.Exists(target) && new FileInfo(target).Length > 256)
+            // 太小的文件是早先版本生成的占位图，必须重新解出真实皮肤
+            if (File.Exists(target) && new FileInfo(target).Length > 1024 && HasPngHeader(target))
             {
                 return target;
             }
@@ -243,7 +274,7 @@ namespace NLMCL.Core.Resources
 
             if (skin == null || string.IsNullOrWhiteSpace(skin.SkinUrl))
             {
-                source = GetDefaultSkinPath();
+                source = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
             }
             else
             {

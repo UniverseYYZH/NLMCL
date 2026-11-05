@@ -126,6 +126,9 @@ namespace NLMCL.Tests
 
             public string GetDefaultSkinPath()
                 => System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nlmcl-default-skin.png");
+            public System.Threading.Tasks.Task<string> GetDefaultSkinAsync(
+                System.Threading.CancellationToken cancellationToken)
+                => System.Threading.Tasks.Task.FromResult(GetDefaultSkinPath());
             public System.Collections.Generic.IReadOnlyList<SkinPreset> GetPresets()
                 => System.Array.Empty<SkinPreset>();
 
@@ -298,6 +301,9 @@ namespace NLMCL.Tests
 
             public string GetDefaultSkinPath()
                 => @"C:\skins\default.png";
+            public System.Threading.Tasks.Task<string> GetDefaultSkinAsync(
+                System.Threading.CancellationToken cancellationToken)
+                => System.Threading.Tasks.Task.FromResult(GetDefaultSkinPath());
             public System.Collections.Generic.IReadOnlyList<SkinPreset> GetPresets()
                 => System.Array.Empty<SkinPreset>();
 
@@ -435,5 +441,35 @@ namespace NLMCL.Tests
                 => Task.FromResult(string.Empty);
         }
 
+
+        [Fact]
+        public void Bundled_default_skin_is_a_real_steve_not_a_generated_placeholder()
+        {
+            SkinService service = new SkinService(new NoopDownload(), new AppPaths(@"C:\Temp\roaming"));
+            string path = service.GetDefaultSkinPath();
+
+            Assert.True(File.Exists(path));
+
+            // 真正的 Steve 是 64×64、几 KB 的 PNG；程序生成的占位图只有几百字节
+            Assert.True(new FileInfo(path).Length > 1024, "内置默认皮肤应是真实皮肤，不是生成的占位");
+
+            using (System.Drawing.Image image = System.Drawing.Image.FromFile(path))
+            {
+                Assert.Equal(64, image.Width);
+                Assert.Equal(64, image.Height);
+            }
+        }
+
+        [Fact]
+        public async Task Default_skin_download_falls_back_to_bundled_copy()
+        {
+            // 下载失败时不能抛：退回内置的真实皮肤副本
+            SkinService service = new SkinService(new NoopDownload(), new AppPaths(@"C:\Temp\roaming"));
+
+            string path = await service.GetDefaultSkinAsync(CancellationToken.None);
+
+            Assert.True(File.Exists(path));
+            Assert.True(new FileInfo(path).Length > 1024);
+        }
     }
 }

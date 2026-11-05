@@ -97,6 +97,12 @@ namespace NLMCL.Abstractions
         /// <summary>内置默认皮肤 PNG 的本地路径（账号没有自定义皮肤时兜底预览）。</summary>
         string GetDefaultSkinPath();
 
+        /// <summary>
+        /// 取默认 Steve 皮肤：优先从网上拉官方皮肤并缓存，失败才用内置副本。
+        /// 皮肤必须来自真实数据，不能程序生成。
+        /// </summary>
+        Task<string> GetDefaultSkinAsync(CancellationToken cancellationToken);
+
         /// <summary>内置的预设皮肤列表（Steve / Alex 等）。</summary>
         IReadOnlyList<SkinPreset> GetPresets();
 
