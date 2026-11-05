@@ -34,6 +34,20 @@
                                    Foreground="{DynamicResource Text}" Margin="0,3,0,0" />
                         <TextBlock Text="{Binding SnapshotTotalText}" FontSize="10.5"
                                    Foreground="{DynamicResource Muted}" Margin="0,4,0,0" />
+
+                        <TextBlock Text="请先在「本地版本」里点选一个实例，这里才会显示它的快照"
+                                   FontSize="10.5" Foreground="#C62828" Margin="0,6,0,0" TextWrapping="Wrap">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedVersion}" Value="{x:Null}">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -58,10 +72,22 @@
                         <TextBox Width="360" Padding="9,7" FontSize="11"
                                  ToolTip="例如：装宝可梦整合包之前"
                                  Text="{Binding SnapshotNote, UpdateSourceTrigger=PropertyChanged}" />
-                        <Button Content="创建快照" Style="{StaticResource PrimaryButton}"
-                                Margin="10,0,0,0" Padding="16,7"
-                                Command="{Binding CreateSnapshotCommand}"
-                                IsEnabled="{Binding IsSnapshotBusy, Converter={StaticResource InverseBool}}" />
+                        <Button Content="创建快照" Margin="10,0,0,0" Padding="16,7"
+                                Command="{Binding CreateSnapshotCommand}">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                    <Setter Property="IsEnabled" Value="True" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsSnapshotBusy}" Value="True">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding SelectedVersion}" Value="{x:Null}">
+                                            <Setter Property="IsEnabled" Value="False" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                     </StackPanel>
                 </StackPanel>
             </Border>

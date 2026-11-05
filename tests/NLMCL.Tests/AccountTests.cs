@@ -195,5 +195,41 @@ namespace NLMCL.Tests
                     new[] { TestSupport.CreateJava(21) });
             }
         }
+
+        [Fact]
+        public async Task Account_popup_closes_after_sign_in_and_sign_out()
+        {
+            AppPaths paths = new AppPaths(Path.Combine(Path.GetTempPath(), "nlmcl-acct-" + Guid.NewGuid().ToString("N")));
+            TestSupport.MemoryAccountStore store = new TestSupport.MemoryAccountStore();
+
+            MainViewModel vm = new MainViewModel(
+                new OneVersionCatalog(),
+                paths,
+                TestSupport.CreateDownload(paths),
+                TestSupport.CreateConsole(paths),
+                new RecordingLauncher(),
+                new PclJavaLocatorStub(),
+                store,
+                new TestSupport.NoopAuthenticator(),
+                new TestSupport.MemoryInstanceSettingsStore(),
+                new TestSupport.FakeNetwork(),
+                new TestSupport.FakeClipboard(),
+                new TestSupport.FakeFolderPicker(), new TestSupport.FakeAppSettings());
+
+            vm.ToggleAccountPopup();
+            Assert.True(vm.IsAccountPopupOpen);
+
+            vm.PlayerNameInput = "Steve";
+            await vm.SignInOfflineAsync();
+
+            // 登录完成后应自动收起，否则用户得自己点右上角叉
+            Assert.False(vm.IsAccountPopupOpen);
+
+            vm.ToggleAccountPopup();
+            Assert.True(vm.IsAccountPopupOpen);
+
+            await vm.SignOutAsync();
+            Assert.False(vm.IsAccountPopupOpen);
+        }
     }
 }

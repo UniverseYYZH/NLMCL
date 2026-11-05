@@ -1932,6 +1932,7 @@ namespace NLMCL.App.ViewModels
                 Account = account;
                 Console.Account = account;
                 StatusText = "已登录微软账号：" + account.Name;
+                IsAccountPopupOpen = false;
             }
             catch (Exception ex)
             {
@@ -2321,6 +2322,7 @@ namespace NLMCL.App.ViewModels
                 Account = account;
                 Console.Account = account;
                 StatusText = "已登录离线账号：" + account.Name;
+                IsAccountPopupOpen = false;
             }
             catch (Exception ex)
             {
@@ -2336,6 +2338,7 @@ namespace NLMCL.App.ViewModels
             Account = null;
             Console.Account = null;
             StatusText = "已退出账号";
+            IsAccountPopupOpen = false;
         }
 
         /// <summary>启动时读回上次的账号（只做一次）。</summary>
