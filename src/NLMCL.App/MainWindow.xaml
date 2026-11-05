@@ -472,9 +472,6 @@
                 </Grid>
             </Border>
 
-            <!-- 状态栏 -->
-            <TextBlock Grid.Row="5" Text="{Binding StatusText}" FontSize="10.5"
-                       Foreground="{DynamicResource Muted}" Margin="2,10,0,0" />
             </Grid>
 
             <!-- 设置页 -->
@@ -567,9 +564,6 @@
 
                     </StackPanel>
                 </ScrollViewer>
-
-                <TextBlock Grid.Row="2" Text="{Binding StatusText}" FontSize="10.5"
-                           Foreground="{DynamicResource Muted}" Margin="2,10,0,0" />
             </Grid>
             <!-- 导入资源页 -->
             <views:ResourcePage Margin="26,22,26,14"
@@ -873,5 +867,22 @@
                 </DockPanel>
             </Border>
         </Grid>
+
+        <!-- ===== 状态提示（左下角滑入，几秒后自动淡出） ===== -->
+        <Border x:Name="StatusToast" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                Margin="272,0,0,22" Padding="14,9" MaxWidth="560"
+                Background="{DynamicResource Card}" BorderThickness="1"
+                BorderBrush="{DynamicResource BorderColor}" CornerRadius="8"
+                Opacity="0" IsHitTestVisible="False"
+                >
+            <Border.RenderTransform>
+                <TranslateTransform x:Name="ToastShift" X="-48" />
+            </Border.RenderTransform>
+            <StackPanel Orientation="Horizontal">
+                <Border Width="3" CornerRadius="2" Background="{DynamicResource Primary}" Margin="0,0,10,0" />
+                <TextBlock x:Name="ToastText" TextWrapping="Wrap" FontSize="11"
+                           Foreground="{DynamicResource Text}" />
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>

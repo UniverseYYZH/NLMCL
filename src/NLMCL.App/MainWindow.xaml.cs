@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
+using System.ComponentModel;
 using NLMCL.App.ViewModels;
 
 namespace NLMCL.App
@@ -19,7 +21,64 @@ namespace NLMCL.App
             InitializeComponent();
             DataContext = _viewModel;
             Loaded += OnLoaded;
+
+            // 状态栏改成"左下角滑入提示"：订阅 StatusText 变化，界面不必知道业务何时说话。
+            _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         }
+
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(MainViewModel.StatusText))
+            {
+                ShowStatusToast(_viewModel.StatusText);
+            }
+        }
+
+        /// <summary>
+        /// 状态提示：左下角从左侧滑入，几秒后淡出。
+        /// PCL 的做法是不占布局、不打断操作，这里保持一致。
+        /// </summary>
+        internal void ShowStatusToast(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message) || StatusToast == null)
+            {
+                return;
+            }
+
+            _toastTimer?.Stop();
+
+            ToastText.Text = message;
+            StatusToast.Visibility = System.Windows.Visibility.Visible;
+
+            DoubleAnimation slideIn = new DoubleAnimation(-48, 0, System.TimeSpan.FromMilliseconds(180))
+            {
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+            };
+
+            DoubleAnimation fadeIn = new DoubleAnimation(0, 1, System.TimeSpan.FromMilliseconds(160));
+
+            ToastShift.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slideIn);
+            StatusToast.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+
+            _toastTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = System.TimeSpan.FromSeconds(3.2)
+            };
+
+            _toastTimer.Tick += (sender, args) =>
+            {
+                _toastTimer.Stop();
+
+                DoubleAnimation fadeOut = new DoubleAnimation(1, 0, System.TimeSpan.FromMilliseconds(220));
+                fadeOut.Completed += (s2, a2) => StatusToast.Visibility = System.Windows.Visibility.Collapsed;
+
+                StatusToast.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+            };
+
+            _toastTimer.Start();
+        }
+
+        private System.Windows.Threading.DispatcherTimer? _toastTimer;
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
