@@ -65,4 +65,55 @@ namespace NLMCL.App
             throw new System.NotSupportedException();
         }
     }
+
+    /// <summary>
+    /// 把资源图标 URL 换成 ImageSource（带内存缓存，同一 URL 只解码一次）。
+    /// 下载失败返回 null，界面自动退回占位图标。
+    /// </summary>
+    public sealed class ThumbnailConverter : System.Windows.Data.IValueConverter
+    {
+        private static readonly System.Collections.Generic.Dictionary<string, System.Windows.Media.Imaging.BitmapImage> Cache
+            = new System.Collections.Generic.Dictionary<string, System.Windows.Media.Imaging.BitmapImage>();
+
+        public object? Convert(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            string? url = value as string;
+
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return null;
+            }
+
+            if (Cache.TryGetValue(url, out System.Windows.Media.Imaging.BitmapImage? cached))
+            {
+                return cached;
+            }
+
+            try
+            {
+                System.Windows.Media.Imaging.BitmapImage bitmap = new System.Windows.Media.Imaging.BitmapImage();
+                bitmap.BeginInit();
+                bitmap.UriSource = new System.Uri(url, System.UriKind.Absolute);
+                bitmap.DecodePixelWidth = 96;
+                bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                bitmap.EndInit();
+
+                Cache[url] = bitmap;
+                return bitmap;
+            }
+            catch (System.NotSupportedException)
+            {
+                return null;
+            }
+            catch (System.IO.IOException)
+            {
+                return null;
+            }
+        }
+
+        public object ConvertBack(object value, System.Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new System.NotSupportedException();
+        }
+    }
 }
