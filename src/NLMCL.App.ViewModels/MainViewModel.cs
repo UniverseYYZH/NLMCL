@@ -785,6 +785,17 @@ namespace NLMCL.App.ViewModels
             IsLanScanSection = item.Section == ShellSection.LanScan;
             IsSnapshotSection = item.Section == ShellSection.Snapshot;
 
+            // 首次进入这两页时自动拉数据，避免"点进去一片空白，要手动刷新"
+            if (IsDownloadSection)
+            {
+                _ = Download.EnsureLoadedAsync();
+            }
+
+            if (IsImportSection)
+            {
+                _ = Resource.EnsureLoadedAsync();
+            }
+
             if (IsSkinSection)
             {
                 _skin?.SetAccount(Account);

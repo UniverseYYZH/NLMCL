@@ -88,6 +88,19 @@ namespace NLMCL.App.ViewModels
         /// <summary>资源包/光影/数据包没有加载器维度，界面上要隐藏加载器下拉。</summary>
         public bool IsModKind => string.Equals(SelectedKind, "模组", StringComparison.Ordinal);
 
+        /// <summary>
+        /// 进入「导入资源」页时自动查一次热门内容，避免空白页。
+        /// 用户已经搜过（Results 非空）就不打扰。
+        /// </summary>
+        public async Task EnsureLoadedAsync()
+        {
+            if (Results.Count > 0 || IsBusy)
+            {
+                return;
+            }
+
+            await SearchAsync().ConfigureAwait(true);
+        }
         [RelayCommand]
         public async Task SearchAsync()
         {

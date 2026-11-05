@@ -388,6 +388,16 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>进入「版本下载」页时自动拉一次列表（已有数据就不重复请求）。</summary>
+        public async Task EnsureLoadedAsync()
+        {
+            if (Versions.Count > 0 || IsLoading)
+            {
+                return;
+            }
+
+            await LoadVersionsAsync().ConfigureAwait(true);
+        }
         /// <summary>安装当前选中的版本。</summary>
         [RelayCommand]
         public async Task InstallAsync()
