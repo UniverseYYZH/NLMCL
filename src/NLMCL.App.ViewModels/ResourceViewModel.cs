@@ -52,6 +52,11 @@ namespace NLMCL.App.ViewModels
 
         public IReadOnlyList<string> KindOptions { get; } = new[] { "模组", "资源包", "光影", "数据包" };
 
+    partial void OnSelectedSourceChanged(string value)
+    {
+        // 换来源立刻重搜：不然用户会以为"切了没反应"
+        _ = SearchAsync();
+    }
     /// <summary>当前是否选的是 CurseForge。</summary>
     public bool IsCurseForge => string.Equals(SelectedSource, "CurseForge", StringComparison.Ordinal);
 

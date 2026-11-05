@@ -94,7 +94,7 @@
 
         <StackPanel Grid.Row="0">
             <TextBlock Text="导入资源" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource Text}" />
-            <TextBlock Text="从 Modrinth 搜索模组 / 资源包 / 光影 / 数据包，一键装进当前实例"
+            <TextBlock Text="从 Modrinth 或 CurseForge 搜索模组 / 资源包 / 光影 / 数据包，一键装进当前实例"
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
         </StackPanel>
 
@@ -103,17 +103,11 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Background="{DynamicResource Surface}"
+                <!-- 第一行：搜索框独占一行，窄窗口也不会被挤没 -->
+                <Border Grid.Row="0" Background="{DynamicResource Surface}"
                         BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                         CornerRadius="7" Padding="10,7">
                     <Grid>
@@ -126,48 +120,52 @@
                     </Grid>
                 </Border>
 
-                <ComboBox Grid.Column="1" Width="110" Margin="10,0,0,0"
-                          ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}" />
+                <!-- 第二行：筛选 + 操作，用 WrapPanel 自动换行 -->
+                <WrapPanel Grid.Row="1" Margin="0,10,0,0">
+                    <ComboBox Width="110" ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}" />
 
-                <ComboBox Grid.Column="6" Width="120" Margin="8,0,0,0" ToolTip="资源来源"
-                          ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding SelectedSource}" />
-                <ComboBox Grid.Column="2" Width="120" Margin="8,0,0,0"
-                          ItemsSource="{Binding LoaderOptions}" SelectedItem="{Binding SelectedLoader}"
-                          Visibility="{Binding IsModKind, Converter={StaticResource BoolToVisibility}}" />
+                    <ComboBox Width="120" Margin="8,0,0,0"
+                              ItemsSource="{Binding LoaderOptions}" SelectedItem="{Binding SelectedLoader}"
+                              Visibility="{Binding IsModKind, Converter={StaticResource BoolToVisibility}}" />
 
-                <Border Grid.Column="3" Background="{DynamicResource Surface}" Margin="8,0,0,0"
-                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                        CornerRadius="7" Padding="10,7" Width="110">
-                    <Grid>
-                        <TextBlock Text="游戏版本" FontSize="11" Foreground="{DynamicResource Faint}"
-                                   IsHitTestVisible="False"
-                                   Visibility="{Binding GameVersion, Converter={StaticResource EmptyToVisibility}}" />
-                        <TextBox Text="{Binding GameVersion, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="Transparent" BorderThickness="0" FontSize="11"
-                                 Foreground="{DynamicResource Text}" />
-                    </Grid>
-                </Border>
+                    <Border Background="{DynamicResource Surface}" Margin="8,0,0,0"
+                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                            CornerRadius="7" Padding="10,7" Width="110">
+                        <Grid>
+                            <TextBlock Text="游戏版本" FontSize="11" Foreground="{DynamicResource Faint}"
+                                       IsHitTestVisible="False"
+                                       Visibility="{Binding GameVersion, Converter={StaticResource EmptyToVisibility}}" />
+                            <TextBox Text="{Binding GameVersion, UpdateSourceTrigger=PropertyChanged}"
+                                     Background="Transparent" BorderThickness="0" FontSize="11"
+                                     Foreground="{DynamicResource Text}" />
+                        </Grid>
+                    </Border>
 
-                <Button Grid.Column="4" Content="搜索" Style="{StaticResource PrimaryButton}"
-                        Margin="8,0,0,0" Padding="16,7" Command="{Binding SearchCommand}"
-                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                    <ComboBox Width="118" Margin="8,0,0,0" ToolTip="资源来源"
+                              ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding SelectedSource}" />
 
-                <Button Grid.Column="5" Content="导入整合包" Style="{StaticResource GhostButton}"
-                        Margin="8,0,0,0" Padding="12,7"
-                        Command="{Binding ImportModpackCommand}"
-                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
-                <Button Grid.Column="6" Content="安装本地 jar" Style="{StaticResource GhostButton}"
-                        Margin="8,0,0,0" Padding="12,7"
-                        ToolTip="CurseForge 独有或朋友发来的模组：选 jar 直接拷进当前实例的 mods"
-                        Command="{Binding InstallLocalJarCommand}"
-                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                    <Button Content="搜索" Style="{StaticResource PrimaryButton}"
+                            Margin="8,0,0,0" Padding="16,7" Command="{Binding SearchCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
 
-                <!-- CurseForge 兜底：cfwidget 没有搜索，只能按链接装 -->
-                <StackPanel Grid.Row="1" Grid.ColumnSpan="6" Orientation="Horizontal" Margin="0,10,0,0"
+                    <Button Content="导入整合包" Style="{StaticResource GhostButton}"
+                            Margin="8,0,0,0" Padding="12,7"
+                            Command="{Binding ImportModpackCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+
+                    <Button Content="安装本地 jar" Style="{StaticResource GhostButton}"
+                            Margin="8,0,0,0" Padding="12,7"
+                            ToolTip="CurseForge 独有或朋友发来的模组：选 jar 直接拷进当前实例的 mods"
+                            Command="{Binding InstallLocalJarCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                </WrapPanel>
+
+                <!-- 第三行：CurseForge 按链接安装 -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0"
                             Visibility="{Binding ShowCurseForgeRow, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock Text="CurseForge 链接" FontSize="10.5" VerticalAlignment="Center"
                                Foreground="{DynamicResource Muted}" />
-                    <TextBox Width="380" Margin="8,0,0,0" Padding="8,6" FontSize="11"
+                    <TextBox Width="360" Margin="8,0,0,0" Padding="8,6" FontSize="11"
                              ToolTip="粘贴项目主页链接，例如 https://www.curseforge.com/minecraft/mc-mods/jei"
                              Text="{Binding CurseForgeUrl, UpdateSourceTrigger=PropertyChanged}" />
                     <Button Content="从链接安装" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
@@ -176,7 +174,8 @@
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                 </StackPanel>
             </Grid>
-        </Border>
+                </Border>
+
 
         <ListBox Grid.Row="2" ItemsSource="{Binding Results}"
                  ItemTemplate="{StaticResource ResourceItemTemplate}"
