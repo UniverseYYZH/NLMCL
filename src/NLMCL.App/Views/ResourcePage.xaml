@@ -100,6 +100,10 @@
 
         <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,16,0,10">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -155,6 +159,20 @@
                         ToolTip="CurseForge 独有或朋友发来的模组：选 jar 直接拷进当前实例的 mods"
                         Command="{Binding InstallLocalJarCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+
+                <!-- CurseForge 兜底：cfwidget 没有搜索，只能按链接装 -->
+                <StackPanel Grid.Row="1" Grid.ColumnSpan="6" Orientation="Horizontal" Margin="0,10,0,0"
+                            Visibility="{Binding ShowCurseForgeRow, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="CurseForge 链接" FontSize="10.5" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Muted}" />
+                    <TextBox Width="380" Margin="8,0,0,0" Padding="8,6" FontSize="11"
+                             ToolTip="粘贴项目主页链接，例如 https://www.curseforge.com/minecraft/mc-mods/jei"
+                             Text="{Binding CurseForgeUrl, UpdateSourceTrigger=PropertyChanged}" />
+                    <Button Content="从链接安装" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                            Padding="12,6" FontSize="10.5"
+                            Command="{Binding InstallFromCurseForgeCommand}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                </StackPanel>
             </Grid>
         </Border>
 

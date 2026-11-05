@@ -144,4 +144,24 @@ namespace NLMCL.Abstractions
             string projectId, ResourceKind kind, string? gameVersion, string? loader,
             CancellationToken cancellationToken);
     }
+    /// <summary>
+    /// CurseForge 兜底安装：输入项目链接 → 用第三方只读接口（cfwidget）取文件清单
+    /// → 组装 ForgeCDN 直链 → 下载并放进实例 mods。
+    ///
+    /// 为什么不用官方 API：官方 v1 需要 key，团队暂时没申请。
+    /// </summary>
+    public interface ICurseForgeInstaller
+    {
+        /// <summary>
+        /// 安装指定项目里最匹配的文件。
+        /// 返回落地路径；失败抛异常，消息可直接给用户看。
+        /// </summary>
+        Task<string> InstallAsync(
+            string projectUrl,
+            string minecraftDirectory,
+            string versionFolder,
+            string? gameVersion,
+            string? loader,
+            CancellationToken cancellationToken);
+    }
 }

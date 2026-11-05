@@ -21,6 +21,7 @@ namespace NLMCL.App.ViewModels
     {
         private readonly IResourceCatalog _catalog;
         private readonly IResourceInstaller _installer;
+    private readonly ICurseForgeInstaller? _curseForge;
 
         private readonly ITranslator? _translator;
 
@@ -34,13 +35,15 @@ namespace NLMCL.App.ViewModels
             ITranslator? translator = null,
             IFilePicker? filePicker = null,
             IModpackInstaller? modpackInstaller = null,
-            IJavaLocator? javaLocator = null)
+            IJavaLocator? javaLocator = null,
+        ICurseForgeInstaller? curseForge = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
             _translator = translator;
             _filePicker = filePicker;
             _modpackInstaller = modpackInstaller;
+        _curseForge = curseForge;
             _javaLocator = javaLocator;
         }
 
@@ -49,6 +52,13 @@ namespace NLMCL.App.ViewModels
         public IReadOnlyList<string> LoaderOptions { get; } = new[] { "不限", "Fabric", "Forge", "NeoForge" };
 
         public ObservableCollection<ResourceSummary> Results { get; } = new ObservableCollection<ResourceSummary>();
+
+    /// <summary>CurseForge 项目链接（cfwidget 没有搜索，只能按链接装）。</summary>
+    [ObservableProperty]
+    private string _curseForgeUrl = string.Empty;
+
+    /// <summary>是否显示 CurseForge 行（未注入实现时隐藏）。</summary>
+    public bool ShowCurseForgeRow => _curseForge != null;
 
         /// <summary>每页条数（Modrinth 单次上限 50，20 是兼顾速度和滚动体验的值）。</summary>
         private const int PageSize = 20;
@@ -254,6 +264,61 @@ namespace NLMCL.App.ViewModels
             }
 
             return (last, string.Empty);
+        }
+
+        /// <summary>
+        /// 从 CurseForge 链接安装（走 cfwidget 只读接口）。
+        /// Modrinth 搜不到的独占资源用这条路。
+        /// </summary>
+        [RelayCommand]
+        public async Task InstallFromCurseForgeAsync()
+        {
+            if (IsBusy)
+            {
+                return;
+            }
+
+            if (_curseForge == null)
+            {
+                StatusText = "CurseForge 支持未启用";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(MinecraftDirectory) || string.IsNullOrWhiteSpace(VersionFolder))
+            {
+                StatusText = "请先在「本地版本」里选一个实例";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CurseForgeUrl))
+            {
+                StatusText = "请填入 CurseForge 项目链接，例如 https://www.curseforge.com/minecraft/mc-mods/jei";
+                return;
+            }
+
+            IsBusy = true;
+            StatusText = "正在从 CurseForge 获取文件清单…";
+
+            try
+            {
+                string path = await _curseForge.InstallAsync(
+                    CurseForgeUrl,
+                    MinecraftDirectory,
+                    VersionFolder,
+                    string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim(),
+                    LoaderOf(SelectedLoader),
+                    CancellationToken.None).ConfigureAwait(true);
+
+                StatusText = "已从 CurseForge 安装到 " + path;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "CurseForge 安装失败：" + ex.Message;
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
         /// <summary>再取下一页（Modrinth 用 offset 翻页），追加到现有列表。</summary>
