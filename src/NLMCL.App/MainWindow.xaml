@@ -873,7 +873,7 @@
         </Grid>
 
         <!-- ===== 状态提示（左下角滑入，几秒后自动淡出） ===== -->
-        <Border x:Name="StatusToast" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+        <Border x:Name="StatusToast" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                 Margin="272,0,0,22" Padding="14,9" MaxWidth="560"
                 Background="{DynamicResource Card}" BorderThickness="1"
                 BorderBrush="{DynamicResource BorderColor}" CornerRadius="8"
