@@ -46,6 +46,12 @@ namespace NLMCL.Core.Resources
             CancellationToken cancellationToken)
         {
             string safeName = string.IsNullOrWhiteSpace(fileName) ? "curseforge-file.jar" : fileName;
+
+            // mcim 返回的是 edge.forgecdn.net，换成 mediafilez 才能直连下载 + 分块
+            if (url.IndexOf("edge.forgecdn.net", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                url = url.Replace("edge.forgecdn.net", "mediafilez.forgecdn.net");
+            }
             string dir = Path.Combine(minecraftDirectory, "versions", versionFolder, SubDirectoryOf(kind));
             Directory.CreateDirectory(dir);
 
@@ -170,6 +176,8 @@ namespace NLMCL.Core.Resources
             long head = fileId / 1000;
             long tail = fileId % 1000;
 
+            // 统一用 mediafilez：edge.forgecdn.net 对 GET 会直接 404（只对 HEAD 返回 302），
+            // 而 mediafilez 支持 Range，6 路并行才能生效。
             return "https://mediafilez.forgecdn.net/files/"
                 + head.ToString(CultureInfo.InvariantCulture) + "/"
                 + tail.ToString(CultureInfo.InvariantCulture) + "/"

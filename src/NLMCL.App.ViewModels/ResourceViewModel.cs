@@ -517,11 +517,33 @@ namespace NLMCL.App.ViewModels
                 if (IsCurseForge && _curseForge != null)
                 {
                     // ForgeCDN 直链用自带下载器：PCL 的 ModNet 对这类地址会报"小文件下载失败"
+                    System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+                    double lastRatio = 0;
+                    System.TimeSpan lastAt = System.TimeSpan.Zero;
+
                     Progress<double> installProgress = new Progress<double>(ratio =>
                     {
                         Progress = ratio * 100;
                         HasProgress = true;
-                        StatusText = "正在下载 " + file.Name + " " + (ratio * 100).ToString("0") + "%";
+
+                        System.TimeSpan now = watch.Elapsed;
+                        System.TimeSpan elapsed = now - lastAt;
+                        string speed = string.Empty;
+
+                        if (elapsed.TotalMilliseconds >= 400 && ratio > lastRatio && file.Size > 0)
+                        {
+                            double bytes = (ratio - lastRatio) * file.Size;
+                            double perSecond = bytes / elapsed.TotalSeconds;
+                            double remain = perSecond > 1 ? (1 - ratio) * file.Size / perSecond : 0;
+
+                            speed = " · " + (perSecond / 1024).ToString("0") + " KB/s"
+                                + (remain > 0 ? " · 剩余 " + System.TimeSpan.FromSeconds(remain).ToString(@"mm\:ss") : string.Empty);
+
+                            lastRatio = ratio;
+                            lastAt = now;
+                        }
+
+                        StatusText = "正在下载 " + file.Name + " " + (ratio * 100).ToString("0") + "%" + speed;
                     });
 
                     path = await _curseForge
