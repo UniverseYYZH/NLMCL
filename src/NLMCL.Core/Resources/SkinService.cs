@@ -24,6 +24,12 @@ namespace NLMCL.Core.Resources
     {
         public const string MicrosoftProfileUrl = "https://api.minecraftservices.com/minecraft/profile";
 
+        /// <summary>按玩家名查正版 UUID（离线账号用）。</summary>
+        public const string MojangNameLookupUrl = "https://api.mojang.com/users/profiles/minecraft/";
+
+        /// <summary>会话服务器的档案接口（拿 textures）。</summary>
+        public const string SessionserverUrl = "https://sessionserver.mojang.com/session/minecraft/profile/";
+
         private readonly IDownloadService _download;
         private readonly IAppPaths _paths;
 
@@ -65,8 +71,51 @@ namespace NLMCL.Core.Resources
                 return ParseProfile(json, account.Name, "Minecraft Services");
             }
 
-            // 离线账号没有服务器下发皮肤
+            // 离线账号：名字可能正好是某个正版账号，按名字查一次 Mojang。
+            // 查不到就返回 null（界面显示"没有皮肤"，不伪造）。
+            if (account.Type == AccountType.Offline && !string.IsNullOrWhiteSpace(account.Name))
+            {
+                return await LookupOfflineByNameAsync(account.Name, cancellationToken).ConfigureAwait(false);
+            }
+
             return null;
+        }
+
+        /// <summary>
+        /// 用玩家名向 Mojang 查正版档案（离线账号往往就是玩家自己的正版名）。
+        /// 名字不存在 / 网络失败都返回 null——不编造皮肤。
+        /// </summary>
+        internal async Task<SkinInfo?> LookupOfflineByNameAsync(string playerName, CancellationToken cancellationToken)
+        {
+            try
+            {
+                string lookupUrl = MojangNameLookupUrl + Uri.EscapeDataString(playerName.Trim());
+                string json = await _download.GetStringAsync(lookupUrl, cancellationToken).ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    return null;
+                }
+
+                JObject root = JObject.Parse(json);
+                string? id = root.Value<string>("id");
+
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    return null;
+                }
+
+                string profileUrl = SessionserverUrl + id;
+                string profileJson = await _download
+                    .GetStringAsync(profileUrl, cancellationToken).ConfigureAwait(false);
+
+                return ParseProfile(profileJson, playerName, "Mojang（按名字匹配）");
+            }
+            catch (Exception)
+            {
+                // 名字不存在（404）或接口异常：当作"没有皮肤"
+                return null;
+            }
         }
 
         public async Task<string> SaveAsync(SkinInfo skin, CancellationToken cancellationToken)

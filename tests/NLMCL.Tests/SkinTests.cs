@@ -8,6 +8,8 @@ using NLMCL.Abstractions;
 using NLMCL.App.ViewModels;
 using NLMCL.Core;
 using NLMCL.Core.Resources;
+using System.Collections.Generic;
+using System.Net.Http;
 using Xunit;
 
 namespace NLMCL.Tests
@@ -354,6 +356,67 @@ namespace NLMCL.Tests
             NLMCL.Core.Skins.SkinAvatarRenderer.RenderHead(path, rendered, 8);
 
             Assert.True(System.IO.File.Exists(rendered));
+        }
+
+        [Fact]
+        public async Task Offline_name_matching_a_premium_account_gets_its_skin()
+        {
+            // Mozilla 名字查询返回 uuid，紧接着 sessionserver 返回 textures
+            string textures = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(
+                "{\"textures\":{\"SKIN\":{\"url\":\"https://textures.minecraft.net/texture/abc\"}}}"));
+            string profile = "{\"name\":\"Notch\",\"properties\":[{\"name\":\"textures\",\"value\":\""
+                + textures + "\"}]}";
+
+            QueueDownload download = new QueueDownload(new[]
+            {
+                "{\"id\":\"069a79f444e94726a5befca90e38aaf5\",\"name\":\"Notch\"}",
+                profile
+            });
+
+            SkinService service = new SkinService(download, new AppPaths(@"C:\Temp\roaming"));
+            SkinInfo? skin = await service.LookupOfflineByNameAsync("Notch", CancellationToken.None);
+
+            Assert.NotNull(skin);
+            Assert.Contains("textures.minecraft.net", skin!.SkinUrl);
+        }
+
+        [Fact]
+        public async Task Offline_name_without_premium_account_returns_nothing()
+        {
+            QueueDownload download = new QueueDownload(Array.Empty<string>());
+            SkinService service = new SkinService(download, new AppPaths(@"C:\Temp\roaming"));
+
+            Assert.Null(await service.LookupOfflineByNameAsync("not-a-real-player-xyz", CancellationToken.None));
+        }
+
+        private sealed class QueueDownload : IDownloadService
+        {
+            private readonly Queue<string> _payloads;
+
+            public QueueDownload(IEnumerable<string> payloads)
+            {
+                _payloads = new Queue<string>(payloads);
+            }
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+            {
+                return Task.FromResult(_payloads.Count > 0 ? _payloads.Dequeue() : throw new HttpRequestException("404"));
+            }
+
+            public Task<string> GetStringAsync(
+                string url, IReadOnlyDictionary<string, string> headers, CancellationToken cancellationToken)
+                => GetStringAsync(url, cancellationToken);
+
+            public Task DownloadFileAsync(string url, string localPath, CancellationToken cancellationToken)
+                => Task.CompletedTask;
+
+            public Task<string> PostJsonAsync(
+                string url, string json, IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
+                => Task.FromResult(string.Empty);
+
+            public Task<string> PostFormAsync(
+                string url, IReadOnlyDictionary<string, string> form, CancellationToken cancellationToken)
+                => Task.FromResult(string.Empty);
         }
     }
 }
