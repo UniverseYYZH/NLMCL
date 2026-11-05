@@ -145,9 +145,11 @@ namespace NLMCL.Tests
 
                 IReadOnlyList<ServerBookmark> servers = await store.LoadAsync(CancellationToken.None);
 
-                Assert.Single(servers);
+                // 用户自建的条目保留；内置三条线路会补齐（按地址去重）
+                Assert.Equal(4, servers.Count);
                 Assert.Equal("自建服", servers[0].Name);
                 Assert.Equal("192.168.1.9:25570", servers[0].Endpoint);
+                Assert.Contains(servers, s => s.Address == "mua.nxist.top");
             }
             finally
             {
@@ -158,6 +160,38 @@ namespace NLMCL.Tests
                 catch (IOException)
                 {
                 }
+            }
+        }
+
+        [Fact]
+        public async Task Missing_student_line_is_restored()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-servers-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(root, "NLMCL"));
+
+            try
+            {
+                // 模拟"上一次被误删 mua 的存档"
+                File.WriteAllText(
+                    Path.Combine(root, "NLMCL", "servers.json"),
+                    @"{
+                        ""servers"": [
+                            { ""name"": ""方块宁理 · 大厅（线路一）"", ""address"": ""mc2.nxist.top"" },
+                            { ""name"": ""方块宁理 · 大厅（线路二）"", ""address"": ""mc4.nxist.top"" }
+                        ]
+                    }",
+                    System.Text.Encoding.UTF8);
+
+                ServerBookmarkStore store = new ServerBookmarkStore(new AppPaths(root));
+
+                IReadOnlyList<ServerBookmark> servers = await store.LoadAsync(CancellationToken.None);
+
+                Assert.Equal(3, servers.Count);
+                Assert.Contains(servers, s => s.Address == "mua.nxist.top" && s.Name.Contains("学生专线"));
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
             }
         }
     }

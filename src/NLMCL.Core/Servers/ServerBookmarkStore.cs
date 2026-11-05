@@ -66,10 +66,35 @@ namespace NLMCL.Core.Servers
 
                 // 老版本写入的是「线路一 / 线路二 / 学生专线」，现在按实际用途改名。
                 // 只改与内置预设完全同名的那几条，用户自己改过名字的一律不动。
-                if (MigrateSeededNames(servers))
+                bool seedChanged = MigrateSeededNames(servers);
+
+                // 补齐缺失的内置线路：老存档里删过 mua 的，这里补回来；
+                // 用户自己加的条目不受影响（按地址去重）。
+                foreach (ServerBookmark builtIn in BuiltIn)
+                {
+                    bool exists = false;
+
+                    foreach (ServerBookmark item in servers)
+                    {
+                        if (string.Equals(item.Address, builtIn.Address, StringComparison.OrdinalIgnoreCase))
+                        {
+                            exists = true;
+                            break;
+                        }
+                    }
+
+                    if (!exists)
+                    {
+                        servers.Add(builtIn);
+                        seedChanged = true;
+                    }
+                }
+
+                if (seedChanged)
                 {
                     await SaveAsync(servers, cancellationToken).ConfigureAwait(false);
                 }
+
 
                 return servers;
             }
