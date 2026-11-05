@@ -106,9 +106,12 @@ namespace NLMCL.App.ViewModels
 
                 OnPropertyChanged(nameof(HasMods));
 
-                StatusText = mods.Count == 0
-                    ? "这个实例还没有模组。可以从「导入资源」安装。"
-                    : "共 " + mods.Count + " 个模组";
+            int missing = System.Linq.Enumerable.Count(mods, item => item.HasMissingDependencies);
+
+            StatusText = mods.Count == 0
+                ? "这个实例还没有模组。可以从「导入资源」安装。"
+                : "共 " + mods.Count + " 个模组"
+                  + (missing > 0 ? "，其中 " + missing + " 个缺前置（见红色提示）" : string.Empty);
             }
             catch (Exception ex)
             {

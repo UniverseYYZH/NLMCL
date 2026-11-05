@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using NLMCL.Abstractions;
 
 namespace NLMCL.Core.Mods
@@ -55,6 +56,32 @@ namespace NLMCL.Core.Mods
 
                 ReadMetadata(entry);
                 entries.Add(entry);
+            }
+
+            // 第二遍：算每个启用模组缺哪些前置（禁用/缺失都不算已安装）
+            HashSet<string> installed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (ModEntry item in entries)
+            {
+                if (item.Enabled && !string.IsNullOrWhiteSpace(item.ModId))
+                {
+                    installed.Add(item.ModId);
+                }
+            }
+
+            foreach (ModEntry item in entries)
+            {
+                item.MissingDependencies.Clear();
+
+                foreach (string dependency in ReadDeclaredDependencies(item))
+                {
+                    if (IsIgnorableDependency(dependency) || installed.Contains(dependency))
+                    {
+                        continue;
+                    }
+
+                    item.MissingDependencies.Add(dependency);
+                }
             }
 
             return Task.FromResult<IReadOnlyList<ModEntry>>(
@@ -138,6 +165,55 @@ namespace NLMCL.Core.Mods
         }
 
         /// <summary>从 jar 里读名字 / 版本 / 加载器；读不到就保持文件名。</summary>
+        /// <summary>这些 id 由加载器/游戏本身提供，不该算"缺失前置"。</summary>
+        private static readonly string[] IgnorableDependencies =
+        {
+            "minecraft", "java", "fabricloader", "fabric-loader", "forge", "neoforge", "quilt_loader"
+        };
+
+        private static bool IsIgnorableDependency(string id)
+            => IgnorableDependencies.Contains(id, StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>读取模组声明的前置 id（目前覆盖 Fabric 的 depends）。</summary>
+        internal static IReadOnlyList<string> ReadDeclaredDependencies(ModEntry entry)
+        {
+            List<string> result = new List<string>();
+
+            try
+            {
+                using (ZipArchive archive = ZipFile.OpenRead(entry.FilePath))
+                {
+                    ZipArchiveEntry? file = archive.Entries.FirstOrDefault(
+                        item => string.Equals(item.FullName, "fabric.mod.json", StringComparison.OrdinalIgnoreCase));
+
+                    if (file == null)
+                    {
+                        return result;
+                    }
+
+                    using (Stream stream = file.Open())
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        JObject root = JObject.Parse(reader.ReadToEnd());
+
+                        if (root["depends"] is JObject depends)
+                        {
+                            foreach (JProperty property in depends.Properties())
+                            {
+                                result.Add(property.Name);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // 坏 jar 不影响列表，只是没有依赖信息
+            }
+
+            return result;
+        }
+
         internal static void ReadMetadata(ModEntry entry)
         {
             try
@@ -188,7 +264,14 @@ namespace NLMCL.Core.Mods
                     entry.Name = display!;
                 }
 
-                string? version = Match(text, "\"version\"\\s*:\\s*\"([^\"]+)\"");
+                string? id = Match(text, "\"id\"\\s*:\\s*\"([^\"]+)\"");
+
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                entry.ModId = id!;
+            }
+
+            string? version = Match(text, "\"version\"\\s*:\\s*\"([^\"]+)\"");
 
                 if (!string.IsNullOrWhiteSpace(version))
                 {
@@ -259,7 +342,14 @@ namespace NLMCL.Core.Mods
                     entry.Name = display!;
                 }
 
-                string? version = Match(text, "\"version\"\\s*:\\s*\"([^\"]+)\"");
+                string? id = Match(text, "\"id\"\\s*:\\s*\"([^\"]+)\"");
+
+            if (!string.IsNullOrWhiteSpace(id))
+            {
+                entry.ModId = id!;
+            }
+
+            string? version = Match(text, "\"version\"\\s*:\\s*\"([^\"]+)\"");
 
                 if (!string.IsNullOrWhiteSpace(version))
                 {

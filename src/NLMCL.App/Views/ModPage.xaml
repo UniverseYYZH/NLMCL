@@ -70,6 +70,9 @@
                                         </TextBlock>
                                         <TextBlock Text="{Binding UpdateText}" FontSize="10.5"
                                                    Foreground="{DynamicResource Primary}" Margin="0,2,0,0" />
+                    <TextBlock Text="{Binding DependencyText}" FontSize="10.5"
+                               Foreground="#C0392B" Margin="0,2,0,0" TextWrapping="Wrap"
+                               Visibility="{Binding HasMissingDependencies, Converter={StaticResource BoolToVisibility}}" />
                                     </StackPanel>
 
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

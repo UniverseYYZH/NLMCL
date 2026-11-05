@@ -52,6 +52,19 @@ namespace NLMCL.Abstractions
             : Math.Max(1, Size / 1024) + " KB";
 
         public string UpdateText => HasUpdate ? "有新版本 " + LatestVersion : string.Empty;
+
+        /// <summary>模组 ID（fabric.mod.json 的 id；用于依赖检查）。</summary>
+        public string ModId { get; set; } = string.Empty;
+
+        /// <summary>缺失的前置模组（id 或 id + 版本要求）。</summary>
+        public List<string> MissingDependencies { get; } = new List<string>();
+
+        public bool HasMissingDependencies => MissingDependencies.Count > 0;
+
+        /// <summary>界面上显示的「缺前置：…」。</summary>
+        public string DependencyText => HasMissingDependencies
+            ? "缺前置：" + string.Join("、", MissingDependencies)
+            : string.Empty;
     }
 
     /// <summary>模组文件管理：列目录、启用/禁用（改后缀）、删除。</summary>
