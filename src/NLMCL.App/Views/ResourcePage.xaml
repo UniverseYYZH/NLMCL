@@ -117,6 +117,11 @@
                         Margin="8,0,0,0" Padding="12,7"
                         Command="{Binding ImportModpackCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                <Button Grid.Column="6" Content="安装本地 jar" Style="{StaticResource GhostButton}"
+                        Margin="8,0,0,0" Padding="12,7"
+                        ToolTip="CurseForge 独有或朋友发来的模组：选 jar 直接拷进当前实例的 mods"
+                        Command="{Binding InstallLocalJarCommand}"
+                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
             </Grid>
         </Border>
 

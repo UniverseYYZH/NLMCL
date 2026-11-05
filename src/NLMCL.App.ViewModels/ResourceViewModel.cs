@@ -1,3 +1,4 @@
+using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -301,6 +302,55 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>
+        /// 安装本地 jar：CurseForge 独有、或朋友发来的模组，直接拷进当前实例的 mods 目录。
+        /// 只做拷贝与重名检查，不解析依赖——这是"手动兜底"入口，不是安装器。
+        /// </summary>
+        [RelayCommand]
+        public async Task InstallLocalJarAsync()
+        {
+            if (IsBusy)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(MinecraftDirectory) || string.IsNullOrWhiteSpace(VersionFolder))
+            {
+                StatusText = "请先在「本地版本」里选一个实例，再安装本地 jar";
+                return;
+            }
+
+            if (_filePicker == null)
+            {
+                StatusText = "当前环境没有文件选择器";
+                return;
+            }
+
+            string? picked = _filePicker.PickFile("选择要安装的 jar（.jar / .zip）", "模组文件|*.jar;*.zip");
+
+            if (string.IsNullOrWhiteSpace(picked) || !File.Exists(picked))
+            {
+                return;
+            }
+
+            try
+            {
+                string mods = Path.Combine(MinecraftDirectory, "versions", VersionFolder, "mods");
+                Directory.CreateDirectory(mods);
+
+                string target = Path.Combine(mods, Path.GetFileName(picked));
+                bool existed = File.Exists(target);
+
+                File.Copy(picked, target, overwrite: true);
+                StatusText = (existed ? "已覆盖 " : "已安装 ") + Path.GetFileName(picked) + " → mods";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "安装本地 jar 失败：" + ex.Message;
+            }
+
+            await Task.CompletedTask.ConfigureAwait(false);
+        }
         public async Task InstallAsync(ResourceSummary? item)
         {
             if (item == null || IsBusy)
