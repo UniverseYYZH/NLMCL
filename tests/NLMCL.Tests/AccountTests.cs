@@ -299,5 +299,33 @@ namespace NLMCL.Tests
             Assert.NotNull(all[0].LastUsed);
             Assert.NotEmpty(all[0].LastUsedLabel);
         }
+
+        [Fact]
+        public async Task Switching_works_right_after_sign_out()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-acct-" + System.Guid.NewGuid().ToString("N"));
+
+            TestSupport.MemoryAccountStore store = new TestSupport.MemoryAccountStore();
+
+            NLMCL.App.ViewModels.MainViewModel vm = TestSupport.CreateMain(
+                new TestSupport.EmptyCatalog(),
+                new NLMCL.Core.AppPaths(root),
+                accounts: store);
+
+            NLMCL.Abstractions.Account alpha = new NLMCL.Abstractions.Account(
+                "Alpha", "uuid-a", NLMCL.Abstractions.AccountType.Offline);
+
+            store.All.Add(alpha);
+            await vm.SignOutAsync();
+
+            Assert.Null(vm.Account);
+
+            // 退出登录后点「切换」必须能登上（以前被 Account == null 挡掉了）
+            await vm.SwitchAccountAsync(alpha);
+
+            Assert.NotNull(vm.Account);
+            Assert.Equal("Alpha", vm.Account!.Name);
+        }
     }
 }

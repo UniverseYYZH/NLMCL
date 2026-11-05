@@ -349,7 +349,8 @@ namespace NLMCL.Tests
             IAppSettingsStore? appSettings = null,
             ResourceViewModel? resource = null,
             IServerBookmarkStore? bookmarks = null,
-            IServerProfileStore? profileStore = null)
+            IServerProfileStore? profileStore = null,
+            IAccountStore? accounts = null)
         {
             return new MainViewModel(
                 catalog,
@@ -358,7 +359,7 @@ namespace NLMCL.Tests
                 CreateConsole(paths),
                 new NoopLauncher(),
                 javaLocator ?? new NoopJavaLocator(),
-                new MemoryAccountStore(),
+                accounts ?? new MemoryAccountStore(),
                 new NoopAuthenticator(),
                 new MemoryInstanceSettingsStore(),
                 new FakeNetwork(),

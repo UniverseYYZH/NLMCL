@@ -1946,8 +1946,13 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task SwitchAccountAsync(Account? account)
         {
-            if (account == null || Account == null
-                || string.Equals(account.Uuid, Account.Uuid, StringComparison.OrdinalIgnoreCase))
+            if (account == null)
+            {
+                return;
+            }
+
+            // 已经是这个账号就不用切；注意退出登录后 Account 为 null，这里不能一起挡掉
+            if (Account != null && string.Equals(account.Uuid, Account.Uuid, StringComparison.OrdinalIgnoreCase))
             {
                 return;
             }
@@ -1959,10 +1964,8 @@ namespace NLMCL.App.ViewModels
                 Account = account;
                 Console.Account = account;
 
-                    await ReloadSavedAccountsAsync().ConfigureAwait(true);
-                StatusText = "已切换到 " + account.Name;
-
                 await ReloadSavedAccountsAsync().ConfigureAwait(true);
+                StatusText = "已切换到 " + account.Name;
             }
             catch (Exception ex)
             {
