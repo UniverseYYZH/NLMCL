@@ -55,7 +55,8 @@ namespace NLMCL.Core.Accounts
                 }
             }
 
-            return set.Accounts[0];
+            // 没有 current 说明用户点了「退出登录」：不自动登录，但账号仍保留
+            return null;
         }
 
         public async Task<IReadOnlyList<Account>> LoadAllAsync(CancellationToken cancellationToken)
@@ -145,6 +146,14 @@ namespace NLMCL.Core.Accounts
             }
 
             Write(set.Entries, current);
+        }
+
+        public async Task SignOutAsync(CancellationToken cancellationToken)
+        {
+            AccountSet set = await ReadAsync().ConfigureAwait(false);
+
+            // 只把 current 置空，账号条目全部保留
+            Write(set.Entries, string.Empty);
         }
 
         public Task ClearAsync(CancellationToken cancellationToken)

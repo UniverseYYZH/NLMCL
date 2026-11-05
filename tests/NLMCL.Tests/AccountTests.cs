@@ -233,6 +233,29 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Sign_out_keeps_every_account_in_history()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-acct-" + System.Guid.NewGuid().ToString("N"));
+
+            NLMCL.Core.AppPaths paths = new NLMCL.Core.AppPaths(root);
+            NLMCL.Core.Accounts.JsonAccountStore store = new NLMCL.Core.Accounts.JsonAccountStore(paths);
+
+            await store.SaveAsync(new NLMCL.Abstractions.Account(
+                "Alpha", "uuid-a", NLMCL.Abstractions.AccountType.Offline), CancellationToken.None);
+            await store.SaveAsync(new NLMCL.Abstractions.Account(
+                "Beta", "uuid-b", NLMCL.Abstractions.AccountType.Offline), CancellationToken.None);
+
+            // 退出登录：只清当前，不删账号
+            await store.SignOutAsync(CancellationToken.None);
+
+            Assert.Null(await store.LoadAsync(CancellationToken.None));
+
+            var all = await store.LoadAllAsync(CancellationToken.None);
+            Assert.Equal(2, all.Count);
+        }
+
+        [Fact]
         public async Task Sign_out_keeps_other_accounts_in_history()
         {
             string root = System.IO.Path.Combine(

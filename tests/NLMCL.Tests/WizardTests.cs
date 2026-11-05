@@ -49,6 +49,11 @@ namespace NLMCL.Tests
                 return Task.CompletedTask;
             }
 
+            public Task SignOutAsync(CancellationToken cancellationToken)
+            {
+                Saved = null;
+                return Task.CompletedTask;
+            }
             public Task ClearAsync(CancellationToken cancellationToken)
             {
                 Saved = null;

@@ -145,6 +145,12 @@ namespace NLMCL.Abstractions
         /// <summary>删除一个账号；删的是当前账号时，自动切到剩下的第一个。</summary>
         Task RemoveAsync(Account account, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// 退出登录：只清掉"当前账号"，**保留**所有已保存账号。
+        /// 下次启动不再自动登录，但账号仍在列表里可随时切换。
+        /// </summary>
+        Task SignOutAsync(CancellationToken cancellationToken);
+
         Task ClearAsync(CancellationToken cancellationToken);
     }
 
