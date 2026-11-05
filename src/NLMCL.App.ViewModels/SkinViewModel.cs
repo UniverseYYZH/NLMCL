@@ -146,6 +146,122 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+
+        // ---------- 皮肤自检：定位"我的皮肤为什么和别人看到的不一样" ----------
+
+        /// <summary>账号类型（微软 / 外置 / 离线）。</summary>
+        [ObservableProperty]
+        private string _checkAccount = "—";
+
+        /// <summary>authlib-injector 是否会挂上（外置登录才需要）。</summary>
+        [ObservableProperty]
+        private string _checkInjector = "—";
+
+        /// <summary>皮肤来源（Mojang / 认证服务器 / 默认）。</summary>
+        [ObservableProperty]
+        private string _checkSource = "—";
+
+        /// <summary>皮肤 PNG 能否下载（字节数或失败原因）。</summary>
+        [ObservableProperty]
+        private string _checkPng = "—";
+
+        /// <summary>自检结论（一句话）。</summary>
+        [ObservableProperty]
+        private string _checkVerdict = string.Empty;
+
+        [ObservableProperty]
+        private bool _isChecking;
+
+        /// <summary>
+        /// 跑一次自检：把"账号类型 / injector / 皮肤来源 / PNG 可下载性"列清楚。
+        /// 皮肤不一致时，靠这四项就能区分是启动器没挂 injector、还是服务端没转发。
+        /// </summary>
+        [RelayCommand]
+        public async Task SelfCheckAsync()
+        {
+            if (_account == null)
+            {
+                CheckAccount = "未登录";
+                CheckInjector = "—";
+                CheckSource = "—";
+                CheckPng = "—";
+                CheckVerdict = "先登录一个账号再自检";
+                return;
+            }
+
+            IsChecking = true;
+
+            try
+            {
+                CheckAccount = _account.Name + "（" + _account.TypeLabel + "）";
+
+                if (_account.Type != AccountType.External)
+                {
+                    CheckInjector = "不需要（只有外置登录才挂 authlib-injector）";
+                }
+                else if (string.IsNullOrWhiteSpace(_account.AuthServer))
+                {
+                    CheckInjector = "缺少认证服务器地址";
+                }
+                else
+                {
+                    CheckInjector = "应加载 · apiRoot = " + _account.AuthServer;
+                }
+
+                SkinInfo? skin;
+
+                try
+                {
+                    skin = await _skins.GetAsync(_account, CancellationToken.None).ConfigureAwait(true);
+                }
+                catch (Exception ex)
+                {
+                    CheckSource = "读取失败：" + ex.Message;
+                    CheckPng = "—";
+                    CheckVerdict = "认证接口不可用，游戏内可能因此只显示默认皮肤";
+                    return;
+                }
+
+                CheckSource = skin == null
+                    ? "没有（认证服务器没返回 textures）"
+                    : skin.Source + (string.IsNullOrEmpty(skin.ModelLabel) ? string.Empty : " · " + skin.ModelLabel);
+
+                if (skin?.SkinUrl == null)
+                {
+                    CheckPng = "无皮肤地址";
+
+                    CheckVerdict = _account.Type == AccountType.External
+                        ? "外置账号没有皮肤：去皮肤站上传后再点刷新"
+                        : "该账号没有自定义皮肤";
+                    return;
+                }
+
+                try
+                {
+                    string probe = Path.Combine(
+                        Path.GetTempPath(), "nlmcl-skin-probe-" + DateTime.Now.Ticks + ".png");
+
+                    await _skins.SavePreviewAsync(skin.SkinUrl, probe, CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    long size = new FileInfo(probe).Length;
+                    CheckPng = "可下载（" + Math.Round(size / 1024.0, 1) + " KB）";
+
+                    CheckVerdict = _account.Type == AccountType.External
+                        ? "本机可正常取到皮肤；若游戏内别人看到默认，多半是服务端没转发 textures（找服主查 Velocity 转发 / 服务端 authlib）"
+                        : "本机可正常取到皮肤；游戏内不一致由服务端皮肤来源决定";
+                }
+                catch (Exception ex)
+                {
+                    CheckPng = "下载失败：" + ex.Message;
+                    CheckVerdict = "皮肤地址拉不下来：检查网络或皮肤站是否可达";
+                }
+            }
+            finally
+            {
+                IsChecking = false;
+            }
+        }
         /// <summary>离线账号的出口：选本地 PNG，复制进皮肤目录并预览。</summary>
         [RelayCommand]
         public async Task PickLocalAsync()
