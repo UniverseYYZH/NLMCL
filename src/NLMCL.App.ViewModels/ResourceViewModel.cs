@@ -57,6 +57,19 @@ namespace NLMCL.App.ViewModels
         // 换来源立刻重搜：不然用户会以为"切了没反应"
         _ = SearchAsync();
     }
+    /// <summary>临时诊断：记录资源安装链路，排查"点了没反应"。</summary>
+    internal static void Trace(string message)
+    {
+        try
+        {
+            string path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nlmcl-resource.log");
+            System.IO.File.AppendAllText(
+                path, System.DateTime.Now.ToString("HH:mm:ss.fff") + " " + message + System.Environment.NewLine);
+        }
+        catch (System.IO.IOException)
+        {
+        }
+    }
     /// <summary>当前是否选的是 CurseForge。</summary>
     public bool IsCurseForge => string.Equals(SelectedSource, "CurseForge", StringComparison.Ordinal);
 
@@ -458,8 +471,10 @@ namespace NLMCL.App.ViewModels
 
             await Task.CompletedTask.ConfigureAwait(false);
         }
+        [RelayCommand]
         public async Task InstallAsync(ResourceSummary? item)
         {
+            Trace("点击安装：item=" + (item?.Id ?? "null") + " busy=" + IsBusy + " dir=" + (string.IsNullOrEmpty(MinecraftDirectory) ? "(空)" : "有") + " folder=" + (string.IsNullOrEmpty(VersionFolder) ? "(空)" : VersionFolder) + " source=" + SelectedSource);
             if (item == null || IsBusy)
             {
                 return;
@@ -486,6 +501,7 @@ namespace NLMCL.App.ViewModels
                         CancellationToken.None)
                     .ConfigureAwait(true);
 
+                Trace("取到文件 " + files.Count + " 个");
                 if (files.Count == 0)
                 {
                     StatusText = "「" + item.Title + "」没有匹配当前游戏版本/加载器的文件";
@@ -500,10 +516,12 @@ namespace NLMCL.App.ViewModels
                     .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, CancellationToken.None)
                     .ConfigureAwait(true);
 
+                Trace("安装成功：" + path);
                 StatusText = "已安装到 " + path;
             }
             catch (Exception ex)
             {
+                Trace("安装失败：" + ex.GetType().Name + " " + ex.Message);
                 StatusText = "安装失败：" + ex.Message;
             }
             finally
