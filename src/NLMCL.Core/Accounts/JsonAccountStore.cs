@@ -62,7 +62,7 @@ namespace NLMCL.Core.Accounts
         {
             AccountSet set = await ReadAsync().ConfigureAwait(false);
 
-            // 当前账号排第一，方便界面直接展示
+            // 当前账号排第一，其余按"上次使用"倒序
             if (!string.IsNullOrEmpty(set.CurrentKey))
             {
                 Account? current = set.Accounts.FirstOrDefault(
@@ -72,7 +72,9 @@ namespace NLMCL.Core.Accounts
                 if (current != null)
                 {
                     List<Account> ordered = new List<Account> { current };
-                    ordered.AddRange(set.Accounts.Where(account => !ReferenceEquals(account, current)));
+                    ordered.AddRange(set.Accounts
+                        .Where(account => !ReferenceEquals(account, current))
+                        .OrderByDescending(account => account.LastUsed ?? DateTimeOffset.MinValue));
                     return ordered;
                 }
             }
@@ -89,6 +91,10 @@ namespace NLMCL.Core.Accounts
 
             AccountSet set = await ReadAsync().ConfigureAwait(false);
             JObject entry = ToJson(account);
+
+            // 记录使用时间：登录历史按它排序
+            entry["lastUsed"] = DateTimeOffset.Now.ToString("o");
+            account.LastUsed = DateTimeOffset.Now;
 
             int index = set.Entries.FindIndex(item => IsSame(item, account));
 
@@ -192,6 +198,7 @@ namespace NLMCL.Core.Accounts
                 foreach (JObject item in array.OfType<JObject>())
                 {
                     Account? account = FromJson(item);
+                    account.LastUsed = ParseLastUsed(item);
 
                     if (account != null)
                     {
@@ -235,6 +242,13 @@ namespace NLMCL.Core.Accounts
             File.Copy(temporary, _paths.AccountsFile, overwrite: true);
             File.Delete(temporary);
         }
+        private static DateTimeOffset? ParseLastUsed(JObject item)
+        {
+            string? text = item.Value<string>("lastUsed");
+
+            return DateTimeOffset.TryParse(text, out DateTimeOffset value) ? value : null;
+        }
+
 
         private static JObject ToJson(Account account)
         {

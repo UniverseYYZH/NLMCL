@@ -57,6 +57,40 @@ namespace NLMCL.Abstractions
         /// </summary>
         public string? AuthServer { get; }
 
+        /// <summary>上次使用时间（登录历史排序用，可为空）。</summary>
+        public DateTimeOffset? LastUsed { get; set; }
+
+        /// <summary>界面上显示的「上次使用 …」。</summary>
+        public string LastUsedLabel
+        {
+            get
+            {
+                if (LastUsed == null)
+                {
+                    return string.Empty;
+                }
+
+                TimeSpan ago = DateTimeOffset.Now - LastUsed.Value;
+
+                if (ago.TotalMinutes < 1)
+                {
+                    return "刚刚使用";
+                }
+
+                if (ago.TotalHours < 1)
+                {
+                    return (int)ago.TotalMinutes + " 分钟前使用";
+                }
+
+                if (ago.TotalDays < 1)
+                {
+                    return (int)ago.TotalHours + " 小时前使用";
+                }
+
+                return LastUsed.Value.LocalDateTime.ToString("MM-dd HH:mm") + " 使用";
+            }
+        }
+
         /// <summary>界面上显示的类型标签。</summary>
         public string TypeLabel
         {

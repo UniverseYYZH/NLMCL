@@ -231,5 +231,50 @@ namespace NLMCL.Tests
             await vm.SignOutAsync();
             Assert.False(vm.IsAccountPopupOpen);
         }
+
+        [Fact]
+        public async Task Sign_out_keeps_other_accounts_in_history()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-acct-" + System.Guid.NewGuid().ToString("N"));
+
+            NLMCL.Core.AppPaths paths = new NLMCL.Core.AppPaths(root);
+            NLMCL.Core.Accounts.JsonAccountStore store = new NLMCL.Core.Accounts.JsonAccountStore(paths);
+
+            NLMCL.Abstractions.Account first = new NLMCL.Abstractions.Account(
+                "Alpha", "uuid-a", NLMCL.Abstractions.AccountType.Offline);
+            NLMCL.Abstractions.Account second = new NLMCL.Abstractions.Account(
+                "Beta", "uuid-b", NLMCL.Abstractions.AccountType.Offline);
+
+            await store.SaveAsync(first, CancellationToken.None);
+            await store.SaveAsync(second, CancellationToken.None);
+
+            // 模拟"退出当前账号"：只移除一个
+            await store.RemoveAsync(second, CancellationToken.None);
+
+            var remaining = await store.LoadAllAsync(CancellationToken.None);
+
+            Assert.Single(remaining);
+            Assert.Equal("Alpha", remaining[0].Name);
+        }
+
+        [Fact]
+        public async Task Account_history_records_last_used_time()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-acct-" + System.Guid.NewGuid().ToString("N"));
+
+            NLMCL.Core.AppPaths paths = new NLMCL.Core.AppPaths(root);
+            NLMCL.Core.Accounts.JsonAccountStore store = new NLMCL.Core.Accounts.JsonAccountStore(paths);
+
+            await store.SaveAsync(new NLMCL.Abstractions.Account(
+                "Gamma", "uuid-g", NLMCL.Abstractions.AccountType.Offline), CancellationToken.None);
+
+            var all = await store.LoadAllAsync(CancellationToken.None);
+
+            Assert.Single(all);
+            Assert.NotNull(all[0].LastUsed);
+            Assert.NotEmpty(all[0].LastUsedLabel);
+        }
     }
 }

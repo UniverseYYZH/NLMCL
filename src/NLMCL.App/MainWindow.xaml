@@ -804,6 +804,8 @@
                                                                TextTrimming="CharacterEllipsis" />
                                                     <TextBlock Text="{Binding TypeLabel}" FontSize="9.5"
                                                                Foreground="{DynamicResource Faint}" Margin="0,1,0,0" />
+                                                    <TextBlock Text="{Binding LastUsedLabel}" FontSize="9"
+                                                               Foreground="{DynamicResource Faint}" Margin="0,1,0,0" />
                                                 </StackPanel>
 
                                                 <Button Grid.Column="1" Content="切换"

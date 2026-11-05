@@ -2564,13 +2564,33 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task SignOutAsync()
         {
-            await _accounts.ClearAsync(CancellationToken.None).ConfigureAwait(true);
-            Account = null;
-            Console.Account = null;
-            StatusText = "已退出账号";
+            Account? removing = Account;
+
+            // 只移除当前账号，其它账号的历史必须保留（以前是 ClearAsync，把整个文件删了）
+            if (removing != null)
+            {
+                await _accounts.RemoveAsync(removing, CancellationToken.None).ConfigureAwait(true);
+            }
+
+            await ReloadSavedAccountsAsync().ConfigureAwait(true);
+
+            Account? next = SavedAccounts.FirstOrDefault();
+
+            Account = next;
+            Console.Account = next;
+
+            if (next != null)
+            {
+                await _accounts.SwitchAsync(next, CancellationToken.None).ConfigureAwait(true);
+                StatusText = "已退出 " + (removing?.Name ?? "当前账号") + "，已切换到 " + next.Name;
+            }
+            else
+            {
+                StatusText = "已退出账号（没有其它保存的账号）";
+            }
+
             IsAccountPopupOpen = false;
         }
-
         /// <summary>启动时读回上次的账号（只做一次）。</summary>
         public async Task LoadAccountAsync()
         {
