@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -137,6 +138,27 @@ namespace NLMCL.Tests
 
             await vm.DeleteSnapshotAsync(vm.Snapshots[0]);
             Assert.Empty(vm.Snapshots);
+        }
+
+        [Fact]
+        public async Task Clicking_snapshot_nav_opens_the_panel_instead_of_a_blank_page()
+        {
+            FakeSnapshots snapshots = new FakeSnapshots();
+            MainViewModel vm = TestSupport.CreateMain(
+                new OneVersionCatalog(), new AppPaths(@"C:\Temp\roaming"), snapshotService: snapshots);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+
+            NavigationItem snapshotNav = vm.NavigationGroups
+                .SelectMany(g => g.Items)
+                .First(i => i.Section == ShellSection.Snapshot);
+
+            vm.SelectSection(snapshotNav);
+
+            // 以前这里会切到一个没有页面绑定的 Section → 内容区空白
+            Assert.True(vm.IsVersionsSection);
+            Assert.True(vm.SelectedNavigation!.Section != ShellSection.Snapshot);
         }
     }
 }

@@ -744,6 +744,14 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            // 「实例快照」不是独立页面，而是覆盖层：点了直接弹出面板。
+            // 以前它会切到一个没有页面绑定的 Section，结果内容区一片空白。
+            if (item.Section == ShellSection.Snapshot)
+            {
+                _ = OpenSnapshotsAsync();
+                return;
+            }
+
             foreach (NavigationGroup group in NavigationGroups)
             {
                 foreach (NavigationItem candidate in group.Items)
