@@ -512,9 +512,22 @@ namespace NLMCL.App.ViewModels
 
                 StatusText = "正在下载 " + file.Name + "…";
 
-                string path = await _installer
-                    .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, CancellationToken.None)
-                    .ConfigureAwait(true);
+                string path;
+
+                if (IsCurseForge && _curseForge != null)
+                {
+                    // ForgeCDN 直链用自带下载器：PCL 的 ModNet 对这类地址会报"小文件下载失败"
+                    path = await _curseForge
+                        .InstallFileAsync(file.Url, file.Name, item.Kind, MinecraftDirectory, VersionFolder,
+                            CancellationToken.None)
+                        .ConfigureAwait(true);
+                }
+                else
+                {
+                    path = await _installer
+                        .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, CancellationToken.None)
+                        .ConfigureAwait(true);
+                }
 
                 Trace("安装成功：" + path);
                 StatusText = "已安装到 " + path;

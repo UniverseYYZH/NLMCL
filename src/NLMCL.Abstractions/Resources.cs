@@ -163,5 +163,19 @@ namespace NLMCL.Abstractions
             string? gameVersion,
             string? loader,
             CancellationToken cancellationToken);
+
+        /// <summary>
+        /// 直接下载一个已知地址的文件到实例目录（搜索结果里点「安装」走这条）。
+        ///
+        /// 为什么不复用 ResourceInstaller：它依赖 PCL 的 ModNet，
+        /// 对 ForgeCDN 的直链会报"通过网络请求直接下载小文件失败"，而自带下载器能正常下。
+        /// </summary>
+        Task<string> InstallFileAsync(
+            string url,
+            string fileName,
+            ResourceKind kind,
+            string minecraftDirectory,
+            string versionFolder,
+            CancellationToken cancellationToken);
     }
 }

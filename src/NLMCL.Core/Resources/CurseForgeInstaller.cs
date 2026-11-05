@@ -28,10 +28,49 @@ namespace NLMCL.Core.Resources
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private readonly IDownloadService _downloads;
+        private readonly IFileDownloader _files;
 
-        public CurseForgeInstaller(IDownloadService downloads)
+        public CurseForgeInstaller(IDownloadService downloads, IFileDownloader files)
         {
             _downloads = downloads ?? throw new ArgumentNullException(nameof(downloads));
+            _files = files ?? throw new ArgumentNullException(nameof(files));
+        }
+
+        public async Task<string> InstallFileAsync(
+            string url,
+            string fileName,
+            ResourceKind kind,
+            string minecraftDirectory,
+            string versionFolder,
+            CancellationToken cancellationToken)
+        {
+            string safeName = string.IsNullOrWhiteSpace(fileName) ? "curseforge-file.jar" : fileName;
+            string dir = Path.Combine(minecraftDirectory, "versions", versionFolder, SubDirectoryOf(kind));
+            Directory.CreateDirectory(dir);
+
+            string target = Path.Combine(dir, safeName);
+            string temp = target + ".nlmcl-tmp";
+
+            await _files.DownloadAsync(url, temp, cancellationToken).ConfigureAwait(false);
+            File.Copy(temp, target, overwrite: true);
+            File.Delete(temp);
+
+            return target;
+        }
+
+        private static string SubDirectoryOf(ResourceKind kind)
+        {
+            switch (kind)
+            {
+                case ResourceKind.ResourcePack:
+                    return "resourcepacks";
+                case ResourceKind.ShaderPack:
+                    return "shaderpacks";
+                case ResourceKind.DataPack:
+                    return "datapacks";
+                default:
+                    return "mods";
+            }
         }
 
         public async Task<string> InstallAsync(
