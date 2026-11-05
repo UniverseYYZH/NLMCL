@@ -10,6 +10,7 @@
                 <ResourceDictionary Source="/NLMCL;component/Themes/Design.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <local:InverseBooleanConverter x:Key="InverseBool" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         </ResourceDictionary>
     </UserControl.Resources>
 

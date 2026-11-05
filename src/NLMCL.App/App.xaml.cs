@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading;
 using System;
 using System.Threading.Tasks;
@@ -106,12 +107,25 @@ namespace NLMCL.App
         }
 
         /// <summary>UI 线程上的异常：记日志、告知用户，并拦下来不让进程退出。</summary>
+        /// <summary>
+        /// 同一个异常的重复弹窗要抑制：XAML 模板绑定失败会在每次重绘时再次抛，
+        /// 曾经一次渲染失败就叠出十几层「NLMCL 遇到问题」。
+        /// </summary>
+        private static readonly HashSet<string> ReportedUiErrors = new HashSet<string>();
+
         private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            Services.CrashReporter.ShowFatal("界面线程发生未处理异常", e.Exception, canContinue: true);
+            string key = e.Exception.GetType().FullName + "|" + e.Exception.Message;
+
+            Services.CrashReporter.Write("界面线程发生未处理异常", e.Exception);
+
+            if (ReportedUiErrors.Add(key))
+            {
+                Services.CrashReporter.ShowFatal("界面线程发生未处理异常", e.Exception, canContinue: true);
+            }
+
             e.Handled = true;
         }
-
         /// <summary>后台线程上的异常：.NET Framework 无法阻止退出，至少留下日志与提示。</summary>
         private void OnDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
