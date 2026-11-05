@@ -270,8 +270,12 @@
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                     <Border Style="{StaticResource Chip}" Background="{DynamicResource Surface}"
-                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,10,0">
-                        <TextBlock Text="● 扫描只读" Style="{StaticResource ChipText}"
+                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,10,0"
+                            Cursor="Hand" ToolTip="点击重新扫描本地版本">
+                        <Border.InputBindings>
+                            <MouseBinding MouseAction="LeftClick" Command="{Binding RescanCommand}" />
+                        </Border.InputBindings>
+                        <TextBlock Text="● 重新扫描" Style="{StaticResource ChipText}"
                                    Foreground="{DynamicResource Muted}" />
                     </Border>
                 <Button Content="修复" Style="{StaticResource GhostButton}"

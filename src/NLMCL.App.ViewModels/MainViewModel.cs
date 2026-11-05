@@ -2730,7 +2730,22 @@ namespace NLMCL.App.ViewModels
                 SelectVersion(match);
             }
         }
-        /// <summary>扫描本地版本。UI 只通过 <see cref="RefreshCommand"/> 触发。</summary>
+        /// <summary>手动重新扫描本地版本（点顶部「重新扫描」徽标触发）。</summary>
+        [RelayCommand]
+        private async Task RescanAsync()
+        {
+            StatusText = "正在重新扫描本地版本…";
+
+            try
+            {
+                await RefreshAsync().ConfigureAwait(true);
+                StatusText = "扫描完成：共 " + Versions.Count + " 个版本";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "扫描失败：" + ex.Message;
+            }
+        }
         [RelayCommand]
         public async Task RefreshAsync()
         {
