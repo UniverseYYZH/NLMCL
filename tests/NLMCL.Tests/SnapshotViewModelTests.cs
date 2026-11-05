@@ -141,7 +141,7 @@ namespace NLMCL.Tests
         }
 
         [Fact]
-        public async Task Clicking_snapshot_nav_opens_the_panel_instead_of_a_blank_page()
+        public async Task Clicking_snapshot_nav_lands_on_a_bound_page_not_a_blank_one()
         {
             FakeSnapshots snapshots = new FakeSnapshots();
             MainViewModel vm = TestSupport.CreateMain(
@@ -156,9 +156,11 @@ namespace NLMCL.Tests
 
             vm.SelectSection(snapshotNav);
 
-            // 以前这里会切到一个没有页面绑定的 Section → 内容区空白
-            Assert.True(vm.IsVersionsSection);
-            Assert.True(vm.SelectedNavigation!.Section != ShellSection.Snapshot);
+            // 现在「实例快照」是独立页面：切过去要有 IsSnapshotSection=true 的页面接住，
+            // 否则就是之前那个空白页 bug。
+            Assert.True(vm.IsSnapshotSection);
+            Assert.False(vm.IsVersionsSection);
+            Assert.Equal(ShellSection.Snapshot, vm.SelectedNavigation!.Section);
         }
     }
 }

@@ -469,6 +469,14 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isVersionsSection = true;
 
+
+        /// <summary>是否停在「实例快照」页。</summary>
+        [ObservableProperty]
+        private bool _isSnapshotSection;
+
+        /// <summary>快照总占用（「N 个 · X MB」）。</summary>
+        [ObservableProperty]
+        private string _snapshotTotalText = "0 个";
         /// <summary>当前显示「版本下载」页。</summary>
         [ObservableProperty]
         private bool _isDownloadSection;
@@ -748,8 +756,8 @@ namespace NLMCL.App.ViewModels
             // 以前它会切到一个没有页面绑定的 Section，结果内容区一片空白。
             if (item.Section == ShellSection.Snapshot)
             {
+                IsSnapshotSection = true;
                 _ = OpenSnapshotsAsync();
-                return;
             }
 
             foreach (NavigationGroup group in NavigationGroups)
@@ -2106,6 +2114,90 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>进入「实例快照」页时加载数据（不弹覆盖层）。</summary>
+        private async Task LoadSnapshotPageAsync()
+        {
+            if (_snapshotService == null)
+            {
+                StatusText = "快照服务不可用。";
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在列表里点选一个版本，再查看它的快照。";
+                return;
+            }
+
+            await ReloadSnapshotsAsync().ConfigureAwait(true);
+        }
+
+        /// <summary>刷新「N 个 · X MB」统计（增删快照后调用）。</summary>
+        /// <summary>顶栏「快照」按钮：跳到实例快照页（不再弹覆盖层）。</summary>
+        [RelayCommand]
+        private void GoToSnapshots()
+        {
+            foreach (NavigationGroup group in NavigationGroups)
+            {
+                foreach (NavigationItem item in group.Items)
+                {
+                    if (item.Section == ShellSection.Snapshot)
+                    {
+                        SelectSection(item);
+                        return;
+                    }
+                }
+            }
+        }
+        /// <summary>页面上点「刷新」：重新读快照列表。</summary>
+        [RelayCommand]
+        private async Task RefreshSnapshotsAsync()
+        {
+            await ReloadSnapshotsAsync().ConfigureAwait(true);
+        }
+
+        /// <summary>页面上点「清空全部」：逐个删除当前实例的快照。</summary>
+        [RelayCommand]
+        private async Task ClearSnapshotsAsync()
+        {
+            if (Snapshots.Count == 0)
+            {
+                StatusText = "这个版本还没有快照。";
+                return;
+            }
+
+            int removed = 0;
+
+            // 先复制一份，避免边遍历边删
+            foreach (SnapshotInfo item in Snapshots.ToList())
+            {
+                try
+                {
+                    await DeleteSnapshotAsync(item).ConfigureAwait(true);
+                    removed++;
+                }
+                catch (Exception ex)
+                {
+                    StatusText = "删除失败：" + ex.Message;
+                    return;
+                }
+            }
+
+            StatusText = "已清空 " + removed + " 个快照";
+        }
+        private void RefreshSnapshotTotals()
+        {
+            long bytes = 0;
+
+            foreach (SnapshotInfo item in Snapshots)
+            {
+                bytes += item.SizeBytes;
+            }
+
+            SnapshotTotalText = Snapshots.Count + " 个 · "
+                + (bytes / 1024.0 / 1024.0).ToString("0.0", CultureInfo.InvariantCulture) + " MB";
+        }
+
         private async Task ReloadSnapshotsAsync()
         {
             if (_snapshotService == null)
@@ -2128,6 +2220,8 @@ namespace NLMCL.App.ViewModels
                     Snapshots.Add(item);
                 }
             }
+
+            RefreshSnapshotTotals();
 
             if (Snapshots.Count == 0)
             {
@@ -2847,6 +2941,7 @@ namespace NLMCL.App.ViewModels
             VersionCountLabel = Versions.Count + " 个版本";
             ReleaseCountLabel = "正式版 " + release;
             SnapshotCountLabel = "快照 " + snapshot;
+
             OtherCountLabel = "其他 " + other;
             HasRelease = release > 0;
             HasSnapshot = snapshot > 0;

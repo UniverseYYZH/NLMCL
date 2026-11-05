@@ -283,7 +283,7 @@
                         Command="{Binding RepairSelectedCommand}" />
                     <Button Content="快照" Style="{StaticResource GhostButton}"
                             Padding="14,9" Margin="0,0,8,0"
-                            Command="{Binding OpenSnapshotsCommand}" />
+                            Command="{Binding GoToSnapshotsCommand}" />
                     <Button Content="▶  启动游戏" Style="{StaticResource PrimaryButton}"
                             Padding="18,9"
                             Command="{Binding LaunchSelectedCommand}"
@@ -599,6 +599,10 @@
                                                         Converter={StaticResource BoolToVisibility}}" />
 
             <!-- 启动与日志页 -->
+            <!-- 实例快照页 -->
+            <views:SnapshotPage Margin="26,22,26,14"
+                                  Visibility="{Binding IsSnapshotSection, Converter={StaticResource BoolToVisibility}}" />
+
             <views:LaunchConsolePage Margin="26,22,26,14"
                                      DataContext="{Binding Console}"
                                      Visibility="{Binding DataContext.IsLaunchSection,
