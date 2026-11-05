@@ -1,3 +1,4 @@
+using System.IO;
 using System;
 using System.Collections.ObjectModel;
 using System.Threading;
@@ -39,10 +40,36 @@ namespace NLMCL.App.ViewModels
 
         public bool HasMods => Mods.Count > 0;
 
+        /// <summary>当前模组目录（界面上显示，方便用户确认文件放对了没）。</summary>
+        [ObservableProperty]
+        private string _modsDirectoryText = string.Empty;
+
+        /// <summary>打开模组目录。</summary>
+        [RelayCommand]
+        private void OpenModsFolder()
+        {
+            if (string.IsNullOrWhiteSpace(_modsDirectory))
+            {
+                return;
+            }
+
+            try
+            {
+                Directory.CreateDirectory(_modsDirectory);
+                System.Diagnostics.Process.Start(
+                    new System.Diagnostics.ProcessStartInfo(_modsDirectory) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                StatusText = "打不开模组目录：" + ex.Message;
+            }
+        }
+
         /// <summary>主窗口在切换实例时调用。</summary>
         public void SetInstance(string modsDirectory, string instanceName, string gameVersion, string loader)
         {
             _modsDirectory = modsDirectory ?? string.Empty;
+            ModsDirectoryText = _modsDirectory;
             _gameVersion = gameVersion ?? string.Empty;
             _loader = loader ?? string.Empty;
             InstanceText = instanceName ?? "未选择实例";

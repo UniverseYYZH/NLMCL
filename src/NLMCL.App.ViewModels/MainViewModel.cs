@@ -1824,6 +1824,10 @@ namespace NLMCL.App.ViewModels
             return 2048;
         }
 
+        /// <summary>模组目录：与启动参数 --gameDir 保持一致（.minecraft\mods）。</summary>
+        internal static string ModsDirectoryFor(string minecraftDirectory)
+            => Path.Combine(minecraftDirectory, "mods");
+
         private void RefreshModsInstance()
         {
             if (_mods == null)
@@ -1840,15 +1844,13 @@ namespace NLMCL.App.ViewModels
             string minecraft = CurrentGameDirectory;
             string folder = SelectedVersion.FolderName;
 
-            // 隔离实例的 mods 在 versions/<folder>/mods；否则用全局 mods
-            string isolated = Path.Combine(minecraft, "versions", folder);
-            string modsDirectory = Directory.Exists(isolated)
-                ? Path.Combine(isolated, "mods")
-                : Path.Combine(minecraft, "mods");
-
+            // 必须和游戏实际用的目录一致：启动参数的 --gameDir 是 .minecraft 根，
+            // 所以 mods 也在根下的 mods\（以前这里错误地指向 versions\<id>\mods，
+            // 界面里"启用"改的是游戏不会读的目录，模组当然没生效）。
+            string modsDirectory = ModsDirectoryFor(minecraft);
             string loader = folder.IndexOf("fabric", StringComparison.OrdinalIgnoreCase) >= 0 ? "fabric"
-                : folder.IndexOf("neoforge", StringComparison.OrdinalIgnoreCase) >= 0 ? "neoforge"
                 : folder.IndexOf("forge", StringComparison.OrdinalIgnoreCase) >= 0 ? "forge"
+                : folder.IndexOf("neoforge", StringComparison.OrdinalIgnoreCase) >= 0 ? "neoforge"
                 : string.Empty;
 
             _mods.SetInstance(modsDirectory, folder, SelectedVersion.BasedOn ?? string.Empty, loader);
