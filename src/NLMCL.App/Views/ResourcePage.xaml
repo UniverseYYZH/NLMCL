@@ -129,6 +129,8 @@
                 <ComboBox Grid.Column="1" Width="110" Margin="10,0,0,0"
                           ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind}" />
 
+                <ComboBox Grid.Column="6" Width="120" Margin="8,0,0,0" ToolTip="资源来源"
+                          ItemsSource="{Binding SourceOptions}" SelectedItem="{Binding SelectedSource}" />
                 <ComboBox Grid.Column="2" Width="120" Margin="8,0,0,0"
                           ItemsSource="{Binding LoaderOptions}" SelectedItem="{Binding SelectedLoader}"
                           Visibility="{Binding IsModKind, Converter={StaticResource BoolToVisibility}}" />

@@ -22,6 +22,7 @@ namespace NLMCL.App.ViewModels
         private readonly IResourceCatalog _catalog;
         private readonly IResourceInstaller _installer;
     private readonly ICurseForgeInstaller? _curseForge;
+    private readonly NLMCL.Core.Resources.CurseForgeCatalog? _curseForgeCatalog;
 
         private readonly ITranslator? _translator;
 
@@ -36,7 +37,8 @@ namespace NLMCL.App.ViewModels
             IFilePicker? filePicker = null,
             IModpackInstaller? modpackInstaller = null,
             IJavaLocator? javaLocator = null,
-        ICurseForgeInstaller? curseForge = null)
+        ICurseForgeInstaller? curseForge = null,
+        NLMCL.Core.Resources.CurseForgeCatalog? curseForgeCatalog = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
@@ -44,10 +46,20 @@ namespace NLMCL.App.ViewModels
             _filePicker = filePicker;
             _modpackInstaller = modpackInstaller;
         _curseForge = curseForge;
+        _curseForgeCatalog = curseForgeCatalog;
             _javaLocator = javaLocator;
         }
 
         public IReadOnlyList<string> KindOptions { get; } = new[] { "模组", "资源包", "光影", "数据包" };
+
+    /// <summary>当前是否选的是 CurseForge。</summary>
+    public bool IsCurseForge => string.Equals(SelectedSource, "CurseForge", StringComparison.Ordinal);
+
+    /// <summary>资源来源：Modrinth（默认）或 CurseForge（走 mcim 镜像）。</summary>
+    public IReadOnlyList<string> SourceOptions { get; } = new[] { "Modrinth", "CurseForge" };
+
+    [ObservableProperty]
+    private string _selectedSource = "Modrinth";
 
         public IReadOnlyList<string> LoaderOptions { get; } = new[] { "不限", "Fabric", "Forge", "NeoForge" };
 
@@ -186,6 +198,31 @@ namespace NLMCL.App.ViewModels
 
                 string? gameVersion = string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim();
                 string? loader = LoaderOf(SelectedLoader);
+
+                if (IsCurseForge && _curseForgeCatalog != null)
+                {
+                    ResourceQuery cfQuery = new ResourceQuery(text, KindOf(SelectedKind))
+                    {
+                        GameVersion = gameVersion,
+                        Loader = loader
+                    };
+
+                    IReadOnlyList<ResourceSummary> cfFound = await _curseForgeCatalog
+                        .SearchAsync(cfQuery, CancellationToken.None).ConfigureAwait(true);
+
+                    Results.Clear();
+                    foreach (ResourceSummary cfItem in cfFound)
+                    {
+                        Results.Add(cfItem);
+                    }
+
+                    HasMore = cfFound.Count >= PageSize;
+                    ResultsCountText = "已显示 " + Results.Count + " 个" + (HasMore ? "（还有更多）" : string.Empty);
+                    StatusText = cfFound.Count == 0
+                        ? "CurseForge 没有找到匹配资源" + note
+                        : "CurseForge：找到 " + cfFound.Count + " 个结果" + note;
+                    return;
+                }
 
                 (IReadOnlyList<ResourceSummary> found, string relaxed) = await SearchWithFallbackAsync(
                     text, gameVersion, loader).ConfigureAwait(true);
@@ -345,9 +382,9 @@ namespace NLMCL.App.ViewModels
                     Offset = Results.Count
                 };
 
-                IReadOnlyList<ResourceSummary> found = await _catalog
+                IResourceCatalog activeCatalog = IsCurseForge && _curseForgeCatalog != null ? _curseForgeCatalog : _catalog;
+                IReadOnlyList<ResourceSummary> found = await activeCatalog
                     .SearchAsync(query, CancellationToken.None).ConfigureAwait(true);
-
                 foreach (ResourceSummary item in found)
                 {
                     Results.Add(item);
@@ -434,7 +471,8 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                IReadOnlyList<ResourceFile> files = await _catalog
+                IResourceCatalog fileCatalog = IsCurseForge && _curseForgeCatalog != null ? _curseForgeCatalog : _catalog;
+                IReadOnlyList<ResourceFile> files = await fileCatalog
                     .GetFilesAsync(
                         item.Id,
                         item.Kind,

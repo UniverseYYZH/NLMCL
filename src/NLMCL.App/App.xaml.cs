@@ -156,6 +156,7 @@ namespace NLMCL.App
             services.AddSingleton<ISnapshotService, SnapshotService>();
             services.AddSingleton<IResourceCatalog, ModrinthCatalog>();
             services.AddSingleton<ICurseForgeInstaller, CurseForgeInstaller>();
+            services.AddSingleton<CurseForgeCatalog>();
             services.AddSingleton<IResourceInstaller, ResourceInstaller>();
             // 中文查询兜底翻译（Modrinth 只有英文元数据）
             services.AddSingleton<ITranslator, MyMemoryTranslator>();
