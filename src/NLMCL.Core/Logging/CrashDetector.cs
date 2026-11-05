@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -45,7 +45,10 @@ namespace NLMCL.Core.Logging
             "A fatal error has been detected by the Java Runtime Environment",
             "Exception in thread \"main\"",
             "Failed to start the game",
-            "Could not find or load main class"
+            "Could not find or load main class",
+            "java.lang.VerifyError",
+            "java.lang.NoSuchMethodError",
+            "java.lang.IncompatibleClassChangeError",
         };
 
         /// <summary>
@@ -128,6 +131,11 @@ namespace NLMCL.Core.Logging
             {
                 case "java.lang.UnsupportedClassVersionError":
                     return "Java 版本过低：请换用更高版本的 Java";
+
+                case "java.lang.VerifyError":
+                case "java.lang.NoSuchMethodError":
+                case "java.lang.IncompatibleClassChangeError":
+                    return "模组与当前游戏版本/加载器不匹配：这个 jar 不是给这个版本编译的（多版本模组常见选错变体），换对应版本或联系作者";
 
                 case "java.lang.OutOfMemoryError":
                     return "内存不足：在实例设置里调大分配内存";

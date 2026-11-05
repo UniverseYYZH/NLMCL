@@ -268,5 +268,20 @@ namespace NLMCL.Tests
             Assert.Equal(0, auth.RefreshCalls);
             Assert.Equal("Alex", vm.Account!.Name);
         }
+
+        [Fact]
+        public void Verify_error_is_explained_as_version_mismatch()
+        {
+            var report = NLMCL.Core.Logging.CrashDetector.Detect(
+                1,
+                new[]
+                {
+                    "[00:11:53] [Render thread/ERROR]: java.lang.VerifyError: Bad type on operand stack",
+                    "Location: cyou/rimuru/shootingstardemo/il1li1llii.correct(...)"
+                });
+
+            Assert.NotNull(report);
+            Assert.Contains("不匹配", report!.Hint);
+        }
     }
 }
