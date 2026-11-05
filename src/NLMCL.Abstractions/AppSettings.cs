@@ -36,6 +36,12 @@ namespace NLMCL.Abstractions
 
         /// <summary>首次启动引导是否已完成（跳过/关掉也算完成，避免反复弹）。</summary>
         /// <summary>
+        /// 全局 JVM 参数（如 -XX:+UseG1GC），启动时拼在实例参数之前。
+        /// 实例自己的"额外参数"仍然生效，两者都会追加。
+        /// </summary>
+        public string? DefaultJvmArgs { get; set; }
+
+        /// <summary>
         /// 下载是否走国内镜像（BMCLAPI）。关掉就走官方源，慢但不经过第三方。
         /// </summary>
         public bool UseMirror { get; set; } = true;

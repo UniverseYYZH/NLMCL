@@ -496,6 +496,9 @@
                                Foreground="{DynamicResource Text}" Margin="0,2,0,0" />
                     <TextBlock Text="改完立即生效，并写入 settings.json"
                                FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
+
+            <!-- 设置项分区（新版）：游戏目录 / 默认 JVM 参数 / 日志与诊断 -->
+            <views:SettingsPage Margin="0,18,0,0" />
                 </StackPanel>
 
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,18,0,0">

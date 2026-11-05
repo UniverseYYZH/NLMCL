@@ -35,6 +35,7 @@ namespace NLMCL.App.ViewModels
         private readonly IFolderPicker _folderPicker;
         private readonly IAppSettingsStore _appSettings;
     private readonly IMirrorSwitch? _mirror;
+    private readonly IAppPaths _paths;
 
         /// <summary>没有合适的 Java 时按版本要求自动下载（组合根注入；单测里可为 null）。</summary>
         private readonly IJavaRuntimeInstaller? _javaInstaller;
@@ -165,7 +166,8 @@ namespace NLMCL.App.ViewModels
             _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
             _folderPicker = folderPicker ?? throw new ArgumentNullException(nameof(folderPicker));
             _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
-            _javaInstaller = javaInstaller;
+            _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
+            _paths = paths;
             _mirror = mirror;
             _sessionLauncher = sessionLauncher;
             _externalAuthenticator = externalAuthenticator;
@@ -624,9 +626,115 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _useMirror = true;
 
+        /// <summary>全局 JVM 参数（拼在实例参数之前）。</summary>
+        [ObservableProperty]
+        private string _defaultJvmArgs = string.Empty;
+
         /// <summary>内存预设，点一下直接填。</summary>
         public IReadOnlyList<string> MemoryPresets { get; } = new[] { "2048", "4096", "6144", "8192" };
 
+        /// <summary>打开日志目录（%APPDATA%\NLMCL\logs）。</summary>
+        [RelayCommand]
+        private void OpenLogsFolder()
+        {
+            string logs = Path.Combine(_paths.DataRoot, "logs");
+
+            try
+            {
+                Directory.CreateDirectory(logs);
+                Process.Start(new ProcessStartInfo(logs) { UseShellExecute = true });
+                StatusText = "已打开日志目录：" + logs;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "打开日志目录失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>把日志与启动记录打成一个 zip，方便发给开发者。</summary>
+        [RelayCommand]
+        private void CreateDiagnosticBundle()
+        {
+            try
+            {
+                string target = Path.Combine(
+                    _paths.DataRoot,
+                    "diagnostics",
+                    "NLMCL-诊断-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".zip");
+
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+
+                if (File.Exists(target))
+                {
+                    File.Delete(target);
+                }
+
+                // 只打包日志与启动记录：accounts.json 里有账号令牌，绝不能进诊断包
+                string staging = Path.Combine(Path.GetTempPath(), "nlmcl-diag-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(staging);
+
+                try
+                {
+                    string logs = Path.Combine(_paths.DataRoot, "logs");
+
+                    if (Directory.Exists(logs))
+                    {
+                        string logTarget = Path.Combine(staging, "logs");
+                        Directory.CreateDirectory(logTarget);
+
+                        foreach (string file in Directory.GetFiles(logs))
+                        {
+                            File.Copy(file, Path.Combine(logTarget, Path.GetFileName(file)), overwrite: true);
+                        }
+                    }
+
+                    string launchRecord = Path.Combine(_paths.DataRoot, "last-launch.txt");
+
+                    if (File.Exists(launchRecord))
+                    {
+                        File.Copy(launchRecord, Path.Combine(staging, "last-launch.txt"), overwrite: true);
+                    }
+
+                    System.IO.Compression.ZipFile.CreateFromDirectory(
+                        staging, target, System.IO.Compression.CompressionLevel.Optimal, false);
+                }
+                finally
+                {
+                    try { Directory.Delete(staging, true); } catch (IOException) { }
+                }
+
+                Process.Start(new ProcessStartInfo("explorer.exe", "/select,\"" + target + "\"")
+                {
+                    UseShellExecute = true
+                });
+
+                StatusText = "诊断包已生成：" + target;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "生成诊断包失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>在资源管理器里打开当前游戏目录。</summary>
+        [RelayCommand]
+        private void OpenGameDirectory()
+        {
+            try
+            {
+                if (!Directory.Exists(CurrentGameDirectory))
+                {
+                    StatusText = "游戏目录不存在：" + CurrentGameDirectory;
+                    return;
+                }
+
+                Process.Start(new ProcessStartInfo(CurrentGameDirectory) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                StatusText = "打开游戏目录失败：" + ex.Message;
+            }
+        }
         /// <summary>点内存预设：直接填进默认内存。</summary>
         [RelayCommand]
         private void UseMemoryPreset(string? preset)
@@ -791,6 +899,7 @@ namespace NLMCL.App.ViewModels
                 settings.DownloadThreads = int.TryParse(SelectedThreads, out int threads) ? threads : 6;
                 settings.DefaultMemoryMb = DefaultMemoryMb <= 0 ? 2048 : DefaultMemoryMb;
                 settings.UseMirror = UseMirror;
+                settings.DefaultJvmArgs = string.IsNullOrWhiteSpace(DefaultJvmArgs) ? null : DefaultJvmArgs.Trim();
 
                 await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
 
@@ -2358,6 +2467,7 @@ namespace NLMCL.App.ViewModels
 
                 DefaultMemoryMb = settings.DefaultMemoryMb <= 0 ? 2048 : settings.DefaultMemoryMb;
                 UseMirror = settings.UseMirror;
+                DefaultJvmArgs = settings.DefaultJvmArgs ?? string.Empty;
 
                 if (_mirror != null)
                 {
@@ -2660,6 +2770,9 @@ namespace NLMCL.App.ViewModels
                 // 失败就明确报错，不要带着空身份启动（服务器会直接踢人，日志还看不出原因）。
                 try
                 {
+            // 全局 JVM 参数（设置页）拼在外置登录注入的参数之前
+            string globalJvm = string.IsNullOrWhiteSpace(DefaultJvmArgs) ? string.Empty : DefaultJvmArgs.Trim();
+
                     request.ExtraJvmArguments = await ExternalLaunch
                         .BuildJvmArgumentsAsync(Account, _authlibInjector, CancellationToken.None)
                         .ConfigureAwait(true);

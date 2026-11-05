@@ -42,6 +42,7 @@ namespace NLMCL.Core.Settings
                     DownloadThreads = root.Value<int?>("downloadThreads") ?? 6,
                     DefaultMemoryMb = root.Value<int?>("defaultMemoryMb") ?? 2048,
             UseMirror = root.Value<bool?>("useMirror") ?? true,
+            DefaultJvmArgs = root.Value<string>("defaultJvmArgs"),
                     WizardCompleted = root.Value<bool?>("wizardCompleted") ?? false
                 });
             }
@@ -91,6 +92,7 @@ namespace NLMCL.Core.Settings
                 ["downloadThreads"] = settings.DownloadThreads,
                 ["defaultMemoryMb"] = settings.DefaultMemoryMb,
             ["useMirror"] = settings.UseMirror,
+            ["defaultJvmArgs"] = settings.DefaultJvmArgs,
                 ["wizardCompleted"] = settings.WizardCompleted
             };
 
