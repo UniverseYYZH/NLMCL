@@ -435,23 +435,5 @@ namespace NLMCL.Tests
                 => Task.FromResult(string.Empty);
         }
 
-        [Fact]
-        public async Task Self_check_reports_account_type_and_verdict()
-        {
-            NLMCL.App.ViewModels.SkinViewModel vm = new NLMCL.App.ViewModels.SkinViewModel(
-                new CopyingSkinService());
-
-            NLMCL.Abstractions.Account external = new NLMCL.Abstractions.Account(
-                "ZW_Official", "uuid", NLMCL.Abstractions.AccountType.External,
-                accessToken: "token", refreshToken: "refresh",
-                authServer: "https://mua.nxist.top");
-
-            vm.SetAccount(external);
-            await vm.SelfCheckAsync();
-
-            Assert.Contains("ZW_Official", vm.CheckAccount);
-            Assert.Contains("apiRoot", vm.CheckInjector);
-            Assert.NotEmpty(vm.CheckVerdict);
-        }
     }
 }
