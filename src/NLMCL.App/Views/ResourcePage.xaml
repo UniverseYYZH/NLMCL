@@ -213,8 +213,14 @@
             <ProgressBar Height="4" Minimum="0" Maximum="100" Value="{Binding Progress}"
                          Foreground="{DynamicResource Primary}" Background="{DynamicResource Surface}"
                          Visibility="{Binding HasProgress, Converter={StaticResource BoolToVisibility}}" />
-            <TextBlock Text="{Binding StatusText}" FontSize="11"
-                       Foreground="{DynamicResource Muted}" Margin="0,6,0,0" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                <TextBlock Text="{Binding StatusText}" FontSize="11" VerticalAlignment="Center"
+                           Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
+                <Button Content="停止下载" Style="{StaticResource GhostButton}" Padding="12,4"
+                        Margin="10,0,0,0" FontSize="10"
+                        Command="{Binding CancelInstallCommand}"
+                        Visibility="{Binding CanCancel, Converter={StaticResource BoolToVisibility}}" />
+            </StackPanel>
         </StackPanel>
     </Grid>
 </UserControl>

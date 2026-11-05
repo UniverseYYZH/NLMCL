@@ -398,6 +398,20 @@ namespace NLMCL.App.ViewModels
 
             await LoadVersionsAsync().ConfigureAwait(true);
         }
+        private CancellationTokenSource? _installCts;
+
+        /// <summary>下载/安装过程中是否允许取消。</summary>
+        [ObservableProperty]
+        private bool _canCancel;
+
+        /// <summary>取消正在进行的下载（给用户反悔的机会）。</summary>
+        [RelayCommand]
+        private void CancelInstall()
+        {
+            _installCts?.Cancel();
+            StatusText = "正在取消…";
+        }
+
         /// <summary>安装当前选中的版本。</summary>
         [RelayCommand]
         public async Task InstallAsync()
@@ -422,15 +436,19 @@ namespace NLMCL.App.ViewModels
             }
 
             IsBusy = true;
+            CanCancel = true;
             HasProgress = true;
             Progress = 0;
             StatusText = "准备安装 " + target!.Id;
+
+            _installCts = new CancellationTokenSource();
+            CancellationToken token = _installCts.Token;
 
             try
             {
                 if (IsForgeSelected || IsNeoForgeSelected)
                 {
-                    await InstallModdedLoaderAsync(target!).ConfigureAwait(true);
+                    await InstallModdedLoaderAsync(target!, token).ConfigureAwait(true);
                 }
                 else
                 {
@@ -446,7 +464,7 @@ namespace NLMCL.App.ViewModels
                     }
 
                     await _installer
-                        .InstallAsync(request, new InlineProgress(ApplyProgress), CancellationToken.None)
+                        .InstallAsync(request, new InlineProgress(ApplyProgress), token)
                         .ConfigureAwait(true);
 
                     Progress = 100;
@@ -459,18 +477,25 @@ namespace NLMCL.App.ViewModels
 
                 InstallCompleted?.Invoke(this, EventArgs.Empty);
             }
+            catch (OperationCanceledException)
+            {
+                StatusText = "已取消安装（已下载的文件会保留，下次接着用）";
+            }
             catch (Exception ex)
             {
                 StatusText = "安装失败：" + ex.Message;
             }
             finally
             {
+                _installCts?.Dispose();
+                _installCts = null;
+                CanCancel = false;
                 IsBusy = false;
             }
         }
 
         /// <summary>Forge 走安装器 jar：需要挑一个能跑安装器的 Java。</summary>
-        private async Task InstallModdedLoaderAsync(VanillaVersion target)
+        private async Task InstallModdedLoaderAsync(VanillaVersion target, CancellationToken token)
         {
             if (_forgeInstaller == null || _javaLocator == null)
             {
@@ -501,12 +526,12 @@ namespace NLMCL.App.ViewModels
                 ? await _forgeInstaller
                     .InstallNeoForgeAsync(
                         target.Id, LoaderVersion, TargetDirectory, java.ExecutablePath,
-                        new InlineProgress(ApplyProgress), CancellationToken.None)
+                        new InlineProgress(ApplyProgress), token)
                     .ConfigureAwait(true)
                 : await _forgeInstaller
                     .InstallForgeAsync(
                         target.Id, LoaderVersion, TargetDirectory, java.ExecutablePath,
-                        new InlineProgress(ApplyProgress), CancellationToken.None)
+                        new InlineProgress(ApplyProgress), token)
                     .ConfigureAwait(true);
 
             Progress = 100;

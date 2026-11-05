@@ -120,6 +120,20 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isBusy;
 
+
+        private CancellationTokenSource? _installCts;
+
+        /// <summary>下载过程中是否允许取消。</summary>
+        [ObservableProperty]
+        private bool _canCancel;
+
+        /// <summary>取消正在进行的资源下载（用户反悔的出口）。</summary>
+        [RelayCommand]
+        private void CancelInstall()
+        {
+            _installCts?.Cancel();
+            StatusText = "正在取消下载…";
+        }
         /// <summary>整合包安装进度 0–100。</summary>
         [ObservableProperty]
         private double _progress;
@@ -486,6 +500,10 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            _installCts = new CancellationTokenSource();
+            CancellationToken token = _installCts.Token;
+            CanCancel = true;
+
             IsBusy = true;
             StatusText = "正在获取「" + item.Title + "」的可用版本…";
 
@@ -498,7 +516,7 @@ namespace NLMCL.App.ViewModels
                         item.Kind,
                         string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim(),
                         LoaderOf(SelectedLoader),
-                        CancellationToken.None)
+                token)
                     .ConfigureAwait(true);
 
                 Trace("取到文件 " + files.Count + " 个");
@@ -553,7 +571,7 @@ namespace NLMCL.App.ViewModels
                 else
                 {
                     path = await _installer
-                        .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, CancellationToken.None)
+                        .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, token)
                         .ConfigureAwait(true);
                 }
 
@@ -562,13 +580,19 @@ namespace NLMCL.App.ViewModels
                 HasProgress = false;
                 Progress = 0;
             }
+            catch (OperationCanceledException)
+            {
+                StatusText = "已取消下载（已下载的部分会保留）";
+            }
             catch (Exception ex)
             {
-                Trace("安装失败：" + ex.GetType().Name + " " + ex.Message);
                 StatusText = "安装失败：" + ex.Message;
             }
             finally
             {
+                _installCts?.Dispose();
+                _installCts = null;
+                CanCancel = false;
                 IsBusy = false;
             }
         }
