@@ -38,7 +38,8 @@ namespace NLMCL.App.ViewModels
             IModpackInstaller? modpackInstaller = null,
             IJavaLocator? javaLocator = null,
         ICurseForgeInstaller? curseForge = null,
-        NLMCL.Core.Resources.CurseForgeCatalog? curseForgeCatalog = null)
+            NLMCL.Core.Resources.CurseForgeCatalog? curseForgeCatalog = null,
+            IFileDownloader? fileDownloader = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
@@ -47,6 +48,7 @@ namespace NLMCL.App.ViewModels
             _modpackInstaller = modpackInstaller;
         _curseForge = curseForge;
         _curseForgeCatalog = curseForgeCatalog;
+            _fileDownloader = fileDownloader;
             _javaLocator = javaLocator;
         }
 
@@ -120,6 +122,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isBusy;
 
+
+        /// <summary>自带下载器：PCL 的 ModNet 拉 Modrinth 的 CDN 会报"小文件下载失败"，</summary>
+        /// <summary>资源下载统一走它（和 CurseForge 同样的绕法）。</summary>
+        private readonly IFileDownloader? _fileDownloader;
 
         private CancellationTokenSource? _installCts;
 
@@ -532,50 +538,66 @@ namespace NLMCL.App.ViewModels
 
                 string path;
 
-                if (IsCurseForge && _curseForge != null)
+            System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+            double lastRatio = 0;
+            System.TimeSpan lastAt = System.TimeSpan.Zero;
+
+            Progress<double> installProgress = new Progress<double>(ratio =>
+            {
+                Progress = ratio * 100;
+                HasProgress = true;
+
+                System.TimeSpan now = watch.Elapsed;
+                System.TimeSpan elapsed = now - lastAt;
+                string speed = string.Empty;
+
+                if (elapsed.TotalMilliseconds >= 400 && ratio > lastRatio && file.Size > 0)
                 {
-                    // ForgeCDN 直链用自带下载器：PCL 的 ModNet 对这类地址会报"小文件下载失败"
-                    System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
-                    double lastRatio = 0;
-                    System.TimeSpan lastAt = System.TimeSpan.Zero;
+                    double bytes = (ratio - lastRatio) * file.Size;
+                    double perSecond = bytes / elapsed.TotalSeconds;
+                    double remain = perSecond > 1 ? (1 - ratio) * file.Size / perSecond : 0;
 
-                    Progress<double> installProgress = new Progress<double>(ratio =>
-                    {
-                        Progress = ratio * 100;
-                        HasProgress = true;
+                    speed = " · " + (perSecond / 1024).ToString("0") + " KB/s"
+                        + (remain > 0 ? " · 剩余 " + System.TimeSpan.FromSeconds(remain).ToString(@"mm\:ss") : string.Empty);
 
-                        System.TimeSpan now = watch.Elapsed;
-                        System.TimeSpan elapsed = now - lastAt;
-                        string speed = string.Empty;
-
-                        if (elapsed.TotalMilliseconds >= 400 && ratio > lastRatio && file.Size > 0)
-                        {
-                            double bytes = (ratio - lastRatio) * file.Size;
-                            double perSecond = bytes / elapsed.TotalSeconds;
-                            double remain = perSecond > 1 ? (1 - ratio) * file.Size / perSecond : 0;
-
-                            speed = " · " + (perSecond / 1024).ToString("0") + " KB/s"
-                                + (remain > 0 ? " · 剩余 " + System.TimeSpan.FromSeconds(remain).ToString(@"mm\:ss") : string.Empty);
-
-                            lastRatio = ratio;
-                            lastAt = now;
-                        }
-
-                        StatusText = "正在下载 " + file.Name + " " + (ratio * 100).ToString("0") + "%" + speed;
-                    });
-
-                    path = await _curseForge
-                        .InstallFileAsync(file.Url, file.Name, item.Kind, MinecraftDirectory, VersionFolder, installProgress,
-                            CancellationToken.None).ConfigureAwait(true);
-                }
-                else
-                {
-                    path = await _installer
-                        .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, token)
-                        .ConfigureAwait(true);
+                    lastRatio = ratio;
+                    lastAt = now;
                 }
 
-                Trace("安装成功：" + path);
+                StatusText = "正在下载 " + file.Name + " " + (ratio * 100).ToString("0") + "%" + speed;
+            });
+
+            if (IsCurseForge && _curseForge != null)
+            {
+                path = await _curseForge
+                    .InstallFileAsync(
+                        file.Url, file.Name, item.Kind, MinecraftDirectory, VersionFolder, installProgress, token)
+                    .ConfigureAwait(true);
+            }
+            else if (_fileDownloader != null)
+            {
+                // PCL 的 ModNet 拉 Modrinth 的 CDN 会报"小文件下载失败"，
+                // 这里也走自带下载器（分片 + 断点续传 + 超时看门狗）。
+                string targetDirectory = Path.Combine(
+                    MinecraftDirectory, "versions", VersionFolder, SubdirectoryFor(item.Kind));
+
+                Directory.CreateDirectory(targetDirectory);
+
+                string target = Path.Combine(targetDirectory, file.Name);
+
+                await _fileDownloader
+                    .DownloadAsync(file.Url, target, installProgress, token)
+                    .ConfigureAwait(true);
+
+                path = target;
+            }
+            else
+            {
+                path = await _installer
+                    .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, token)
+                    .ConfigureAwait(true);
+            }
+            Trace("安装成功：" + path);
                 StatusText = "已安装到 " + path;
                 HasProgress = false;
                 Progress = 0;
@@ -601,7 +623,19 @@ namespace NLMCL.App.ViewModels
         /// 从实例目录名里提取游戏版本：优先取最后一个 1.x 形式的，
         /// 因为 "fabric-loader-0.16.9-1.20.1" 的第一个匹配是加载器版本。
         /// </summary>
-        public static string ExtractGameVersion(string? folderName)
+        /// <summary>资源种类对应的子目录名。</summary>
+    internal static string SubdirectoryFor(ResourceKind kind)
+    {
+        switch (kind)
+        {
+            case ResourceKind.ResourcePack: return "resourcepacks";
+            case ResourceKind.ShaderPack: return "shaderpacks";
+            case ResourceKind.DataPack: return "datapacks";
+            default: return "mods";
+        }
+    }
+
+    public static string ExtractGameVersion(string? folderName)
         {
             if (string.IsNullOrWhiteSpace(folderName))
             {
