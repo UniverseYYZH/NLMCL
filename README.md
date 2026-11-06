@@ -16,6 +16,8 @@
 
 Minecraft Java 版启动器（Windows / .NET Framework 4.8 / WPF）。
 
+> **接手开发请先读 [docs/HANDOVER.md](docs/HANDOVER.md)** —— 现状、构建方式、剩余待办、已知坑都在里面。
+
 - **前端**：WPF（XAML）自研，深色/浅色主题、界面缩放。
 - **后端**：复用 PCL（Plain Craft Launcher）的成熟实现，经适配层接入。
 - **架构**：分层单体 + 端口/适配器 + MVVM，详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
