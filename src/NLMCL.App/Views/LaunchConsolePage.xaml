@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="NLMCL.App.Views.LaunchConsolePage"
+<UserControl x:Class="NLMCL.App.Views.LaunchConsolePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:NLMCL.App"
@@ -45,7 +45,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!-- 标题 -->
+        <!-- F 页头 -->
         <Grid Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -53,8 +53,9 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0">
-                <TextBlock Text="RUN SESSION / LIVE OUTPUT" FontSize="9" Foreground="{DynamicResource Faint}" Margin="0,0,0,1" />
-            <TextBlock Text="启动与日志" FontSize="26" FontWeight="Bold"
+                <TextBlock Text="RUN SESSION / LIVE OUTPUT" FontSize="9"
+                           Foreground="{DynamicResource Faint}" Margin="0,0,0,1" />
+                <TextBlock Text="启动与日志" FontSize="26" FontWeight="Bold"
                            Foreground="{DynamicResource Text}" />
                 <TextBlock Text="捕获游戏进程输出，按 Java 不兼容 / 模组冲突 / 资源失败自动着色"
                            FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
@@ -79,8 +80,8 @@
             </StackPanel>
         </Grid>
 
-        <!-- 版本输入 + 状态 -->
-        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="14,10" Margin="0,16,0,12">
+        <!-- 版本 + 状态 -->
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="14,10" Margin="0,14,0,10">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -99,40 +100,6 @@
                              Foreground="{DynamicResource Text}" />
                 </Border>
 
-        <!-- 多开会话栏：点一下切换查看哪个游戏的日志 -->
-        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="12,10" Margin="0,0,0,10"
-                Visibility="{Binding HasSessions, Converter={StaticResource BoolToVisibility}}">
-            <StackPanel>
-                <TextBlock Text="正在运行的游戏" FontSize="10.5"
-                           Foreground="{DynamicResource Muted}" Margin="0,0,0,8" />
-                <ItemsControl ItemsSource="{Binding BarSessions}"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8" Padding="10,6"
-                                    HorizontalContentAlignment="Left"
-                                    ToolTip="{Binding Subtitle}"
-                                    Command="{Binding DataContext.SelectSessionCommand,
-                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                    CommandParameter="{Binding}">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding Title}" FontSize="10.5"
-                                               FontWeight="SemiBold" />
-                                    <TextBlock Text="{Binding Subtitle}" FontSize="9"
-                                               Foreground="{DynamicResource Faint}" />
-                                </StackPanel>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </Border>
-
                 <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11"
                            Foreground="{DynamicResource Muted}" VerticalAlignment="Center"
                            Margin="6,0,0,0" TextTrimming="CharacterEllipsis" />
@@ -147,33 +114,69 @@
             </Grid>
         </Border>
 
-        <!-- 崩溃分析结果：可关闭；内容超高时在卡片内滚动，不再把日志区挤没 -->
-        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,0,0,10"
-                Visibility="{Binding HasAnalysis, Converter={StaticResource BoolToVisibility}}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+        <!-- 多开 / 崩溃分析：只在有内容时出现，不再挤占日志区 -->
+        <StackPanel Grid.Row="2">
+            <Border Style="{StaticResource CardStyle}" Padding="12,10" Margin="0,0,0,8"
+                    Visibility="{Binding HasSessions, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="正在运行的游戏" FontSize="10.5"
+                               Foreground="{DynamicResource Muted}" Margin="0,0,0,8" />
+                    <ItemsControl ItemsSource="{Binding BarSessions}"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource GhostButton}" Margin="0,0,8,8" Padding="10,6"
+                                        HorizontalContentAlignment="Left"
+                                        ToolTip="{Binding Subtitle}"
+                                        Command="{Binding DataContext.SelectSessionCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" FontSize="10.5"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="9"
+                                                   Foreground="{DynamicResource Faint}" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
 
-                <Grid Grid.Row="0">
-                    <TextBlock Text="崩溃分析" FontSize="12" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
-                    <Button Content="关闭" Style="{StaticResource GhostButton}"
-                            HorizontalAlignment="Right" Padding="10,2" FontSize="10.5"
-                            Command="{Binding CloseAnalysisCommand}" />
+            <Border Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,0,0,8"
+                    Visibility="{Binding HasAnalysis, Converter={StaticResource BoolToVisibility}}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <TextBlock Text="崩溃分析" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
+                        <Button Content="关闭" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Right" Padding="10,2" FontSize="10.5"
+                                Command="{Binding CloseAnalysisCommand}" />
+                    </Grid>
+
+                    <ScrollViewer Grid.Row="1" MaxHeight="180" Margin="0,6,0,0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock Text="{Binding AnalysisText}" FontSize="11"
+                                   Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
+                                   FontFamily="Consolas" />
+                    </ScrollViewer>
                 </Grid>
+            </Border>
+        </StackPanel>
 
-                <ScrollViewer Grid.Row="1" MaxHeight="180" Margin="0,6,0,0"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
-                    <TextBlock Text="{Binding AnalysisText}" FontSize="11"
-                               Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
-                               FontFamily="Consolas" />
-                </ScrollViewer>
-            </Grid>
-        </Border>
-        <!-- 日志区 -->
+        <!-- 日志终端 -->
         <Border Grid.Row="3" Background="#101A16" CornerRadius="10" Padding="12,10">
             <Grid>
                 <ScrollViewer x:Name="LogScroll" VerticalScrollBarVisibility="Auto">
