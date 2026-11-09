@@ -128,7 +128,8 @@
                         <TextBlock Text="游戏目录" FontSize="8.5" Foreground="{DynamicResource Faint}" />
                         <TextBlock Text="{Binding CurrentGameDirectory}" FontSize="10" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Text}" Margin="0,4,0,0"
-                                   TextTrimming="CharacterEllipsis" />
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding CurrentGameDirectory}" />
                         <TextBlock Text="{Binding GameDirectoryDiskText}" FontSize="8.5"
                                    Foreground="{DynamicResource Muted}" Margin="0,3,0,0"
                                    TextTrimming="CharacterEllipsis" />
@@ -137,7 +138,8 @@
                         <TextBlock Text="默认 Java" FontSize="8.5" Foreground="{DynamicResource Faint}" />
                         <TextBlock Text="{Binding EffectiveJavaText}" FontSize="10" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Text}" Margin="0,4,0,0"
-                                   TextTrimming="CharacterEllipsis" />
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding EffectiveJavaText}" />
                         <TextBlock Text="{Binding EffectiveJavaDetailText}" FontSize="8.5"
                                    Foreground="{DynamicResource Muted}" Margin="0,3,0,0"
                                    TextTrimming="CharacterEllipsis" />
@@ -165,7 +167,8 @@
                         <TextBlock Text="日志目录" FontSize="8.5" Foreground="{DynamicResource Faint}" />
                         <TextBlock Text="{Binding LogDirectory}" FontSize="10" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Text}" Margin="0,4,0,0"
-                                   TextTrimming="CharacterEllipsis" />
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip="{Binding LogDirectory}" />
                         <TextBlock Text="logs · last-launch" FontSize="8.5"
                                    Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
                     </StackPanel>
@@ -242,7 +245,7 @@
                           Width="180" HorizontalAlignment="Left"
                           Margin="0,10,0,0" Padding="8,5" />
 
-                <TextBlock Text="「上次页面」会记住本地版本 / 联机房间 / 版本下载这三次导航的最后一页。"
+                <TextBlock Text="「上次页面」会记住世界库 / 联机房间 / 下载中心这三次导航的最后一页。"
                            FontSize="9.5" Foreground="{DynamicResource Faint}"
                            Margin="0,8,0,0" TextWrapping="Wrap" />
             </StackPanel>
@@ -413,7 +416,7 @@
                     </ItemsControl>
                 </StackPanel>
 
-                <TextBlock Text="2048 够原版；装 100+ 模组的整合包建议 6144 以上（宝可梦服档案会自动设 6144）。已有实例可在本地版本卡片里单独改。"
+                <TextBlock Text="2048 够原版；装 100+ 模组的整合包建议 6144 以上（宝可梦服档案会自动设 6144）。已有实例可在世界库卡片里单独改。"
                            FontSize="9.5" Foreground="{DynamicResource Faint}"
                            Margin="0,8,0,0" TextWrapping="Wrap" />
             </StackPanel>
