@@ -732,7 +732,7 @@
                                        Foreground="{DynamicResource Faint}" Margin="0,4,0,0"
                                        TextTrimming="CharacterEllipsis" />
                         </StackPanel>
-                        <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        <Button Content="✕" ToolTip="关闭" HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Style="{StaticResource GhostButton}" Padding="9,1" FontSize="11"
                                 Click="CloseVersionDetailsOverlay" />
                     </Grid>
@@ -778,7 +778,7 @@
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
                         <TextBlock Text="实例快照" FontSize="14" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
-                        <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        <Button Content="✕" ToolTip="关闭" HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Style="{StaticResource GhostButton}" Padding="9,1" FontSize="11"
                                 Click="CloseSnapshotOverlay" />
                     </Grid>
@@ -870,7 +870,7 @@
                     <Grid DockPanel.Dock="Top" Margin="0,0,0,10">
                         <TextBlock Text="登录账号" FontSize="14" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
-                        <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        <Button Content="✕" ToolTip="关闭" HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Style="{StaticResource GhostButton}" Padding="9,1" FontSize="11"
                                 Click="CloseAccountOverlay" />
                     </Grid>
