@@ -91,6 +91,48 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="本地皮肤库" FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource Text}" />
+                        <Button Grid.Column="1" Content="刷新" Style="{StaticResource GhostButton}"
+                                Padding="8,3" FontSize="9" Command="{Binding RefreshLocalSkinsCommand}" />
+                    </Grid>
+                    <TextBlock Text="{Binding LocalSkinStatusText}" FontSize="8.5"
+                               Foreground="{DynamicResource Faint}" Margin="0,3,0,0" TextWrapping="Wrap" />
+                    <ScrollViewer MaxHeight="132" Margin="0,7,0,0" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl ItemsSource="{Binding LocalSkins}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Style="{StaticResource GhostButton}" Padding="4"
+                                            Margin="0,0,5,5" Width="64"
+                                            ToolTip="点击预览并使用这张本地皮肤"
+                                            Command="{Binding DataContext.UseLocalSkinCommand,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel>
+                                            <Image Source="{Binding Path}" Width="40" Height="40"
+                                                   Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                                            <TextBlock Text="{Binding Name}" FontSize="7.5"
+                                                       Foreground="{DynamicResource Muted}"
+                                                       TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,4,0,9" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Margin="0,0,8,0">
                             <TextBlock Text="MUA 皮肤库" FontSize="14" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Text}" />
@@ -122,7 +164,7 @@
                                 IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
                     </StackPanel>
 
-                    <ScrollViewer Margin="0,10,0,0" MaxHeight="500"
+                    <ScrollViewer Margin="0,10,0,0" MaxHeight="300"
                                   VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled">
                         <ItemsControl ItemsSource="{Binding LibrarySkins}"

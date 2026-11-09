@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -22,6 +23,7 @@ namespace NLMCL.App.ViewModels
         private readonly IMuaSkinLibrary? _library;
         private readonly IProfileTextureUploader? _uploader;
         private readonly IDialogService? _dialogs;
+        private readonly IAppPaths? _paths;
 
         private Account? _account;
         private SkinInfo? _current;
@@ -34,13 +36,17 @@ namespace NLMCL.App.ViewModels
             IFilePicker? filePicker = null,
             IMuaSkinLibrary? library = null,
             IProfileTextureUploader? uploader = null,
-            IDialogService? dialogs = null)
+            IDialogService? dialogs = null,
+            IAppPaths? paths = null)
         {
             _skins = skins ?? throw new ArgumentNullException(nameof(skins));
             _filePicker = filePicker;
             _library = library;
             _uploader = uploader;
             _dialogs = dialogs;
+            _paths = paths;
+            LocalSkins.CollectionChanged += (_, __) => OnPropertyChanged(nameof(HasLocalSkins));
+            RefreshLocalSkins();
             LibrarySkins.CollectionChanged += (_, __) => OnPropertyChanged(nameof(HasLibrarySkins));
         }
 
@@ -64,6 +70,84 @@ namespace NLMCL.App.ViewModels
         public ObservableCollection<MuaSkinItemViewModel> LibrarySkins { get; }
             = new ObservableCollection<MuaSkinItemViewModel>();
 
+        /// <summary>本机皮肤目录里的 PNG，供 F 皮肤页的「本地皮肤库」直接选用。</summary>
+        public ObservableCollection<LocalSkinItem> LocalSkins { get; }
+            = new ObservableCollection<LocalSkinItem>();
+
+        [ObservableProperty]
+        private string _localSkinStatusText = "还没有本地皮肤；点「打开本地皮肤」导入一张。";
+
+        public bool HasLocalSkins => LocalSkins.Count > 0;
+
+        /// <summary>扫描本机皮肤目录；不联网，失败时只显示空库。</summary>
+        [RelayCommand]
+        public void RefreshLocalSkins()
+        {
+            LocalSkins.Clear();
+
+            if (_paths == null)
+            {
+                LocalSkinStatusText = "本地皮肤目录不可用。";
+                return;
+            }
+
+            try
+            {
+                if (!Directory.Exists(_paths.SkinDirectory))
+                {
+                    LocalSkinStatusText = "还没有本地皮肤；点「打开本地皮肤」导入一张。";
+                    return;
+                }
+
+                foreach (string file in Directory.GetFiles(_paths.SkinDirectory, "*.png")
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .Take(24))
+                {
+                    LocalSkins.Add(new LocalSkinItem(file));
+                }
+
+                LocalSkinStatusText = LocalSkins.Count == 0
+                    ? "还没有本地皮肤；点「打开本地皮肤」导入一张。"
+                    : "共 " + LocalSkins.Count + " 张本地皮肤，点击卡片预览并使用。";
+            }
+            catch (Exception ex)
+            {
+                LocalSkinStatusText = "读取本地皮肤失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>本地皮肤：直接预览并设为当前账号的本地皮肤。</summary>
+        [RelayCommand]
+        public async Task UseLocalSkinAsync(LocalSkinItem? item)
+        {
+            if (item == null || !File.Exists(item.Path))
+            {
+                return;
+            }
+
+            try
+            {
+                string saved = _account != null
+                    ? await _skins.ImportLocalAsync(_account, item.Path, CancellationToken.None)
+                        .ConfigureAwait(true)
+                    : await _skins.ImportLocalAsync(item.Path, "player", CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                _current = null;
+                _skinPng = saved;
+                _slim = false;
+
+                await RenderAsync().ConfigureAwait(true);
+
+                ModelText = "本地皮肤";
+                StatusText = "已使用本地皮肤：" + item.Name;
+                RefreshLocalSkins();
+            }
+            catch (Exception ex)
+            {
+                StatusText = "使用本地皮肤失败：" + ex.Message;
+            }
+        }
         [ObservableProperty]
         private bool _isLibraryBusy;
 
@@ -757,4 +841,16 @@ namespace NLMCL.App.ViewModels
             return value < 0 ? value + 360 : value;
         }
     }
-}
+/// <summary>本地皮肤库中的一张 PNG。</summary>
+    public sealed class LocalSkinItem
+    {
+        public LocalSkinItem(string path)
+        {
+            Path = path;
+            Name = System.IO.Path.GetFileNameWithoutExtension(path);
+        }
+
+        public string Path { get; }
+
+        public string Name { get; }
+    }}

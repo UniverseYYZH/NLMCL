@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -226,6 +226,34 @@ namespace NLMCL.Tests
             Assert.Contains("src-Beta", vm.StatusText);
         }
 
+        [Fact]
+        public async Task Local_skin_library_scans_skin_directory_and_uses_a_card()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-skinlib-" + Guid.NewGuid().ToString("N"));
+            AppPaths paths = new AppPaths(root);
+            Directory.CreateDirectory(paths.SkinDirectory);
+
+            try
+            {
+                string file = Path.Combine(paths.SkinDirectory, "alpha-local-20260101.png");
+                File.WriteAllBytes(file, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+
+                SkinViewModel vm = new SkinViewModel(new FakeSkinService(), paths: paths);
+
+                Assert.True(vm.HasLocalSkins);
+                Assert.Single(vm.LocalSkins);
+                Assert.Equal("alpha-local-20260101", vm.LocalSkins[0].Name);
+
+                await vm.UseLocalSkinCommand.ExecuteAsync(vm.LocalSkins[0]);
+
+                Assert.Equal("本地皮肤", vm.ModelText);
+                Assert.Contains("alpha-local-20260101", vm.StatusText);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
         private sealed class FakeSkinService : ISkinService
         {
             public Func<Account, Task<SkinInfo?>>? GetHandler { get; set; }
