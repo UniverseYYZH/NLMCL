@@ -14,7 +14,7 @@
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="26,18,26,20" HorizontalAlignment="Stretch">
+        <StackPanel Margin="0" HorizontalAlignment="Stretch">
 
             <TextBlock Text="LOCAL BACKUP / INSTANCE" FontSize="9"
                        Foreground="{DynamicResource Faint}" />

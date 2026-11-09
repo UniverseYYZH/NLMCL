@@ -31,7 +31,7 @@
 
     <!-- 整页可滚动：窗口变小时内容不再被裁掉 -->
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="26,22,26,20" HorizontalAlignment="Stretch">
+        <StackPanel Margin="0" HorizontalAlignment="Stretch">
 
             <TextBlock Text="MULTIPLAYER / LAN + DIRECT" FontSize="9" Foreground="{DynamicResource Faint}" Margin="0,0,0,1" />
             <TextBlock Text="联机房间" FontSize="26" FontWeight="Bold"
