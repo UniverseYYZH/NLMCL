@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -76,7 +76,7 @@ namespace NLMCL.Tests
                 string path = await installer.InstallFileAsync(
                     "https://edge.forgecdn.net/files/1/2/a.jar", "a.jar",
                     NLMCL.Abstractions.ResourceKind.Mod, root, "1.21.1",
-                    new Progress<double>(reported.Add), CancellationToken.None);
+                    new ImmediateProgress(reported.Add), CancellationToken.None);
 
                 Assert.NotEmpty(reported);                          // 进度有上报
 
@@ -90,6 +90,18 @@ namespace NLMCL.Tests
             }
         }
 
+        /// <summary>Progress&lt;T&gt; 在没有 SynchronizationContext 时会在线程池异步回调，CI 上可能还没收到就断言；测试用同步实现。</summary>
+        private sealed class ImmediateProgress : IProgress<double>
+        {
+            private readonly Action<double> _report;
+
+            public ImmediateProgress(Action<double> report)
+            {
+                _report = report;
+            }
+
+            public void Report(double value) => _report(value);
+        }
         private sealed class NoopStrings : IDownloadService
         {
             public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
