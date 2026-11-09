@@ -1653,6 +1653,12 @@ namespace NLMCL.App.ViewModels
         /// <summary>按分区选中；导入/Mod 已合并进下载中心，仍保留内部激活入口。</summary>
         public void SelectSection(ShellSection section)
         {
+            // 导入资源 / Mod 管理已并入下载中心；直接请求旧分区时回落到下载中心，避免空白页。
+            if (section == ShellSection.Import || section == ShellSection.Mods)
+            {
+                section = ShellSection.Download;
+            }
+
             NavigationItem? item = NavigationGroups
                 .SelectMany(group => group.Items)
                 .FirstOrDefault(candidate => candidate.Section == section);

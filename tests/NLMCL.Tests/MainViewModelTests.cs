@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +33,16 @@ namespace NLMCL.Tests
             return TestSupport.CreateMain(new FakeCatalog(items), new AppPaths(@"C:\Temp\roaming"));
         }
 
+        [Fact]
+        public void Legacy_import_section_falls_back_to_download()
+        {
+            MainViewModel vm = Create();
+
+            vm.SelectSection(ShellSection.Import);
+
+            Assert.True(vm.IsDownloadSection);
+            Assert.False(vm.IsImportSection);
+        }
         [Fact]
         public async Task Refresh_populates_list_and_reports_count()
         {
