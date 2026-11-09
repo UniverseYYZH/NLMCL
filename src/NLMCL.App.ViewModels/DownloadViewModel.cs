@@ -26,6 +26,7 @@ namespace NLMCL.App.ViewModels
         private readonly INeoForgeCatalog? _neoForgeCatalog;
         private readonly ILoaderInstaller? _forgeInstaller;
         private readonly IJavaLocator? _javaLocator;
+        private readonly IFolderPicker? _folderPicker;
 
         public DownloadViewModel(
             IVersionListProvider provider,
@@ -36,7 +37,8 @@ namespace NLMCL.App.ViewModels
             IForgeCatalog? forgeCatalog = null,
             ILoaderInstaller? forgeInstaller = null,
             IJavaLocator? javaLocator = null,
-            INeoForgeCatalog? neoForgeCatalog = null)
+            INeoForgeCatalog? neoForgeCatalog = null,
+            IFolderPicker? folderPicker = null)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
@@ -47,6 +49,7 @@ namespace NLMCL.App.ViewModels
             _forgeInstaller = forgeInstaller;
             _javaLocator = javaLocator;
             _neoForgeCatalog = neoForgeCatalog;
+            _folderPicker = folderPicker;
 
             TargetDirectory = paths.DefaultMinecraftDirectory;
         }
@@ -61,6 +64,30 @@ namespace NLMCL.App.ViewModels
 
         [ObservableProperty]
         private string _targetDirectory = string.Empty;
+
+        /// <summary>用户主动选择了新的保存目录；主窗口据此切换活动目录并加入多目录列表。</summary>
+        public event EventHandler<string>? TargetDirectoryPicked;
+
+        [RelayCommand]
+        public void PickTargetDirectory()
+        {
+            if (_folderPicker == null)
+            {
+                StatusText = "目录选择不可用。";
+                return;
+            }
+
+            string? picked = _folderPicker.PickFolder("选择版本保存目录", TargetDirectory);
+
+            if (string.IsNullOrWhiteSpace(picked))
+            {
+                return;
+            }
+
+            TargetDirectory = picked!;
+            StatusText = "版本将保存到 " + TargetDirectory;
+            TargetDirectoryPicked?.Invoke(this, TargetDirectory);
+        }
 
 
 
@@ -243,6 +270,10 @@ namespace NLMCL.App.ViewModels
         /// <summary>安装进度 0–100；未开始时为 0。</summary>
         [ObservableProperty]
         private double _progress;
+
+        /// <summary>版本安装的字节进度文案。</summary>
+        [ObservableProperty]
+        private string _progressDetails = string.Empty;
 
         /// <summary>是否已开始安装（决定进度条是否显示）。</summary>
         [ObservableProperty]
@@ -439,6 +470,7 @@ namespace NLMCL.App.ViewModels
             CanCancel = true;
             HasProgress = true;
             Progress = 0;
+            ProgressDetails = string.Empty;
             StatusText = "准备安装 " + target!.Id;
 
             _installCts = new CancellationTokenSource();
@@ -479,10 +511,12 @@ namespace NLMCL.App.ViewModels
             }
             catch (OperationCanceledException)
             {
+                ProgressDetails = string.Empty;
                 StatusText = "已取消安装（已下载的文件会保留，下次接着用）";
             }
             catch (Exception ex)
             {
+                ProgressDetails = string.Empty;
                 StatusText = "安装失败：" + ex.Message;
             }
             finally
@@ -562,6 +596,35 @@ namespace NLMCL.App.ViewModels
         {
             Progress = value.Percent;
             StatusText = value.Stage;
+
+            if (value.BytesTotal > 0)
+            {
+                ProgressDetails = FormatSize(value.BytesReceived) + " / " + FormatSize(value.BytesTotal);
+            }
+            else if (value.BytesReceived > 0)
+            {
+                ProgressDetails = "已下载 " + FormatSize(value.BytesReceived);
+            }
+        }
+
+        private static string FormatSize(long bytes)
+        {
+            if (bytes < 1024)
+            {
+                return bytes + " B";
+            }
+
+            if (bytes < 1024 * 1024)
+            {
+                return (bytes / 1024.0).ToString("0.0") + " KB";
+            }
+
+            if (bytes < 1024L * 1024 * 1024)
+            {
+                return (bytes / 1024.0 / 1024.0).ToString("0.0") + " MB";
+            }
+
+            return (bytes / 1024.0 / 1024.0 / 1024.0).ToString("0.0") + " GB";
         }
 
         /// <summary>

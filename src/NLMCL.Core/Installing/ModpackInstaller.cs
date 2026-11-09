@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -33,7 +34,9 @@ namespace NLMCL.Core.Installing
     public sealed class ModpackInstaller : IModpackInstaller
     {
         private const string IndexEntryName = "modrinth.index.json";
+        private const string CurseForgeManifestName = "manifest.json";
         private const string OverridesPrefix = "overrides/";
+        private const string CurseForgeApiBase = "https://mod.mcimirror.top/curseforge/v1";
 
         private readonly IDownloadService _download;
         private readonly IVersionInstaller _versions;
@@ -97,14 +100,45 @@ namespace NLMCL.Core.Installing
 
             string versionId = CreateVersionDirectory(minecraftDirectory, info, loaderVersionId);
 
-            // 2) 下载包内文件（mods / config / resourcepacks …）
-            //    并发 + 停滞检测 + 已有文件跳过：整合包动辄 200+ 文件，
-            //    串行直连 cdn.modrinth.com 又慢又容易整体失败。
-            IReadOnlyList<JToken> files = (index["files"] as JArray)?.ToList() ?? new List<JToken>();
+            // 2) 下载包内文件。CurseForge 的 manifest 只有 projectID/fileID，
+            //    先换直链再下载到 mods；Modrinth 走文件清单。
             string instanceDirectory = Path.Combine(minecraftDirectory, "versions", versionId);
+
+            if (IsCurseForgeManifest(index))
+            {
+                await DownloadCurseForgeFilesAsync(
+                    index, instanceDirectory, progress, cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                await DownloadModrinthFilesAsync(
+                    index, instanceDirectory, progress, cancellationToken).ConfigureAwait(false);
+            }
+
+            // 3) overrides：整体铺到实例目录
+            progress?.Report(new InstallProgress("展开 overrides", 88, 0));
+            string overridesPrefix = (index.Value<string>("overrides") ?? "overrides").TrimEnd('/') + "/";
+            ExtractOverrides(archive, instanceDirectory, overridesPrefix);
+
+            progress?.Report(new InstallProgress("整合包安装完成", 100, 0));
+
+            return versionId;
+        }
+
+        private async Task DownloadModrinthFilesAsync(
+            JObject index,
+            string instanceDirectory,
+            IProgress<InstallProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<JToken> files = (index["files"] as JArray)?.ToList() ?? new List<JToken>();
 
             int total = 0;
             int completed = 0;
+            long totalBytes = files
+                .Where(item => item.Value<long?>("fileSize") > 0)
+                .Sum(item => item.Value<long>("fileSize"));
+            long completedBytes = 0;
             List<string> failures = new List<string>();
             object gate = new object();
 
@@ -133,6 +167,8 @@ namespace NLMCL.Core.Installing
                     string captured = relative!;
                     string capturedUrl = url!;
                     string? expectedSha1 = file.SelectToken("hashes.sha1")?.Value<string>();
+                    long expectedSize = file.Value<long?>("fileSize") ?? 0;
+                    long[] currentBytes = new long[1];
 
                     await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
 
@@ -142,11 +178,22 @@ namespace NLMCL.Core.Installing
                         {
                             string target = SafeCombine(instanceDirectory, captured);
 
-                            long? expectedSize = file.Value<long?>("fileSize");
-
-                            if (!IsFileUpToDate(target, expectedSha1, expectedSize))
+                            if (!IsFileUpToDate(target, expectedSha1, expectedSize > 0 ? expectedSize : null))
                             {
-                                await _files.DownloadAsync(capturedUrl, target, cancellationToken)
+                                IProgress<double>? fileProgress = expectedSize > 0
+                                    ? new InlineRatioProgress(ratio =>
+                                    {
+                                        long current = (long)(ratio * expectedSize);
+                                        Interlocked.Exchange(ref currentBytes[0], current);
+                                        long received = Interlocked.Read(ref completedBytes) + current;
+                                        int bytePercent = totalBytes > 0
+                                            ? 30 + (int)(55.0 * received / totalBytes)
+                                            : 30;
+                                        ReportBytes(progress, "下载 " + captured, bytePercent, received, totalBytes);
+                                    })
+                                    : null;
+
+                                await _files.DownloadAsync(capturedUrl, target, fileProgress, cancellationToken)
                                     .ConfigureAwait(false);
 
                                 if (!string.IsNullOrEmpty(expectedSha1))
@@ -159,6 +206,15 @@ namespace NLMCL.Core.Installing
                                         throw new InvalidDataException("校验失败：" + captured);
                                     }
                                 }
+
+                                if (expectedSize > 0)
+                                {
+                                    Interlocked.Add(ref completedBytes, expectedSize);
+                                }
+                            }
+                            else if (expectedSize > 0)
+                            {
+                                Interlocked.Add(ref completedBytes, expectedSize);
                             }
                         }
                         catch (OperationCanceledException)
@@ -182,7 +238,11 @@ namespace NLMCL.Core.Installing
 
                             int percent = 30 + (int)(55.0 * done / Math.Max(1, total));
                             progress?.Report(new InstallProgress(
-                                "下载包内文件 " + done + "/" + total, percent, 0));
+                                "下载包内文件 " + done + "/" + total,
+                                percent,
+                                0,
+                                Interlocked.Read(ref completedBytes),
+                                totalBytes));
 
                             slots.Release();
                         }
@@ -192,20 +252,230 @@ namespace NLMCL.Core.Installing
                 await Task.WhenAll(tasks).ConfigureAwait(false);
             }
 
-            if (failures.Count > 0)
+            ThrowIfFailures(failures);
+        }
+
+        /// <summary>CurseForge 整合包：manifest 只有 projectID/fileID，按 mcim 接口换直链后下载到 mods。</summary>
+        private async Task DownloadCurseForgeFilesAsync(
+            JObject manifest,
+            string instanceDirectory,
+            IProgress<InstallProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            IReadOnlyList<JToken> files = (manifest["files"] as JArray)?.ToList() ?? new List<JToken>();
+
+            int total = 0;
+            int completed = 0;
+            long totalBytes = 0;
+            long completedBytes = 0;
+            List<string> failures = new List<string>();
+            object gate = new object();
+            ConcurrentDictionary<long, string> folders = new ConcurrentDictionary<long, string>();
+
+            using (SemaphoreSlim slots = new SemaphoreSlim(Parallelism))
             {
-                string sample = string.Join("\n", failures.Take(5));
-                throw new InvalidOperationException(
-                    "有 " + failures.Count + " 个文件下载失败（已下载的文件会保留，重试会跳过）：\n" + sample);
+                List<Task> tasks = new List<Task>();
+
+                foreach (JToken file in files)
+                {
+                    if (file.Value<bool?>("required") == false)
+                    {
+                        continue;
+                    }
+
+                    long? projectId = file.Value<long?>("projectID");
+                    long? fileId = file.Value<long?>("fileID");
+
+                    if (!projectId.HasValue || !fileId.HasValue)
+                    {
+                        continue;
+                    }
+
+                    total++;
+
+                    await slots.WaitAsync(cancellationToken).ConfigureAwait(false);
+
+                    tasks.Add(Task.Run(async () =>
+                    {
+                        string name = "project " + projectId.Value + "/file " + fileId.Value;
+
+                        try
+                        {
+                            string json = await _download.GetStringAsync(
+                                CurseForgeApiBase + "/mods/" + projectId.Value
+                                + "/files/" + fileId.Value,
+                                cancellationToken).ConfigureAwait(false);
+
+                            JObject? data = JObject.Parse(json)["data"] as JObject;
+
+                            if (data == null)
+                            {
+                                throw new InvalidDataException("CurseForge 没有返回文件信息。");
+                            }
+
+                            string? url = data.Value<string>("downloadUrl");
+                            string? fileName = data.Value<string>("fileName");
+
+                            if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(fileName))
+                            {
+                                throw new InvalidDataException("文件没有直链（可能被作者禁用分发）。");
+                            }
+
+                            name = Path.GetFileName(fileName!);
+                            string folder = await ResolveCurseForgeFolderAsync(
+                                projectId.Value, folders, cancellationToken).ConfigureAwait(false);
+                            string target = SafeCombine(instanceDirectory, folder + "/" + name);
+                            long size = data.Value<long?>("fileLength") ?? 0;
+                            string? sha1 = data.SelectToken("hashes.sha1")?.Value<string>();
+
+                            if (size > 0)
+                            {
+                                Interlocked.Add(ref totalBytes, size);
+                            }
+
+                            if (!IsFileUpToDate(target, sha1, size > 0 ? size : null))
+                            {
+                                if (size > 0)
+                                {
+                                    long[] currentBytes = new long[1];
+                                    IProgress<double> fileProgress = new InlineRatioProgress(ratio =>
+                                    {
+                                        long current = (long)(ratio * size);
+                                        Interlocked.Exchange(ref currentBytes[0], current);
+                                        long received = Interlocked.Read(ref completedBytes) + current;
+                                        int bytePercent = totalBytes > 0
+                                            ? 30 + (int)(55.0 * received / totalBytes)
+                                            : 30;
+                                        ReportBytes(progress, "下载 CurseForge " + name, bytePercent, received, totalBytes);
+                                    });
+
+                                    await _files.DownloadAsync(url!, target, fileProgress, cancellationToken)
+                                        .ConfigureAwait(false);
+                                }
+                                else
+                                {
+                                    await _files.DownloadAsync(url!, target, cancellationToken)
+                                        .ConfigureAwait(false);
+                                }
+                            }
+
+                            if (size > 0)
+                            {
+                                Interlocked.Add(ref completedBytes, size);
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            lock (gate)
+                            {
+                                failures.Add(name + "：" + ex.Message);
+                            }
+                        }
+                        finally
+                        {
+                            int done;
+                            lock (gate)
+                            {
+                                done = ++completed;
+                            }
+
+                            int percent = 30 + (int)(55.0 * done / Math.Max(1, total));
+                            progress?.Report(new InstallProgress(
+                                "下载 CurseForge 文件 " + done + "/" + total,
+                                percent,
+                                0,
+                                Interlocked.Read(ref completedBytes),
+                                Interlocked.Read(ref totalBytes)));
+
+                            slots.Release();
+                        }
+                    }, cancellationToken));
+                }
+
+                await Task.WhenAll(tasks).ConfigureAwait(false);
             }
 
-            // 3) overrides：整体铺到实例目录
-            progress?.Report(new InstallProgress("展开 overrides", 88, 0));
-            ExtractOverrides(archive, Path.Combine(minecraftDirectory, "versions", versionId));
+            ThrowIfFailures(failures);
+        }
 
-            progress?.Report(new InstallProgress("整合包安装完成", 100, 0));
+        private async Task<string> ResolveCurseForgeFolderAsync(
+            long projectId,
+            ConcurrentDictionary<long, string> cache,
+            CancellationToken cancellationToken)
+        {
+            if (cache.TryGetValue(projectId, out string? cached))
+            {
+                return cached;
+            }
 
-            return versionId;
+            string folder = "mods";
+
+            try
+            {
+                string text = await _download.GetStringAsync(
+                    CurseForgeApiBase + "/mods/" + projectId,
+                    cancellationToken).ConfigureAwait(false);
+
+                int? classId = JObject.Parse(text)["data"]?.Value<int?>("classId");
+
+                switch (classId)
+                {
+                    case 12:
+                        folder = "resourcepacks";
+                        break;
+                    case 6552:
+                        folder = "shaderpacks";
+                        break;
+                    case 6945:
+                        folder = "datapacks";
+                        break;
+                }
+            }
+            catch (Exception)
+            {
+                // 项目信息拿不到时退回 mods，不影响安装。
+            }
+
+            cache[projectId] = folder;
+            return folder;
+        }
+
+        private static void ReportBytes(
+            IProgress<InstallProgress>? progress,
+            string stage,
+            int percent,
+            long received,
+            long total)
+        {
+            progress?.Report(new InstallProgress(stage, percent, 0, received, total));
+        }
+
+        private sealed class InlineRatioProgress : IProgress<double>
+        {
+            private readonly Action<double> _apply;
+
+            public InlineRatioProgress(Action<double> apply)
+            {
+                _apply = apply;
+            }
+
+            public void Report(double value) => _apply(value);
+        }
+
+        private static void ThrowIfFailures(List<string> failures)
+        {
+            if (failures.Count == 0)
+            {
+                return;
+            }
+
+            string sample = string.Join("\n", failures.Take(5));
+            throw new InvalidOperationException(
+                "有 " + failures.Count + " 个文件下载失败（已下载的文件会保留，重试会跳过）：\n" + sample);
         }
 
         /// <summary>按依赖把加载器装好，返回加载器版本目录 id。</summary>
@@ -352,7 +622,14 @@ namespace NLMCL.Core.Installing
 
             if (entry == null)
             {
-                throw new InvalidDataException("不是有效的 Modrinth 整合包：缺少 modrinth.index.json。");
+                entry = archive.Entries.FirstOrDefault(
+                    item => string.Equals(item.FullName, CurseForgeManifestName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (entry == null)
+            {
+                throw new InvalidDataException(
+                    "不是有效的整合包：缺少 modrinth.index.json 或 CurseForge manifest.json。");
             }
 
             using (Stream stream = entry.Open())
@@ -369,6 +646,20 @@ namespace NLMCL.Core.Installing
                     throw new InvalidDataException("整合包索引不是合法 JSON。");
                 }
             }
+        }
+
+        internal static bool IsCurseForgeManifest(JObject index)
+        {
+            string type = index.Value<string>("manifestType") ?? string.Empty;
+
+            if (type.IndexOf("curse", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            JObject? minecraft = index["minecraft"] as JObject;
+            return minecraft?["modLoaders"] is JArray
+                && (index["files"] as JArray)?.FirstOrDefault()?["projectID"] != null;
         }
 
         /// <summary>把加载器版本的完整 JSON 复制一份作为整合包实例（改 id，保留 librar* 与 mainClass）。</summary>
@@ -404,6 +695,11 @@ namespace NLMCL.Core.Installing
 
         internal static ModpackInfo Parse(JObject index)
         {
+            if (IsCurseForgeManifest(index))
+            {
+                return ParseCurseForge(index);
+            }
+
             string name = index.Value<string>("name") ?? "未命名整合包";
             string versionId = index.Value<string>("versionId") ?? string.Empty;
 
@@ -444,6 +740,61 @@ namespace NLMCL.Core.Installing
             return new ModpackInfo(name, versionId, minecraft!, loader, loaderVersion, files);
         }
 
+        internal static ModpackInfo ParseCurseForge(JObject manifest)
+        {
+            string name = manifest.Value<string>("name") ?? "未命名整合包";
+            string versionId = manifest.Value<string>("version") ?? string.Empty;
+
+            JObject? minecraft = manifest["minecraft"] as JObject;
+            string? minecraftVersion = minecraft?.Value<string>("version");
+
+            if (string.IsNullOrWhiteSpace(minecraftVersion))
+            {
+                throw new InvalidDataException("CurseForge 整合包没有声明 Minecraft 版本。");
+            }
+
+            JArray? loaders = minecraft?["modLoaders"] as JArray;
+
+            JObject? primary = loaders?
+                .OfType<JObject>()
+                .FirstOrDefault(item => item.Value<bool?>("primary") == true)
+                ?? loaders?.OfType<JObject>().FirstOrDefault();
+
+            string loaderId = primary?.Value<string>("id") ?? "vanilla";
+
+            ModpackLoader loader;
+            string? loaderVersion;
+
+            if (loaderId.StartsWith("fabric-", StringComparison.OrdinalIgnoreCase))
+            {
+                loader = ModpackLoader.Fabric;
+                loaderVersion = loaderId.Substring("fabric-".Length);
+            }
+            else if (loaderId.StartsWith("forge-", StringComparison.OrdinalIgnoreCase))
+            {
+                loader = ModpackLoader.Forge;
+                loaderVersion = loaderId.Substring("forge-".Length);
+            }
+            else if (loaderId.StartsWith("neoforge-", StringComparison.OrdinalIgnoreCase))
+            {
+                loader = ModpackLoader.NeoForge;
+                loaderVersion = loaderId.Substring("neoforge-".Length);
+            }
+            else if (loaderId.StartsWith("quilt-", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new NotSupportedException("暂不支持 Quilt 整合包。");
+            }
+            else
+            {
+                loader = ModpackLoader.Vanilla;
+                loaderVersion = null;
+            }
+
+            int files = (manifest["files"] as JArray)?.Count ?? 0;
+
+            return new ModpackInfo(name, versionId, minecraftVersion!, loader, loaderVersion, files);
+        }
+
         /// <summary>已存在且 sha1 匹配就跳过（重试/断点续传）。</summary>
         internal static bool IsFileUpToDate(string path, string? expectedSha1, long? expectedSize = null)
         {
@@ -482,16 +833,19 @@ namespace NLMCL.Core.Installing
         }
 
         /// <summary>把 overrides/ 下的内容铺到实例目录（挡住路径穿越）。</summary>
-        internal static void ExtractOverrides(ZipArchive archive, string targetDirectory)
+        internal static void ExtractOverrides(
+            ZipArchive archive, string targetDirectory, string overridesPrefix = OverridesPrefix)
         {
+            string prefix = string.IsNullOrEmpty(overridesPrefix) ? OverridesPrefix : overridesPrefix;
+
             foreach (ZipArchiveEntry entry in archive.Entries)
             {
-                if (!entry.FullName.StartsWith(OverridesPrefix, StringComparison.OrdinalIgnoreCase))
+                if (!entry.FullName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                string relative = entry.FullName.Substring(OverridesPrefix.Length).Replace('\\', '/');
+                string relative = entry.FullName.Substring(prefix.Length).Replace('\\', '/');
 
                 if (relative.Length == 0 || relative.EndsWith("/", StringComparison.Ordinal))
                 {

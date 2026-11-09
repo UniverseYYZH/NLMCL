@@ -327,5 +327,101 @@ namespace NLMCL.Tests
             Assert.NotNull(vm.Account);
             Assert.Equal("Alpha", vm.Account!.Name);
         }
+
+        [Fact]
+        public async Task Loading_current_account_also_fills_switch_list()
+        {
+            TestSupport.MemoryAccountStore store = new TestSupport.MemoryAccountStore();
+
+            NLMCL.Abstractions.Account alpha = new NLMCL.Abstractions.Account(
+                "Alpha", "uuid-a", NLMCL.Abstractions.AccountType.Offline);
+            NLMCL.Abstractions.Account beta = new NLMCL.Abstractions.Account(
+                "Beta", "uuid-b", NLMCL.Abstractions.AccountType.Offline);
+
+            store.Current = alpha;
+            store.All.Add(alpha);
+            store.All.Add(beta);
+
+            NLMCL.App.ViewModels.MainViewModel vm = TestSupport.CreateMain(
+                new TestSupport.EmptyCatalog(),
+                new NLMCL.Core.AppPaths(System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "nlmcl-acct-" + System.Guid.NewGuid().ToString("N"))),
+                accounts: store);
+
+            await vm.LoadAccountAsync();
+
+            Assert.Equal(2, vm.SavedAccounts.Count);
+            Assert.Single(vm.SavedAccounts, item => item.IsCurrent);
+            Assert.Contains(vm.SavedAccounts, item => item.Name == "Beta");
+        }
+
+        [Fact]
+        public async Task Switching_account_updates_skin_page_immediately()
+        {
+            TestSupport.MemoryAccountStore store = new TestSupport.MemoryAccountStore();
+
+            NLMCL.Abstractions.Account alpha = new NLMCL.Abstractions.Account(
+                "Alpha", "uuid-a", NLMCL.Abstractions.AccountType.Offline);
+            NLMCL.Abstractions.Account beta = new NLMCL.Abstractions.Account(
+                "Beta", "uuid-b", NLMCL.Abstractions.AccountType.Offline);
+
+            store.Current = alpha;
+            store.All.Add(alpha);
+            store.All.Add(beta);
+
+            NLMCL.App.ViewModels.SkinViewModel skin = new NLMCL.App.ViewModels.SkinViewModel(
+                new TestSupport.NoopSkinService());
+
+            NLMCL.App.ViewModels.MainViewModel vm = TestSupport.CreateMain(
+                new TestSupport.EmptyCatalog(),
+                new NLMCL.Core.AppPaths(System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "nlmcl-acct-" + System.Guid.NewGuid().ToString("N"))),
+                accounts: store,
+                skin: skin);
+
+            await vm.SwitchAccountAsync(alpha);
+            Assert.Contains("Alpha", skin.AccountText);
+
+            await vm.SwitchAccountAsync(beta);
+            Assert.Contains("Beta", skin.AccountText);
+        }
+
+        [Fact]
+        public async Task Avatar_load_race_keeps_last_account()
+        {
+            TestSupport.MemoryAccountStore store = new TestSupport.MemoryAccountStore();
+
+            NLMCL.Abstractions.Account alpha = new NLMCL.Abstractions.Account(
+                "Alpha", "uuid-a", NLMCL.Abstractions.AccountType.Offline);
+            NLMCL.Abstractions.Account beta = new NLMCL.Abstractions.Account(
+                "Beta", "uuid-b", NLMCL.Abstractions.AccountType.Offline);
+
+            store.Current = alpha;
+            store.All.Add(alpha);
+            store.All.Add(beta);
+
+            TestSupport.NoopSkinService skins = new TestSupport.NoopSkinService
+            {
+                AvatarHandler = async account =>
+                {
+                    await Task.Delay(account.Name == "Alpha" ? 250 : 10);
+                    return account.Name + ".png";
+                }
+            };
+
+            NLMCL.App.ViewModels.MainViewModel vm = TestSupport.CreateMain(
+                new TestSupport.EmptyCatalog(),
+                new NLMCL.Core.AppPaths(System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "nlmcl-acct-" + System.Guid.NewGuid().ToString("N"))),
+                accounts: store,
+                skins: skins);
+
+            await vm.SwitchAccountAsync(alpha);
+            await vm.SwitchAccountAsync(beta);
+
+            await Task.Delay(600);
+
+            Assert.Equal("Beta.png", vm.AvatarPath);
+        }
     }
 }

@@ -58,6 +58,26 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Parses_profile_with_top_level_skins_array()
+        {
+            string profile = @"{
+                ""id"": ""0ae3d69722ae4fe08eef80acdcc18fd6"",
+                ""name"": ""UniverseYYZH"",
+                ""skins"": [
+                    { ""state"": ""INACTIVE"", ""url"": ""http://textures.minecraft.net/texture/old"", ""variant"": ""CLASSIC"" },
+                    { ""state"": ""ACTIVE"", ""url"": ""http://textures.minecraft.net/texture/active"", ""variant"": ""SLIM"" }
+                ]
+            }";
+
+            SkinInfo? info = SkinService.ParseProfile(profile, "fallback", "Minecraft Services");
+
+            Assert.NotNull(info);
+            Assert.Equal("UniverseYYZH", info!.PlayerName);
+            Assert.Equal("https://textures.minecraft.net/texture/active", info.SkinUrl);
+            Assert.Equal("slim", info.Model);
+        }
+
+        [Fact]
         public void Parses_profile_with_textures_property()
         {
             string profile = @"{
@@ -98,10 +118,122 @@ namespace NLMCL.Tests
             Assert.Null(await service.GetAsync(offline, CancellationToken.None));
         }
 
+        [Fact]
+        public async Task Offline_avatar_falls_back_to_default_skin()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-avatar-" + Guid.NewGuid().ToString("N"));
+
+            try
+            {
+                SkinService service = new SkinService(new NoopDownload(), new AppPaths(root));
+                Account offline = new Account("NoSkin", "uuid-noskin", AccountType.Offline);
+
+                string? avatar = await service.GetAvatarAsync(offline, CancellationToken.None);
+
+                Assert.NotNull(avatar);
+                Assert.True(File.Exists(avatar!));
+                Assert.True(new FileInfo(avatar!).Length > 0);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Local_skin_is_remembered_per_offline_account()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-localskin-" + Guid.NewGuid().ToString("N"));
+            string source = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
+
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                SkinService service = new SkinService(new NoopDownload(), paths);
+
+                Account alpha = new Account("Alpha", "uuid-alpha", AccountType.Offline);
+                Account beta = new Account("Beta", "uuid-beta", AccountType.Offline);
+
+                string saved = await service.ImportLocalAsync(alpha, source, CancellationToken.None);
+
+                Assert.True(File.Exists(saved));
+                Assert.Equal(saved, await service.GetLocalSkinPathAsync(alpha, CancellationToken.None));
+                Assert.Null(await service.GetLocalSkinPathAsync(beta, CancellationToken.None));
+
+                string? avatar = await service.GetAvatarAsync(alpha, CancellationToken.None);
+                Assert.NotNull(avatar);
+                Assert.True(File.Exists(avatar!));
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Custom_skin_label_is_not_classic_steve()
+        {
+            FakeSkinService skins = new FakeSkinService
+            {
+                GetHandler = _ => Task.FromResult<SkinInfo?>(
+                    new SkinInfo("Alpha", "https://example.com/custom.png", "default", "src"))
+            };
+
+            SkinViewModel vm = new SkinViewModel(skins);
+            vm.SetAccount(new Account("Alpha", "uuid-alpha", AccountType.Microsoft));
+
+            await Task.Delay(300);
+
+            Assert.Equal("自定义皮肤 · 经典", vm.ModelText);
+        }
+
+        [Fact]
+        public async Task Skin_refresh_ignores_stale_account_result()
+        {
+            FakeSkinService skins = new FakeSkinService
+            {
+                GetHandler = async account =>
+                {
+                    await Task.Delay(account.Name == "Alpha" ? 250 : 10);
+                    return new SkinInfo(
+                        account.Name,
+                        "https://example.com/" + account.Name + ".png",
+                        "default",
+                        "src-" + account.Name);
+                }
+            };
+
+            SkinViewModel vm = new SkinViewModel(skins);
+
+            vm.SetAccount(new Account("Alpha", "uuid-alpha", AccountType.Microsoft));
+            vm.SetAccount(new Account("Beta", "uuid-beta", AccountType.Microsoft));
+
+            await Task.Delay(600);
+
+            Assert.Contains("Beta", vm.AccountText);
+            Assert.Contains("src-Beta", vm.StatusText);
+        }
+
         private sealed class FakeSkinService : ISkinService
         {
+            public Func<Account, Task<SkinInfo?>>? GetHandler { get; set; }
+
             public Task<SkinInfo?> GetAsync(Account account, CancellationToken cancellationToken)
-                => Task.FromResult<SkinInfo?>(null);
+                => GetHandler == null
+                    ? Task.FromResult<SkinInfo?>(null)
+                    : GetHandler(account);
 
             public Task<string> SaveAsync(SkinInfo skin, CancellationToken cancellationToken)
                 => Task.FromResult("saved.png");
@@ -112,6 +244,14 @@ namespace NLMCL.Tests
             public Task<string> ImportLocalAsync(
                 string sourcePath, string playerName, CancellationToken cancellationToken)
                 => Task.FromResult(sourcePath);
+
+            public Task<string> ImportLocalAsync(
+                Account account, string sourcePath, CancellationToken cancellationToken)
+                => Task.FromResult(sourcePath);
+
+            public Task<string?> GetLocalSkinPathAsync(
+                Account account, CancellationToken cancellationToken)
+                => Task.FromResult<string?>(null);
 
             public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
                 => Task.FromResult(skinPngPath);
@@ -291,6 +431,14 @@ namespace NLMCL.Tests
             public Task<string> ImportLocalAsync(
                 string sourcePath, string playerName, CancellationToken cancellationToken)
                 => Task.FromResult(@"C:\skins\copied.png");
+
+            public Task<string> ImportLocalAsync(
+                Account account, string sourcePath, CancellationToken cancellationToken)
+                => Task.FromResult(@"C:\skins\copied.png");
+
+            public Task<string?> GetLocalSkinPathAsync(
+                Account account, CancellationToken cancellationToken)
+                => Task.FromResult<string?>(null);
 
             public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
                 => Task.FromResult(@"C:\skins\doll.png");

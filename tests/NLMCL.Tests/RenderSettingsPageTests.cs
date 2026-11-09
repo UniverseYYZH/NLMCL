@@ -35,6 +35,8 @@ namespace NLMCL.Tests
                     const int height = 760;
 
                     NLMCL.App.MainWindow window = new NLMCL.App.MainWindow(vm) { Width = width, Height = height };
+                    FrameworkElement settingsView = (FrameworkElement)window.FindName("SettingsView");
+                    Assert.Same(vm.Settings, settingsView.DataContext);
                     FrameworkElement root = (FrameworkElement)window.Content;
                     root.Measure(new Size(width, height));
                     root.Arrange(new Rect(0, 0, width, height));
@@ -69,6 +71,77 @@ namespace NLMCL.Tests
 
             Assert.Null(failure);
             Assert.NotNull(output);
+        }
+
+        [Fact]
+        public void High_contrast_palette_is_not_pure_black_or_white()
+        {
+            ResourceDictionary dictionary = new ResourceDictionary
+            {
+                Source = new Uri("/NLMCL;component/Themes/HighContrast.xaml", UriKind.Relative)
+            };
+
+            SolidColorBrush background = Assert.IsType<SolidColorBrush>(dictionary["Bg"]);
+            SolidColorBrush card = Assert.IsType<SolidColorBrush>(dictionary["Card"]);
+            SolidColorBrush border = Assert.IsType<SolidColorBrush>(dictionary["BorderColor"]);
+
+            Assert.NotEqual(Colors.Black, background.Color);
+            Assert.NotEqual(Colors.Black, card.Color);
+            Assert.NotEqual(Colors.White, border.Color);
+        }
+
+        [Fact]
+        public void Settings_page_renders_at_minimum_window_size()
+        {
+            Exception? failure = null;
+
+            string roaming = Path.Combine(Path.GetTempPath(), "nlmcl-set-narrow-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path.Combine(roaming, ".minecraft"));
+
+            Thread thread = new Thread(() =>
+            {
+                try
+                {
+                    MainViewModel vm = TestSupport.CreateMain(new PclVersionCatalog(), new AppPaths(roaming));
+                    vm.SelectSection(vm.NavigationGroups.SelectMany(g => g.Items)
+                        .First(i => i.Section == ShellSection.Settings));
+
+                    const int width = 900;
+                    const int height = 560;
+
+                    NLMCL.App.MainWindow window = new NLMCL.App.MainWindow(vm) { Width = width, Height = height };
+                    FrameworkElement root = (FrameworkElement)window.Content;
+                    root.Measure(new Size(width, height));
+                    root.Arrange(new Rect(0, 0, width, height));
+                    root.UpdateLayout();
+
+                    RenderTargetBitmap bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+                    bitmap.Render(root);
+
+                    string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts");
+                    Directory.CreateDirectory(dir);
+                    string output = Path.Combine(dir, "ui-settings-narrow.png");
+
+                    PngBitmapEncoder encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    using (FileStream stream = File.Create(output))
+                    {
+                        encoder.Save(stream);
+                    }
+
+                    Assert.True(new FileInfo(output).Length > 5000);
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            });
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            Assert.Null(failure);
         }
     }
 }

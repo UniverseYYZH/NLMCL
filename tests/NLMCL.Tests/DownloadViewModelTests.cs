@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -81,6 +81,30 @@ namespace NLMCL.Tests
                 new MojangVersionListProvider(new FakeDownload(Manifest)),
                 installer,
                 new AppPaths(@"C:\Temp\roaming"));
+        }
+
+        [Fact]
+        public void Pick_target_directory_updates_and_raises_event()
+        {
+            TestSupport.FakeFolderPicker picker = new TestSupport.FakeFolderPicker
+            {
+                Next = @"D:\Games\minecraft"
+            };
+
+            DownloadViewModel vm = new DownloadViewModel(
+                new MojangVersionListProvider(new FakeDownload(Manifest)),
+                new FakeInstaller(),
+                new AppPaths(@"C:\Temp\roaming"),
+                folderPicker: picker);
+
+            string? picked = null;
+            vm.TargetDirectoryPicked += (_, path) => picked = path;
+
+            vm.PickTargetDirectory();
+
+            Assert.Equal(@"D:\Games\minecraft", vm.TargetDirectory);
+            Assert.Equal(@"D:\Games\minecraft", picked);
+            Assert.Contains("版本将保存到", vm.StatusText);
         }
 
         [Fact]

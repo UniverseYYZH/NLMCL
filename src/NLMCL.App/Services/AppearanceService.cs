@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Media;
 using Microsoft.Win32;
@@ -17,6 +18,8 @@ namespace NLMCL.App.Services
     public sealed class AppearanceService : IAppearance
     {
         private const string DarkDictionary = "Themes/Dark.xaml";
+
+        private const string HighContrastDictionary = "Themes/HighContrast.xaml";
 
         private const string PersonalizeKey =
             @"HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
@@ -37,6 +40,8 @@ namespace NLMCL.App.Services
             bool dark = string.Equals(_theme, "dark", StringComparison.OrdinalIgnoreCase)
                 || (string.Equals(_theme, "system", StringComparison.OrdinalIgnoreCase) && IsSystemDark());
 
+            bool highContrast = string.Equals(_theme, "highcontrast", StringComparison.OrdinalIgnoreCase);
+
             Window? window = Application.Current?.MainWindow;
             if (window == null)
             {
@@ -45,26 +50,64 @@ namespace NLMCL.App.Services
 
             HookWindow();
 
-            var dictionaries = window.Resources.MergedDictionaries;
+            string? overlay = highContrast
+                ? HighContrastDictionary
+                : dark ? DarkDictionary : null;
 
-            for (int i = dictionaries.Count - 1; i >= 0; i--)
-            {
-                string? source = dictionaries[i].Source?.OriginalString;
-                if (source != null && source.IndexOf("Dark.xaml", StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    dictionaries.RemoveAt(i);
-                }
-            }
+            ApplyToResources(window.Resources, overlay);
+            ApplyToLogicalTree(window, overlay);
+        }
 
-            if (!dark)
+        /// <summary>
+        /// 页面各自合并了 Design.xaml；只在窗口级加主题字典会被页面本地字典遮住。
+        /// 因此把主题覆盖层同样追加到每个带 Design.xaml 的页面资源里。
+        /// </summary>
+        private static void ApplyToLogicalTree(object node, string? overlay)
+        {
+            if (node is not FrameworkElement element)
             {
                 return;
             }
 
-            dictionaries.Add(new ResourceDictionary
+            ApplyToResources(element.Resources, overlay);
+
+            foreach (object child in LogicalTreeHelper.GetChildren(element))
             {
-                Source = new Uri(DarkDictionary, UriKind.Relative)
-            });
+                ApplyToLogicalTree(child, overlay);
+            }
+        }
+
+        private static void ApplyToResources(ResourceDictionary resources, string? overlay)
+        {
+            var merged = resources.MergedDictionaries;
+
+            for (int i = merged.Count - 1; i >= 0; i--)
+            {
+                string? source = merged[i].Source?.OriginalString;
+                if (source != null
+                    && (source.IndexOf("Dark.xaml", StringComparison.OrdinalIgnoreCase) >= 0
+                        || source.IndexOf("HighContrast.xaml", StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    merged.RemoveAt(i);
+                }
+            }
+
+            if (overlay == null)
+            {
+                return;
+            }
+
+            bool hasDesign = merged.Any(dictionary =>
+                dictionary.Source?.OriginalString?.IndexOf(
+                    "Design.xaml", StringComparison.OrdinalIgnoreCase) >= 0);
+
+            if (hasDesign)
+            {
+                merged.Add(new ResourceDictionary
+                {
+                    Source = new Uri(overlay, UriKind.Relative)
+                });
+            }
         }
 
         public bool IsMaximized

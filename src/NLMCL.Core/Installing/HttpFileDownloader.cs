@@ -19,7 +19,7 @@ namespace NLMCL.Core.Installing
     /// 失败策略：每个分块单独重试；分块留在 &lt;目标&gt;.parts 目录，下次可续传；
     /// 只有服务器不支持 Range 才回落单连接。
     /// </summary>
-    public sealed class HttpFileDownloader : IFileDownloader
+    public sealed class HttpFileDownloader : IFileDownloader, IByteProgressFileDownloader
     {
         private const int Attempts = 3;
 
@@ -108,6 +108,49 @@ namespace NLMCL.Core.Installing
             }
         }
 
+        /// <summary>字节级进度：received 为已写入目标/分块的字节，total 为探测到的总长（0 表示未知）。</summary>
+        public async Task DownloadAsync(
+            string url,
+            string targetPath,
+            IProgress<FileDownloadProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            if (progress == null)
+            {
+                await DownloadAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            RemoteFile? remote = await ProbeAsync(url, cancellationToken).ConfigureAwait(false);
+            long total = remote?.Length ?? 0;
+
+            using (CancellationTokenSource polling =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                Task reporter = ReportByteProgressAsync(targetPath, total, progress, polling.Token);
+
+                try
+                {
+                    await DownloadAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    polling.Cancel();
+
+                    try
+                    {
+                        await reporter.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+
+                    long final = CurrentDownloadedBytes(targetPath);
+                    progress.Report(new FileDownloadProgress(final, total > 0 ? total : final));
+                }
+            }
+        }
+
         /// <summary>每 250ms 上报一次「目标文件 + 分块」已下载字节占理论总长的比例。</summary>
         private static async Task ReportProgressAsync(
             string targetPath, long total, IProgress<double> progress, CancellationToken cancellationToken)
@@ -116,22 +159,7 @@ namespace NLMCL.Core.Installing
             {
                 try
                 {
-                    long done = 0;
-
-                    if (File.Exists(targetPath))
-                    {
-                        done += new FileInfo(targetPath).Length;
-                    }
-
-                    string partsDirectory = targetPath + ".parts";
-
-                    if (Directory.Exists(partsDirectory))
-                    {
-                        foreach (string part in Directory.GetFiles(partsDirectory, "*.part"))
-                        {
-                            done += new FileInfo(part).Length;
-                        }
-                    }
+                    long done = CurrentDownloadedBytes(targetPath);
 
                     if (total > 0)
                     {
@@ -152,6 +180,56 @@ namespace NLMCL.Core.Installing
                     return;
                 }
             }
+        }
+
+        private static async Task ReportByteProgressAsync(
+            string targetPath,
+            long total,
+            IProgress<FileDownloadProgress> progress,
+            CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    long done = CurrentDownloadedBytes(targetPath);
+                    progress.Report(new FileDownloadProgress(done, total));
+                }
+                catch (IOException)
+                {
+                }
+
+                try
+                {
+                    await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+            }
+        }
+
+        private static long CurrentDownloadedBytes(string targetPath)
+        {
+            long done = 0;
+
+            if (File.Exists(targetPath))
+            {
+                done += new FileInfo(targetPath).Length;
+            }
+
+            string partsDirectory = targetPath + ".parts";
+
+            if (Directory.Exists(partsDirectory))
+            {
+                foreach (string part in Directory.GetFiles(partsDirectory, "*.part"))
+                {
+                    done += new FileInfo(part).Length;
+                }
+            }
+
+            return done;
         }
 
         public async Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
@@ -209,15 +287,7 @@ namespace NLMCL.Core.Installing
         /// <summary>把失败原因写到 %TEMP%\nlmcl-download.log（排查用）。</summary>
         internal static void Trace(string message)
         {
-            try
-            {
-                string path = Path.Combine(Path.GetTempPath(), "nlmcl-download.log");
-                File.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss") + " " + message + Environment.NewLine);
-            }
-            catch (Exception)
-            {
-                // 日志失败不影响下载
-            }
+            DownloadDiagnostics.Write("http " + message);
         }
 
         private sealed class RemoteFile

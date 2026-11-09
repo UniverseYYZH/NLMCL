@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,16 +19,29 @@ namespace NLMCL.App.ViewModels
     {
         private readonly ISkinService _skins;
         private readonly IFilePicker? _filePicker;
+        private readonly IMuaSkinLibrary? _library;
+        private readonly IProfileTextureUploader? _uploader;
+        private readonly IDialogService? _dialogs;
 
         private Account? _account;
         private SkinInfo? _current;
         private string? _skinPng;
         private bool _slim;
+        private string _libraryRoot = "https://skin.mualliance.ltd";
 
-        public SkinViewModel(ISkinService skins, IFilePicker? filePicker = null)
+        public SkinViewModel(
+            ISkinService skins,
+            IFilePicker? filePicker = null,
+            IMuaSkinLibrary? library = null,
+            IProfileTextureUploader? uploader = null,
+            IDialogService? dialogs = null)
         {
             _skins = skins ?? throw new ArgumentNullException(nameof(skins));
             _filePicker = filePicker;
+            _library = library;
+            _uploader = uploader;
+            _dialogs = dialogs;
+            LibrarySkins.CollectionChanged += (_, __) => OnPropertyChanged(nameof(HasLibrarySkins));
         }
 
         [ObservableProperty]
@@ -46,6 +60,36 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isBusy;
 
+        /// <summary>MUA / Blessing Skin 皮肤库列表。</summary>
+        public ObservableCollection<MuaSkinItemViewModel> LibrarySkins { get; }
+            = new ObservableCollection<MuaSkinItemViewModel>();
+
+        [ObservableProperty]
+        private bool _isLibraryBusy;
+
+        [ObservableProperty]
+        private string _libraryStatusText = "点击「刷新皮肤库」加载 MUA 用户中心的公开皮肤。";
+
+        [ObservableProperty]
+        private int _libraryPage = 1;
+
+        [ObservableProperty]
+        private int _libraryLastPage = 1;
+
+        [ObservableProperty]
+        private bool _isExternalAccount;
+
+        public bool CanApplyLibrarySkins => _uploader != null
+            && _account != null
+            && (_account.Type == AccountType.External || _account.Type == AccountType.Microsoft);
+
+        public bool HasLibrarySkins => LibrarySkins.Count > 0;
+
+        partial void OnIsExternalAccountChanged(bool value)
+        {
+            OnPropertyChanged(nameof(CanApplyLibrarySkins));
+        }
+
         /// <summary>水平转角（度）。</summary>
         [ObservableProperty]
         private double _yaw = 28;
@@ -55,6 +99,8 @@ namespace NLMCL.App.ViewModels
         private bool _isAutoRotating = true;
 
         private bool _rendering;
+        private bool _renderPending;
+        private int _refreshGeneration;
 
         /// <summary>俯仰角（度）。</summary>
         [ObservableProperty]
@@ -72,25 +118,45 @@ namespace NLMCL.App.ViewModels
         {
             _account = account;
             IsOfflineAccount = account != null && account.Type == AccountType.Offline;
+            IsExternalAccount = account != null && account.Type == AccountType.External;
             AccountText = account == null ? "未登录" : account.Name + "（" + account.TypeLabel + "）";
+
+            _libraryRoot = NLMCL.Core.Resources.MuaSkinLibraryService
+                .ResolveSiteRoot(account?.AuthServer);
+            LibrarySkins.Clear();
+            LibraryPage = 1;
+            LibraryLastPage = 1;
+            LibraryStatusText = account == null
+                ? "登录后可以浏览 MUA 皮肤库。"
+                : "点击「刷新皮肤库」加载 MUA 用户中心的公开皮肤。";
+            OnPropertyChanged(nameof(CanApplyLibrarySkins));
+
             _ = RefreshAsync();
+        }
+
+        /// <summary>进入皮肤页时调用：等皮肤刷新完再加载当前站点皮肤库。</summary>
+        public void ActivateLibrary()
+        {
+            if (_library != null && LibrarySkins.Count == 0 && !IsBusy)
+            {
+                _ = LoadLibraryAsync();
+            }
         }
 
         [RelayCommand]
         public async Task RefreshAsync()
         {
-            if (_account == null)
+            int generation = ++_refreshGeneration;
+            Account? account = _account;
+
+            if (account == null)
             {
                 _current = null;
                 _skinPng = null;
                 PreviewPath = null;
                 ModelText = string.Empty;
                 StatusText = "未登录。登录账号后这里会显示皮肤。";
-                return;
-            }
-
-            if (IsBusy)
-            {
+                IsBusy = false;
                 return;
             }
 
@@ -99,10 +165,45 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                SkinInfo? skin = await _skins.GetAsync(_account, CancellationToken.None).ConfigureAwait(true);
+                // 离线账号先看本地保存的皮肤；正版/外置账号仍以服务端皮肤为准。
+                string? localSkin = account.Type == AccountType.Offline
+                    ? await _skins
+                        .GetLocalSkinPathAsync(account, CancellationToken.None)
+                        .ConfigureAwait(true)
+                    : null;
+
+                if (generation != _refreshGeneration)
+                {
+                    return;
+                }
+
+                if (localSkin != null)
+                {
+                    _current = null;
+                    _skinPng = localSkin;
+                    _slim = false;
+
+                    await RenderAsync().ConfigureAwait(true);
+
+                    if (generation != _refreshGeneration)
+                    {
+                        return;
+                    }
+
+                    ModelText = "本地皮肤";
+                    StatusText = "本地皮肤：" + localSkin + " · 拖动图片可旋转";
+                    return;
+                }
+
+                SkinInfo? skin = await _skins.GetAsync(account, CancellationToken.None).ConfigureAwait(true);
+
+                if (generation != _refreshGeneration)
+                {
+                    return;
+                }
 
                 _current = skin;
-                ModelText = skin?.ModelLabel ?? string.Empty;
+                ModelText = DescribeSkin(skin);
 
                 string source = Path.Combine(
                     Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
@@ -112,6 +213,12 @@ namespace NLMCL.App.ViewModels
                     // 没有自定义皮肤也要能预览：用内置默认皮肤兜底，
                     // 否则玩家登录后看到的是一片空白，不知道是"没有皮肤"还是"功能坏了"。
                     string fallback = await _skins.GetDefaultSkinAsync(CancellationToken.None).ConfigureAwait(true);
+
+                    if (generation != _refreshGeneration)
+                    {
+                        return;
+                    }
+
                     File.Copy(fallback, source, overwrite: true);
 
                     _skinPng = source;
@@ -119,31 +226,307 @@ namespace NLMCL.App.ViewModels
 
                     await RenderAsync().ConfigureAwait(true);
 
-                    StatusText = _account?.Type == AccountType.Offline
+                    if (generation != _refreshGeneration)
+                    {
+                        return;
+                    }
+
+                    StatusText = account.Type == AccountType.Offline
                         ? "离线账号 · 显示的是默认皮肤（经典 Steve）"
                         : "该账号没有自定义皮肤 · 显示的是默认皮肤（经典 Steve）";
 
                     return;
                 }
 
-                await _skins.SavePreviewAsync(skin.SkinUrl, source, CancellationToken.None)
-                    .ConfigureAwait(true);
+                try
+                {
+                    await _skins.SavePreviewAsync(skin.SkinUrl, source, CancellationToken.None)
+                        .ConfigureAwait(true);
+                }
+                catch (Exception downloadError)
+                {
+                    // 官方贴图下载失败时不要留空白，回退默认皮肤并提示重试。
+                    string fallback = await _skins
+                        .GetDefaultSkinAsync(CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    if (generation != _refreshGeneration)
+                    {
+                        return;
+                    }
+
+                    File.Copy(fallback, source, overwrite: true);
+
+                    _current = null;
+                    ModelText = "默认皮肤（经典 Steve）";
+                    _skinPng = source;
+                    _slim = false;
+
+                    await RenderAsync().ConfigureAwait(true);
+
+                    if (generation != _refreshGeneration)
+                    {
+                        return;
+                    }
+
+                    StatusText = "官方皮肤下载失败，已显示默认皮肤；点「刷新」重试：" +
+                                 downloadError.Message;
+                    return;
+                }
+
+                if (generation != _refreshGeneration)
+                {
+                    return;
+                }
 
                 _skinPng = source;
                 _slim = string.Equals(skin.Model, "slim", StringComparison.OrdinalIgnoreCase);
 
                 await RenderAsync().ConfigureAwait(true);
 
+                if (generation != _refreshGeneration)
+                {
+                    return;
+                }
+
                 StatusText = "皮肤来源：" + skin.Source + " · 拖动图片可旋转";
             }
             catch (Exception ex)
             {
-                PreviewPath = null;
-                StatusText = "读取皮肤失败：" + ex.Message;
+                if (generation == _refreshGeneration)
+                {
+                    PreviewPath = null;
+                    StatusText = "读取皮肤失败：" + ex.Message;
+                }
             }
             finally
             {
-                IsBusy = false;
+                // 旧请求不能把新请求的 busy 状态提前关掉。
+                if (generation == _refreshGeneration)
+                {
+                    IsBusy = false;
+
+                    // 皮肤请求完成后才拉皮肤库，避免和皮肤下载并发抢 PCL 传输。
+                    if (_library != null && LibrarySkins.Count == 0 && _account != null)
+                    {
+                        _ = LoadLibraryAsync();
+                    }
+                }
+            }
+        }
+
+        /// <summary>加载当前账号所属站点的皮肤库。</summary>
+        [RelayCommand]
+        public async Task LoadLibraryAsync()
+        {
+            if (_library == null)
+            {
+                LibraryStatusText = "皮肤库服务不可用。";
+                return;
+            }
+
+            if (IsLibraryBusy)
+            {
+                return;
+            }
+
+            IsLibraryBusy = true;
+            LibraryStatusText = "正在加载 MUA 皮肤库…";
+
+            try
+            {
+                MuaSkinPage page = await _library
+                    .ListAsync(_libraryRoot, LibraryPage, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                LibrarySkins.Clear();
+
+                foreach (MuaSkin skin in page.Items)
+                {
+                    LibrarySkins.Add(new MuaSkinItemViewModel(skin));
+                }
+
+                LibraryPage = page.Page;
+                LibraryLastPage = page.LastPage;
+                LibraryStatusText = page.Items.Count == 0
+                    ? "这一页没有公开皮肤。"
+                    : "共 " + page.Total + " 个公开皮肤 · 第 " + page.Page + "/" + page.LastPage + " 页";
+            }
+            catch (Exception ex)
+            {
+                LibraryStatusText = "加载皮肤库失败：" + ex.Message;
+            }
+            finally
+            {
+                IsLibraryBusy = false;
+            }
+        }
+
+        [RelayCommand]
+        public async Task RefreshLibraryAsync()
+        {
+            LibraryPage = 1;
+            await LoadLibraryAsync().ConfigureAwait(true);
+        }
+
+        [RelayCommand]
+        public async Task PrevLibraryPageAsync()
+        {
+            if (LibraryPage <= 1 || IsLibraryBusy)
+            {
+                return;
+            }
+
+            LibraryPage--;
+            await LoadLibraryAsync().ConfigureAwait(true);
+        }
+
+        [RelayCommand]
+        public async Task NextLibraryPageAsync()
+        {
+            if (LibraryPage >= LibraryLastPage || IsLibraryBusy)
+            {
+                return;
+            }
+
+            LibraryPage++;
+            await LoadLibraryAsync().ConfigureAwait(true);
+        }
+
+        /// <summary>只下载到主预览区做 3D 预览，不修改账号皮肤。</summary>
+        [RelayCommand]
+        public async Task PreviewLibrarySkinAsync(MuaSkinItemViewModel? item)
+        {
+            if (item == null || _account == null)
+            {
+                LibraryStatusText = "请先登录账号。";
+                return;
+            }
+
+            if (_library == null || IsLibraryBusy)
+            {
+                return;
+            }
+
+            IsLibraryBusy = true;
+            LibraryStatusText = "正在下载「" + item.Name + "」用于 3D 预览…";
+
+            try
+            {
+                string path = Path.Combine(
+                    Path.GetTempPath(),
+                    "nlmcl-mua-preview-" + item.Skin.Tid + "-" +
+                    Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
+
+                await _library
+                    .DownloadAsync(item.Skin, path, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                _current = new SkinInfo(
+                    _account.Name,
+                    item.Skin.DownloadUrl,
+                    item.Skin.Model,
+                    "MUA 皮肤库（预览）");
+
+                _skinPng = path;
+                _slim = item.Skin.Model == "slim";
+                ModelText = DescribeSkin(_current);
+
+                await RenderAsync().ConfigureAwait(true);
+
+                StatusText = "正在 3D 预览「" + item.Name + "」；点「装配」才会写入账号";
+                LibraryStatusText = "3D 预览：" + item.Name + "（未装配）";
+            }
+            catch (Exception ex)
+            {
+                LibraryStatusText = "预览失败：" + ex.Message;
+            }
+            finally
+            {
+                IsLibraryBusy = false;
+            }
+        }
+
+        /// <summary>下载并预览皮肤；外置/MUA/正版账号可一键装配到当前角色。</summary>
+        [RelayCommand]
+        public async Task ApplyLibrarySkinAsync(MuaSkinItemViewModel? item)
+        {
+            if (item == null || _account == null)
+            {
+                LibraryStatusText = "请先登录账号。";
+                return;
+            }
+
+            if (_library == null)
+            {
+                LibraryStatusText = "皮肤库服务不可用。";
+                return;
+            }
+
+            bool canApply = CanApplyLibrarySkins;
+
+            if (canApply
+                && _dialogs != null
+                && !_dialogs.Confirm(
+                    "装配皮肤",
+                    "确定把「" + item.Name + "」装配到当前账号吗？\n\n" +
+                    "这会替换该角色当前皮肤。" +
+                    (_account.Type == AccountType.Microsoft
+                        ? "（上传到 Minecraft Services）"
+                        : "（上传到 " + _libraryRoot + "）")))
+            {
+                return;
+            }
+
+            IsLibraryBusy = true;
+            LibraryStatusText = "正在下载「" + item.Name + "」…";
+
+            try
+            {
+                string path = Path.Combine(
+                    Path.GetTempPath(),
+                    "nlmcl-mua-" + item.Skin.Tid + "-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
+
+                await _library
+                    .DownloadAsync(item.Skin, path, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                _current = new SkinInfo(
+                    _account.Name,
+                    item.Skin.DownloadUrl,
+                    item.Skin.Model,
+                    "MUA 皮肤库");
+
+                _skinPng = path;
+                _slim = item.Skin.Model == "slim";
+                ModelText = DescribeSkin(_current);
+
+                await RenderAsync().ConfigureAwait(true);
+
+                if (!canApply)
+                {
+                    LibraryStatusText = "已下载到本地预览；离线账号不能直接装配。";
+                    StatusText = "已下载「" + item.Name + "」到本地预览";
+                    return;
+                }
+
+                LibraryStatusText = "正在装配到 " + _account.Name + "…";
+                await _uploader!
+                    .UploadSkinAsync(_account, path, item.Skin.Model, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                await RefreshAsync().ConfigureAwait(true);
+                StatusText = "已装配「" + item.Name + "」到 " + _account.Name;
+                LibraryStatusText = "装配成功：" + item.Name;
+            }
+            catch (Exception ex)
+            {
+                LibraryStatusText = "装配失败：" + ex.Message;
+                StatusText = "装配失败：" + ex.Message;
+            }
+            finally
+            {
+                IsLibraryBusy = false;
             }
         }
 
@@ -179,7 +562,7 @@ namespace NLMCL.App.ViewModels
                 }
 
                 _current = skin;
-                ModelText = skin.ModelLabel;
+                ModelText = DescribeSkin(skin);
 
                 string source = Path.Combine(
                     Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
@@ -223,9 +606,13 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                string saved = await _skins
-                    .ImportLocalAsync(path!, _account?.Name ?? "player", CancellationToken.None)
-                    .ConfigureAwait(true);
+                string saved = _account != null
+                    ? await _skins
+                        .ImportLocalAsync(_account, path!, CancellationToken.None)
+                        .ConfigureAwait(true)
+                    : await _skins
+                        .ImportLocalAsync(path!, "player", CancellationToken.None)
+                        .ConfigureAwait(true);
 
                 _current = null;
                 _skinPng = saved;
@@ -234,7 +621,7 @@ namespace NLMCL.App.ViewModels
                 await RenderAsync().ConfigureAwait(true);
 
                 ModelText = "本地皮肤";
-                StatusText = "本地皮肤：" + saved + " · 拖动图片可旋转";
+                StatusText = "本地皮肤：" + saved + " · 已记住，切换账号后仍会显示";
             }
             catch (Exception ex)
             {
@@ -300,27 +687,67 @@ namespace NLMCL.App.ViewModels
 
         private async Task RenderAsync()
         {
-            if (string.IsNullOrEmpty(_skinPng) || _rendering)
+            if (string.IsNullOrEmpty(_skinPng))
             {
                 return;
             }
 
-            _rendering = true;
+            if (_rendering)
+            {
+                _renderPending = true;
+                return;
+            }
 
-            try
+            do
             {
-                PreviewPath = await _skins
-                    .Create3DPreviewAsync(_skinPng!, Yaw, Pitch, _slim, CancellationToken.None)
-                    .ConfigureAwait(true);
+                _renderPending = false;
+
+                string skin = _skinPng!;
+                bool slim = _slim;
+
+                _rendering = true;
+
+                try
+                {
+                    string? path = await _skins
+                        .Create3DPreviewAsync(skin, Yaw, Pitch, slim, CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    // 渲染期间切了账号/换了皮肤：旧结果不能覆盖新预览。
+                    if (string.Equals(_skinPng, skin, StringComparison.Ordinal) && _slim == slim)
+                    {
+                        PreviewPath = path;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (string.Equals(_skinPng, skin, StringComparison.Ordinal))
+                    {
+                        StatusText = "渲染失败：" + ex.Message;
+                    }
+                }
+                finally
+                {
+                    _rendering = false;
+                }
             }
-            catch (Exception ex)
+            while (_renderPending && !string.IsNullOrEmpty(_skinPng));
+        }
+
+        private static string DescribeSkin(SkinInfo? skin)
+        {
+            if (skin?.SkinUrl == null)
             {
-                StatusText = "渲染失败：" + ex.Message;
+                return "默认皮肤（经典 Steve）";
             }
-            finally
-            {
-                _rendering = false;
-            }
+
+            string model = string.Equals(skin.Model, "slim", StringComparison.OrdinalIgnoreCase)
+                ? "纤细"
+                : "经典";
+
+            // 认证接口只给皮肤 URL / 模型，不给皮肤名字；
+            // 这里不再把“经典（Steve）”冒充成皮肤名，统一显示为自定义皮肤。
+            return "自定义皮肤 · " + model;
         }
 
         private static double Normalize(double degrees)

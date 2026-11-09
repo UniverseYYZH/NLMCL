@@ -173,5 +173,62 @@ namespace NLMCL.Tests
                 Directory.Delete(dir, true);
             }
         }
+
+        [Fact]
+        public async Task Update_check_runs_concurrently_and_applies_results()
+        {
+            FakeUpdateChecker checker = new FakeUpdateChecker();
+            ModsViewModel vm = new ModsViewModel(new ModManager(), checker);
+            vm.Mods.Add(new ModEntry("a.jar", "a.jar", 1) { Version = "1.0" });
+            vm.Mods.Add(new ModEntry("b.jar", "b.jar", 1) { Version = "1.0" });
+
+            await vm.CheckUpdatesAsync();
+
+            Assert.True(checker.MaxConcurrency >= 2);
+            Assert.Equal("2.0", vm.Mods[0].LatestVersion);
+            Assert.Equal("2.0", vm.Mods[1].LatestVersion);
+            Assert.Equal("发现 2 个模组有新版本。", vm.StatusText);
+        }
+
+        private sealed class FakeUpdateChecker : IModUpdateChecker
+        {
+            private int _current;
+            private int _max;
+
+            public int MaxConcurrency => _max;
+
+            public async Task<ModUpdateInfo?> CheckAsync(
+                ModEntry entry, string? gameVersion, string? loader, CancellationToken cancellationToken)
+            {
+                int current = Interlocked.Increment(ref _current);
+
+                try
+                {
+                    InterlockedMax(ref _max, current);
+                    await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+                    return new ModUpdateInfo { LatestVersion = "2.0" };
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref _current);
+                }
+            }
+
+            private static void InterlockedMax(ref int target, int value)
+            {
+                int current;
+
+                do
+                {
+                    current = target;
+
+                    if (value <= current)
+                    {
+                        return;
+                    }
+                }
+                while (Interlocked.CompareExchange(ref target, value, current) != current);
+            }
+        }
     }
 }

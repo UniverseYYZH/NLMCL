@@ -146,16 +146,31 @@
             </Grid>
         </Border>
 
-        <!-- 崩溃分析结果 -->
+        <!-- 崩溃分析结果：可关闭；内容超高时在卡片内滚动，不再把日志区挤没 -->
         <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,0,0,10"
                 Visibility="{Binding HasAnalysis, Converter={StaticResource BoolToVisibility}}">
-            <StackPanel>
-                <TextBlock Text="崩溃分析" FontSize="12" FontWeight="SemiBold"
-                           Foreground="{DynamicResource Text}" />
-                <TextBlock Text="{Binding AnalysisText}" FontSize="11" Margin="0,6,0,0"
-                           Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
-                           FontFamily="Consolas" />
-            </StackPanel>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
+                    <TextBlock Text="崩溃分析" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
+                    <Button Content="关闭" Style="{StaticResource GhostButton}"
+                            HorizontalAlignment="Right" Padding="10,2" FontSize="10.5"
+                            Command="{Binding CloseAnalysisCommand}" />
+                </Grid>
+
+                <ScrollViewer Grid.Row="1" MaxHeight="180" Margin="0,6,0,0"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                    <TextBlock Text="{Binding AnalysisText}" FontSize="11"
+                               Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
+                               FontFamily="Consolas" />
+                </ScrollViewer>
+            </Grid>
         </Border>
         <!-- 日志区 -->
         <Border Grid.Row="3" Background="#101A16" CornerRadius="10" Padding="12,10">

@@ -20,6 +20,8 @@
     <SolidColorBrush x:Key="SidebarBg" Color="{StaticResource SidebarBgColor}" />
     <SolidColorBrush x:Key="SidebarActive" Color="{StaticResource SidebarActiveColor}" />
     <SolidColorBrush x:Key="SidebarHover" Color="#1E3A2A" />
+    <SolidColorBrush x:Key="SidebarLogoBg" Color="#F4FAF6" />
+    <SolidColorBrush x:Key="SidebarAccountBg" Color="#101E16" />
     <SolidColorBrush x:Key="SidebarText" Color="#F4FAF6" />
     <SolidColorBrush x:Key="SidebarMuted" Color="#9DB5A6" />
     <SolidColorBrush x:Key="SidebarFaint" Color="#5D6B61" />

@@ -62,12 +62,15 @@ namespace NLMCL.App.ViewModels
     /// <summary>版本列表行。</summary>
     public sealed partial class VersionItem : ObservableObject
     {
-        public VersionItem(MinecraftVersion version, bool clientJarMissing = false)
+        public VersionItem(MinecraftVersion version, bool clientJarMissing = false, string? gameDirectory = null)
         {
             if (version == null)
             {
                 throw new ArgumentNullException(nameof(version));
             }
+
+            GameDirectory = gameDirectory ?? string.Empty;
+            DirectoryLabel = GameDirectory;
 
             // 标题用目录名——它才是「实例」的身份。
             // PCL 的 Id 是归一化后的原版版本号（加载器实例会变成 1.21.11，beta 会变成 "Old"），
@@ -98,6 +101,18 @@ namespace NLMCL.App.ViewModels
         }
 
         public string Name { get; }
+
+        /// <summary>这个版本所在的 .minecraft 目录。</summary>
+        public string GameDirectory { get; }
+
+        /// <summary>目录短名，用于多目录时区分同名版本。</summary>
+        public string DirectoryLabel { get; }
+
+        /// <summary>多个目录时在版本行显示来源路径。</summary>
+        [ObservableProperty]
+        private bool _showDirectory;
+
+        public bool HasDirectoryLabel => !string.IsNullOrEmpty(DirectoryLabel);
 
         /// <summary>是否被点选（决定卡片高亮与启动目标）。</summary>
         [ObservableProperty]

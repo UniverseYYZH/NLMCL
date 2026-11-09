@@ -25,12 +25,12 @@ namespace NLMCL.Core.Mods
             _download = download ?? throw new ArgumentNullException(nameof(download));
         }
 
-        public async Task CheckAsync(
+        public async Task<ModUpdateInfo?> CheckAsync(
             ModEntry entry, string? gameVersion, string? loader, CancellationToken cancellationToken)
         {
             if (entry == null || !System.IO.File.Exists(entry.FilePath))
             {
-                return;
+                return null;
             }
 
             string sha1 = CryptographyUtils.ComputeFileHash(entry.FilePath, CryptographyUtils.HashMethod.Sha1);
@@ -42,10 +42,10 @@ namespace NLMCL.Core.Mods
 
             if (string.IsNullOrEmpty(projectId))
             {
-                return;
+                return null;
             }
 
-            entry.ProjectUrl = "https://modrinth.com/project/" + projectId;
+            string projectUrl = "https://modrinth.com/project/" + projectId;
 
             string query = "/project/" + projectId + "/version";
 
@@ -66,7 +66,11 @@ namespace NLMCL.Core.Mods
                 .OrderByDescending(item => item.Value<string>("date_published") ?? string.Empty)
                 .FirstOrDefault();
 
-            entry.LatestVersion = latest?.Value<string>("version_number");
+            return new ModUpdateInfo
+            {
+                ProjectUrl = projectUrl,
+                LatestVersion = latest?.Value<string>("version_number")
+            };
         }
 
         private async Task<JObject> GetJsonAsync(string url, CancellationToken cancellationToken)

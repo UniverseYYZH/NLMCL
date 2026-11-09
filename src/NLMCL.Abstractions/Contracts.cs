@@ -10,7 +10,10 @@ namespace NLMCL.Abstractions
     /// </summary>
     public interface IAppPaths
     {
-        /// <summary>%APPDATA%\NLMCL</summary>
+        /// <summary>是否使用便携模式（数据放在 exe 同目录的 data 下）。</summary>
+        bool IsPortable { get; }
+
+        /// <summary>%APPDATA%\NLMCL，便携模式下为 exe\data。</summary>
         string DataRoot { get; }
 
         string SettingsFile { get; }
@@ -103,11 +106,18 @@ namespace NLMCL.Abstractions
 
     public sealed class InstallProgress
     {
-        public InstallProgress(string stage, double percent, long bytesPerSecond)
+        public InstallProgress(
+            string stage,
+            double percent,
+            long bytesPerSecond,
+            long bytesReceived = 0,
+            long bytesTotal = 0)
         {
             Stage = stage;
             Percent = percent;
             BytesPerSecond = bytesPerSecond;
+            BytesReceived = bytesReceived;
+            BytesTotal = bytesTotal;
         }
 
         public string Stage { get; }
@@ -116,6 +126,14 @@ namespace NLMCL.Abstractions
         public double Percent { get; }
 
         public long BytesPerSecond { get; }
+
+        /// <summary>已下载字节；0 表示当前阶段没有字节信息。</summary>
+        public long BytesReceived { get; }
+
+        /// <summary>本组总字节；0 表示未知。</summary>
+        public long BytesTotal { get; }
+
+        public bool HasByteProgress => BytesReceived > 0 || BytesTotal > 0;
     }
 
     /// <summary>版本安装端口，由 PCL 的下载/安装实现适配。</summary>

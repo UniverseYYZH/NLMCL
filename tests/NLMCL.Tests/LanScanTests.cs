@@ -167,6 +167,48 @@ namespace NLMCL.Tests
             public string? GetText() => Text;
         }
 
+        private sealed class DiagnosticScanner : ILanScanner, ILanScannerDiagnostics
+        {
+            private readonly LanScanReport _report;
+
+            public DiagnosticScanner(LanScanReport report)
+            {
+                _report = report;
+            }
+
+            public Task<IReadOnlyList<LanRoom>> ScanAsync(
+                TimeSpan timeout, IProgress<LanRoom>? progress, CancellationToken cancellationToken)
+                => Task.FromResult(_report.Rooms);
+
+            public Task<LanScanReport> ScanWithReportAsync(
+                TimeSpan timeout, IProgress<LanRoom>? progress, CancellationToken cancellationToken)
+                => Task.FromResult(_report);
+        }
+
+        [Fact]
+        public async Task ViewModel_reports_listened_interfaces()
+        {
+            LanRoom room = new LanRoom("192.168.1.5", 25565) { Motd = "朋友的房" };
+            LanScanReport report = new LanScanReport(
+                new[] { room },
+                new[]
+                {
+                    new LanInterfaceStatus("以太网 2", "10.0.0.5", true, null),
+                    new LanInterfaceStatus("WLAN", "169.254.1.2", false, "组播加入失败")
+                });
+
+            LanScanViewModel vm = new LanScanViewModel(
+                new DiagnosticScanner(report), new FakeClipboard());
+
+            await vm.ScanAsync();
+
+            Assert.True(vm.HasScanDetails);
+            Assert.Contains("已监听：以太网 2", vm.ScanDetailsText);
+            Assert.Contains("未监听：WLAN", vm.ScanDetailsText);
+            Assert.Contains("组播加入失败", vm.ScanDetailsText);
+            Assert.Contains("发现 1 个房间", vm.StatusText);
+        }
+
         [Fact]
         public async Task ViewModel_lists_rooms_and_copies_address()
         {

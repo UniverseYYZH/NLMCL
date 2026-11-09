@@ -10,6 +10,7 @@
                 <ResourceDictionary Source="/NLMCL;component/Themes/Design.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <local:InverseBooleanConverter x:Key="InverseBool" />
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -32,6 +33,10 @@
                 <Button Content="停止" Style="{StaticResource GhostButton}" Padding="14,7"
                         Margin="8,0,0,0" Command="{Binding CancelCommand}"
                         IsEnabled="{Binding IsScanning}" />
+                <Button x:Name="QrToolbarButton" Content="地址二维码"
+                        Style="{StaticResource GhostButton}" Padding="14,7"
+                        Margin="8,0,0,0" Click="ShowQrFromToolbar"
+                        ToolTip="没有扫描到房间时，也可以手动输入 IP:端口 生成二维码" />
             </StackPanel>
         </StackPanel>
 
@@ -58,11 +63,19 @@
                                                    Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
                                     </StackPanel>
 
-                                    <Button Grid.Column="1" Content="复制地址" Style="{StaticResource GhostButton}"
-                                            Padding="10,5" VerticalAlignment="Center"
-                                            Command="{Binding DataContext.CopyAddressCommand,
-                                                              RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                            CommandParameter="{Binding}" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                                VerticalAlignment="Center">
+                                        <Button Content="二维码" Style="{StaticResource GhostButton}"
+                                                Padding="10,5"
+                                                Click="ShowQrCode"
+                                                Tag="{Binding Endpoint}"
+                                                ToolTip="把这个地址生成二维码，方便手机或另一台设备复制" />
+                                        <Button Content="复制地址" Style="{StaticResource GhostButton}"
+                                                Padding="10,5" Margin="6,0,0,0"
+                                                Command="{Binding DataContext.CopyAddressCommand,
+                                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -71,7 +84,40 @@
             </ScrollViewer>
         </Border>
 
-        <TextBlock Grid.Row="2" Text="{Binding StatusText}" FontSize="11"
-                   Foreground="{DynamicResource Muted}" Margin="2,10,0,0" TextWrapping="Wrap" />
+        <StackPanel Grid.Row="2" Margin="2,10,0,0">
+            <TextBlock Text="{Binding StatusText}" FontSize="11"
+                       Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding ScanDetailsText}" FontSize="9.5"
+                       Foreground="{DynamicResource Faint}" TextWrapping="Wrap" Margin="0,4,0,0"
+                       Visibility="{Binding HasScanDetails, Converter={StaticResource BoolToVisibility}}" />
+        </StackPanel>
+
+        <Grid x:Name="QrOverlay" Grid.RowSpan="3" Panel.ZIndex="999"
+              Background="#66000000" Visibility="Collapsed">
+            <Border Background="{DynamicResource Card}"
+                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                    CornerRadius="12" Padding="20" Width="320"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="扫码复制服务器地址" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="地址（IP:端口）" FontSize="9.5"
+                               Foreground="{DynamicResource Muted}" Margin="0,10,0,0" />
+                    <TextBox x:Name="QrAddressBox" Margin="0,5,0,0" Padding="8,6"
+                             FontSize="11" />
+                    <Button Content="生成二维码" Style="{StaticResource GhostButton}"
+                            Padding="12,5" Margin="0,8,0,0" HorizontalAlignment="Left"
+                            Click="RegenerateQr" />
+                    <Image x:Name="QrImage" Width="240" Height="240" Margin="0,14,0,0"
+                           RenderOptions.BitmapScalingMode="NearestNeighbor" />
+                    <TextBlock x:Name="QrAddressText" FontSize="11"
+                               Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" Margin="0,8,0,0" />
+                    <Button Content="关闭" Style="{StaticResource GhostButton}"
+                            Padding="14,6" Margin="0,14,0,0" HorizontalAlignment="Center"
+                            Click="CloseQrCode" />
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

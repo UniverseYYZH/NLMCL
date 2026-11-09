@@ -47,7 +47,8 @@ namespace NLMCL.Tests
                 ""pagination"": { ""totalCount"": 1 }
             }";
 
-            CurseForgeCatalog catalog = new CurseForgeCatalog(new StubDownload(json));
+            StubDownload stub = new StubDownload(json);
+            CurseForgeCatalog catalog = new CurseForgeCatalog(stub);
             IReadOnlyList<ResourceSummary> found = await catalog.SearchAsync(
                 new ResourceQuery("jei", ResourceKind.Mod), CancellationToken.None);
 
@@ -55,6 +56,7 @@ namespace NLMCL.Tests
             Assert.Equal("jei", found[0].Slug);
             Assert.Equal("238222", found[0].Id);
             Assert.Equal("https://media.forgecdn.net/avatars/jei.png", found[0].IconUrl);
+            Assert.Contains("sortField=2", stub.LastUrl);
         }
 
         [Fact]
@@ -85,8 +87,13 @@ namespace NLMCL.Tests
                 _json = json;
             }
 
+            public string LastUrl { get; private set; } = string.Empty;
+
             public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
-                => Task.FromResult(_json);
+            {
+                LastUrl = url;
+                return Task.FromResult(_json);
+            }
 
             public Task<string> GetStringAsync(
                 string url, IReadOnlyDictionary<string, string> headers, CancellationToken cancellationToken)

@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -34,6 +36,33 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isScanning;
 
+        [ObservableProperty]
+        private string _scanDetailsText = string.Empty;
+
+        public bool HasScanDetails => !string.IsNullOrEmpty(ScanDetailsText);
+
+        partial void OnScanDetailsTextChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasScanDetails));
+        }
+
+        private void SetScanDetails(IReadOnlyList<LanInterfaceStatus> interfaces)
+        {
+            if (interfaces.Count == 0)
+            {
+                ScanDetailsText = string.Empty;
+                return;
+            }
+
+            ScanDetailsText = string.Join(
+                Environment.NewLine,
+                interfaces.Select(item =>
+                    (item.Joined ? "已监听" : "未监听")
+                    + "：" + item.Name
+                    + (string.IsNullOrWhiteSpace(item.Address) ? string.Empty : " " + item.Address)
+                    + (string.IsNullOrWhiteSpace(item.Error) ? string.Empty : "（" + item.Error + "）")));
+        }
+
         public bool HasRooms => Rooms.Count > 0;
 
         [RelayCommand]
@@ -46,6 +75,7 @@ namespace NLMCL.App.ViewModels
 
             IsScanning = true;
             Rooms.Clear();
+            ScanDetailsText = string.Empty;
             OnPropertyChanged(nameof(HasRooms));
             StatusText = "正在监听局域网广播（最多 10 秒）…";
 
@@ -53,9 +83,25 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                var rooms = await _scanner
-                    .ScanAsync(TimeSpan.FromSeconds(10), null, _cts.Token)
-                    .ConfigureAwait(true);
+                IReadOnlyList<LanRoom> rooms;
+
+                if (_scanner is ILanScannerDiagnostics diagnostics)
+                {
+                    LanScanReport report = await diagnostics
+                        .ScanWithReportAsync(TimeSpan.FromSeconds(10), null, _cts.Token)
+                        .ConfigureAwait(true);
+
+                    rooms = report.Rooms;
+                    SetScanDetails(report.Interfaces);
+                }
+                else
+                {
+                    rooms = await _scanner
+                        .ScanAsync(TimeSpan.FromSeconds(10), null, _cts.Token)
+                        .ConfigureAwait(true);
+
+                    SetScanDetails(Array.Empty<LanInterfaceStatus>());
+                }
 
                 foreach (LanRoom room in rooms)
                 {
@@ -65,7 +111,7 @@ namespace NLMCL.App.ViewModels
                 OnPropertyChanged(nameof(HasRooms));
 
                 StatusText = rooms.Count == 0
-                    ? "没有发现房间。确认对方已「对局域网开放」，且两台设备在同一网段。"
+                    ? "没有发现房间。请确认对方已开放局域网；校园网可能隔离客户端，可尝试手机热点、虚拟局域网或手动地址。"
                     : "发现 " + rooms.Count + " 个房间。";
             }
             catch (OperationCanceledException)

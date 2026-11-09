@@ -92,6 +92,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <Border Grid.Column="0" Background="{DynamicResource Surface}"
                             BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
@@ -100,7 +101,10 @@
                                    Foreground="{DynamicResource Text}"
                                    TextTrimming="CharacterEllipsis" />
                     </Border>
-                    <Button Grid.Column="1" Content="⟳ 刷新列表" Style="{StaticResource GhostButton}"
+                    <Button Grid.Column="1" Content="选择目录" Style="{StaticResource GhostButton}"
+                            Margin="8,0,0,0" Command="{Binding PickTargetDirectoryCommand}"
+                            ToolTip="选择这个版本要安装到的 .minecraft 目录" />
+                    <Button Grid.Column="2" Content="⟳ 刷新列表" Style="{StaticResource GhostButton}"
                             Margin="8,0,0,0" Command="{Binding LoadVersionsCommand}"
                             IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBool}}" />
                 </Grid>
@@ -256,6 +260,10 @@
                                  Foreground="{DynamicResource Primary}" Background="{DynamicResource Surface}"
                                  Margin="0,14,0,0"
                                  Visibility="{Binding HasProgress, Converter={StaticResource BoolToVisibility}}" />
+
+                    <TextBlock Text="{Binding ProgressDetails}" FontSize="9.5"
+                               Foreground="{DynamicResource Faint}" Margin="0,4,0,0"
+                               TextWrapping="Wrap" />
 
                     <TextBlock Text="{Binding StatusText}" FontSize="10.5"
                                Foreground="{DynamicResource Muted}" Margin="0,10,0,0"

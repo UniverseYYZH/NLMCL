@@ -158,6 +158,20 @@ namespace NLMCL.Tests
             Assert.False(vm.IsRunning);
             Assert.DoesNotContain(vm.Lines, line => line.Text.Contains("【崩溃】"));
         }
+        [Fact]
+        public void CloseAnalysis_hides_card_and_clears_text()
+        {
+            LaunchConsoleViewModel vm = new LaunchConsoleViewModel(
+                new FakeLauncher(), new Jdk(), new AppPaths(@"C:\Temp\roaming"), new ImmediateDispatcher());
+
+            vm.HasAnalysis = true;
+            vm.AnalysisText = "很长的崩溃分析";
+
+            vm.CloseAnalysis();
+
+            Assert.False(vm.HasAnalysis);
+            Assert.Empty(vm.AnalysisText);
+        }
     }
 
     public class AccountRefreshTests

@@ -31,18 +31,20 @@ namespace NLMCL.Core.Installing
             string path = uri.PathAndQuery;
 
             // 这几家：BMCLAPI 直接按相同路径代理
+            // 只镜像小体积元数据；二进制大文件（client.jar / 资源对象）走官方 CDN。
+            // 实测 BMCLAPI 的二进制链路在当前网络下 20–30 秒/文件，反而更慢。
             if (host == "launchermeta.mojang.com"
-                || host == "piston-meta.mojang.com"
-                || host == "piston-data.mojang.com"
-                || host == "launcher.mojang.com")
+                || host == "piston-meta.mojang.com")
             {
                 return MirrorBase + path;
             }
 
-            // 资源对象：resources.download.minecraft.net/<前两位>/<hash> → /assets/<前两位>/<hash>
+            // 资源对象（resources.download.minecraft.net）不走镜像：
+            // 实测 BMCLAPI 对大量几 KB 资源对象每个要 20–30 秒，官方 CDN 反而毫秒级。
+            // 资源包/光影/声音文件数量多，继续镜像会把整个安装拖到不可用。
             if (host == "resources.download.minecraft.net")
             {
-                return MirrorBase + "/assets" + path;
+                return null;
             }
 
             // Maven 库：libraries.minecraft.net/<路径> → /maven/<路径>
@@ -68,5 +70,32 @@ namespace NLMCL.Core.Installing
 
             return null;
         }
+
+        /// <summary>二进制文件：官方 CDN 失败时的后备镜像地址。</summary>
+        internal static string? TryRewriteForFallback(string url)
+        {
+            if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+            {
+                return null;
+            }
+
+            string host = uri.Host.ToLowerInvariant();
+            string path = uri.PathAndQuery;
+
+            if (host == "launcher.mojang.com" || host == "piston-data.mojang.com")
+            {
+                return MirrorBase + path;
+            }
+
+            if (host == "resources.download.minecraft.net")
+            {
+                return MirrorBase + "/assets" + path;
+            }
+
+            return null;
+        }
+
+        internal static bool IsBinaryHost(string url)
+            => TryRewriteForFallback(url) != null;
     }
 }

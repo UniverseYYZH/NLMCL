@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:NLMCL.App"
-             DataContext="{Binding DataContext, RelativeSource={RelativeSource AncestorType=Window}}"
+             DataContext="{Binding Settings, RelativeSource={RelativeSource AncestorType=Window}}"
+             PreviewKeyDown="OnPreviewKeyDown"
              FontFamily="{DynamicResource UiFont}">
 
     <UserControl.Resources>
@@ -13,13 +14,279 @@
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <local:InverseBooleanConverter x:Key="InverseBool" />
             <local:EmptyToVisibilityConverter x:Key="EmptyToVisibility" />
+            <local:SettingsSearchVisibilityConverter x:Key="SettingsSearchVisibility" />
+            <Style x:Key="SettingsFilterToggle" TargetType="ToggleButton">
+                <Setter Property="Background" Value="{DynamicResource Card}" />
+                <Setter Property="Foreground" Value="{DynamicResource Primary}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="Margin" Value="0,0,6,6" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="14" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimarySoft}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimarySoft}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Primary}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
     <StackPanel>
 
-        <!-- 游戏目录 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,0,10"
+                BorderBrush="{DynamicResource Amber}"
+                Visibility="{Binding HasSettingsReadOnlyWarning, Converter={StaticResource BoolToVisibility}}">
+            <StackPanel>
+                <TextBlock Text="设置文件只读" FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Amber}" />
+                <TextBlock Text="{Binding SettingsReadOnlyWarning}" FontSize="10"
+                           Foreground="{DynamicResource Text}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                <TextBlock Text="当前版本会继续使用已读取的值，但不会写回 settings.json。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" TextWrapping="Wrap" Margin="0,4,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- 当前生效 -->
         <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="当前生效" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <Border Background="{DynamicResource PrimarySoft}" CornerRadius="8"
+                            Padding="7,2" Margin="8,0,0,0" VerticalAlignment="Center"
+                            Visibility="{Binding IsPortableMode, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="便携模式" FontSize="9" Foreground="{DynamicResource Primary}" />
+                    </Border>
+                </StackPanel>
+                <TextBlock Text="这里显示实际会使用的默认值；下面才是具体设置项。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,4,0,0" />
+
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="92" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="游戏目录"
+                               FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,7" />
+                    <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,0,7">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="{Binding CurrentGameDirectory}" FontSize="10.5"
+                                       Foreground="{DynamicResource Text}"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Grid.Column="1" Text="{Binding GameDirectoryStatusText}" FontSize="9.5"
+                                       Foreground="{DynamicResource Faint}" Margin="10,0,0,0"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBlock Text="{Binding GameDirectoryDiskText}" FontSize="9"
+                                   Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="默认 Java"
+                               FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,7" />
+                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,0,0,7">
+                        <TextBlock Text="{Binding EffectiveJavaText}"
+                                   FontSize="10.5" Foreground="{DynamicResource Text}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding EffectiveJavaDetailText}" FontSize="9"
+                                   Foreground="{DynamicResource Faint}" TextWrapping="Wrap"
+                                   Margin="0,3,0,0" />
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="实例内存"
+                               FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,7" />
+                    <TextBlock Grid.Row="2" Grid.Column="1"
+                               Text="{Binding DefaultMemoryMb, StringFormat={}{0} MB（新实例默认）}"
+                               FontSize="10.5" Foreground="{DynamicResource Text}" Margin="0,0,0,7" />
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="下载"
+                               FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,0,0,7" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" FontSize="10.5"
+                               Foreground="{DynamicResource Text}" Margin="0,0,0,7">
+                        <Run Text="{Binding DownloadSourceText, Mode=OneWay}" />
+                        <Run Text=" · " />
+                        <Run Text="{Binding SelectedThreads, Mode=OneWay}" />
+                        <Run Text=" 线程 · " />
+                        <Run Text="{Binding SelectedSpeedLimit, Mode=OneWay}" />
+                    </TextBlock>
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="日志目录"
+                               FontSize="10" Foreground="{DynamicResource Muted}" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LogDirectory}"
+                               FontSize="10.5" Foreground="{DynamicResource Text}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 设置搜索 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,0,10">
+            <StackPanel>
+                <Border x:Name="SearchBorder" Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                        CornerRadius="6" Padding="8,5">
+                    <Grid>
+                        <TextBlock Text="搜索设置（例如 Java / 内存 / 下载 / 日志）"
+                                   FontSize="10.5" Foreground="{DynamicResource Faint}"
+                                   IsHitTestVisible="False"
+                                   Visibility="{Binding SearchInput, Converter={StaticResource EmptyToVisibility}}" />
+                        <TextBox x:Name="SettingsSearchBox"
+                                 Text="{Binding SearchInput, UpdateSourceTrigger=PropertyChanged}"
+                                 GotKeyboardFocus="OnSearchGotKeyboardFocus"
+                                 LostKeyboardFocus="OnSearchLostKeyboardFocus"
+                                 Background="Transparent" BorderThickness="0" FontSize="10.5"
+                                 Foreground="{DynamicResource Text}" />
+                    </Grid>
+                </Border>
+
+                <WrapPanel Margin="0,8,0,0">
+                    <ToggleButton Content="全部" Style="{StaticResource SettingsFilterToggle}"
+                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter=""
+                                  IsChecked="{Binding IsAllGroupActive, Mode=OneWay}" />
+                    <ToggleButton Content="通用" Style="{StaticResource SettingsFilterToggle}"
+                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="general"
+                                  IsChecked="{Binding IsGeneralGroupActive, Mode=OneWay}" />
+                    <ToggleButton Content="游戏与 Java" Style="{StaticResource SettingsFilterToggle}"
+                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="game"
+                                  IsChecked="{Binding IsGameGroupActive, Mode=OneWay}" />
+                    <ToggleButton Content="外观" Style="{StaticResource SettingsFilterToggle}"
+                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="appearance"
+                                  IsChecked="{Binding IsAppearanceGroupActive, Mode=OneWay}" />
+                    <ToggleButton Content="下载" Style="{StaticResource SettingsFilterToggle}"
+                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="download"
+                                  IsChecked="{Binding IsDownloadGroupActive, Mode=OneWay}" />
+                    <ToggleButton Content="日志与诊断" Style="{StaticResource SettingsFilterToggle}"
+                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="logs"
+                                  IsChecked="{Binding IsLogsGroupActive, Mode=OneWay}" />
+                    <ToggleButton Content="数据与备份" Style="{StaticResource SettingsFilterToggle}"
+                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="data"
+                                  IsChecked="{Binding IsDataGroupActive, Mode=OneWay}" />
+                </WrapPanel>
+
+                <Grid Margin="0,2,0,0">
+                    <TextBlock Text="没有匹配的设置" FontSize="9.5"
+                               Foreground="{DynamicResource Faint}"
+                               Visibility="{Binding HasNoSettingsSearchResults, Converter={StaticResource BoolToVisibility}}" />
+                    <Button Content="清除搜索" Style="{StaticResource GhostButton}" Padding="10,4"
+                            HorizontalAlignment="Right"
+                            IsEnabled="{Binding HasSearchInputText}"
+                            Command="{Binding ClearSettingsSearchCommand}" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <StackPanel Tag="通用 启动 页面 关闭 窗口 托盘 默认页 询问">
+            <StackPanel.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </StackPanel.Visibility>
+        <TextBlock Text="通用" FontSize="10" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+
+        <!-- 启动页面 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="通用 启动 页面 默认页">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="启动页面" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="作用域：全局 · 生效：下次启动"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,4,0,0" />
+
+                <ComboBox ItemsSource="{Binding DefaultPageOptions}"
+                          SelectedItem="{Binding SelectedDefaultPage}"
+                          Width="180" HorizontalAlignment="Left"
+                          Margin="0,10,0,0" Padding="8,5" />
+
+                <TextBlock Text="「上次页面」会记住本地版本 / 联机房间 / 版本下载这三次导航的最后一页。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,8,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- 关闭行为 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="通用 关闭 窗口 托盘 询问">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="关闭窗口行为" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="作用域：全局 · 生效：立即"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,4,0,0" />
+
+                <ComboBox ItemsSource="{Binding CloseBehaviorOptions}"
+                          SelectedItem="{Binding SelectedCloseBehavior}"
+                          Width="180" HorizontalAlignment="Left"
+                          Margin="0,10,0,0" Padding="8,5" />
+
+                <TextBlock Text="游戏仍在运行时关闭窗口会先确认；选择「最小化到托盘」时不会退出游戏。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,8,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        </StackPanel>
+
+        <StackPanel Tag="游戏 目录 Java 运行时 内存 启动 参数 JVM .minecraft 路径 新实例 预设 游戏参数">
+            <StackPanel.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </StackPanel.Visibility>
+        <TextBlock Text="游戏与 Java" FontSize="10" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+
+        <!-- 游戏目录 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="游戏 目录 .minecraft 路径">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
             <StackPanel>
                 <TextBlock Text="游戏目录" FontSize="13" FontWeight="SemiBold"
                            Foreground="{DynamicResource Text}" />
@@ -32,6 +299,9 @@
                     <TextBlock Text="{Binding CurrentGameDirectory}" FontSize="10.5"
                                Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
                 </Border>
+
+                <TextBlock Text="{Binding GameDirectoryDiskText}" FontSize="9.5"
+                           Foreground="{DynamicResource Faint}" Margin="0,6,0,0" />
 
                 <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                     <Button Content="更换目录" Style="{StaticResource GhostButton}" Padding="12,6"
@@ -46,52 +316,119 @@
             </StackPanel>
         </Border>
 
-        <!-- 默认 JVM 参数 -->
-            <!-- Java 运行时：探测列表 + 默认 Java -->
-            <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10">
-                <StackPanel>
-                    <TextBlock Text="Java 运行时" FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Text}" />
-                    <TextBlock Text="作用域：全局（所有实例）· 生效：下次启动"
-                               FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
+        <!-- Java 运行时 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="游戏 Java 运行时 探测 路径">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="Java 运行时" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="作用域：全局（所有实例）· 生效：下次启动"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
 
-                    <ItemsControl ItemsSource="{Binding JavaOptions}" Margin="0,10,0,0"
-                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ItemsControl ItemsSource="{Binding JavaOptions}" Margin="0,10,0,0"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <RadioButton GroupName="DefaultJava" Margin="0,0,0,6"
+                                         Foreground="{DynamicResource Text}"
+                                         IsChecked="{Binding IsSelected, Mode=TwoWay}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Title}" FontSize="11" />
+                                    <TextBlock Text="{Binding Subtitle}" FontSize="9"
+                                               Foreground="{DynamicResource Faint}"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </RadioButton>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button Content="重新探测" Style="{StaticResource GhostButton}" Padding="12,6"
+                            Command="{Binding RefreshJavaCommand}"
+                            IsEnabled="{Binding IsScanningJava, Converter={StaticResource InverseBool}}" />
+                    <Button Content="添加 Java…" Style="{StaticResource GhostButton}" Padding="12,6"
+                            Margin="8,0,0,0" Command="{Binding AddJavaCommand}"
+                            ToolTip="手动选择一个 javaw.exe / java.exe" />
+                    <TextBlock Text="{Binding JavaStatus}" FontSize="9.5" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Faint}" Margin="10,0,0,0"
+                               TextWrapping="Wrap" MaxWidth="320" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding EffectiveJavaDetailText}" FontSize="9.5"
+                           Foreground="{DynamicResource Faint}" Margin="0,6,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- 新实例默认内存 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="游戏 内存 新实例 默认 预设">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="新实例默认内存" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="作用域：全局 · 生效：新实例首次启动（已有实例不受影响）"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <TextBox Width="90" Padding="8,5" FontSize="11"
+                             Text="{Binding DefaultMemoryMb, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock Text="MB" FontSize="10.5" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Muted}" Margin="6,0,0,0" />
+                    <ItemsControl ItemsSource="{Binding MemoryPresets}" Margin="14,0,0,0">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <RadioButton GroupName="DefaultJava" Margin="0,0,0,6"
-                                             Foreground="{DynamicResource Text}"
-                                             IsChecked="{Binding IsSelected, Mode=TwoWay}">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Title}" FontSize="11" />
-                                        <TextBlock Text="{Binding Subtitle}" FontSize="9"
-                                                   Foreground="{DynamicResource Faint}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </RadioButton>
+                                <Button Style="{StaticResource GhostButton}" Margin="0,0,6,0"
+                                        Padding="10,4" FontSize="10" Content="{Binding}"
+                                        Command="{Binding DataContext.UseMemoryPresetCommand,
+                                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}" />
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-
-                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Content="重新探测" Style="{StaticResource GhostButton}" Padding="12,6"
-                                Command="{Binding RefreshJavaCommand}"
-                                IsEnabled="{Binding IsScanningJava, Converter={StaticResource InverseBool}}" />
-                        <TextBlock Text="{Binding JavaStatus}" FontSize="9.5" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource Faint}" Margin="10,0,0,0"
-                                   TextWrapping="Wrap" MaxWidth="320" />
-                    </StackPanel>
                 </StackPanel>
-            </Border>
 
-        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10">
+                <TextBlock Text="2048 够原版；装 100+ 模组的整合包建议 6144 以上（宝可梦服档案会自动设 6144）。已有实例可在本地版本卡片里单独改。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,8,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- 默认启动参数 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="游戏 启动 参数 JVM 游戏参数">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
             <StackPanel>
-                <TextBlock Text="默认 JVM 参数" FontSize="13" FontWeight="SemiBold"
+                <TextBlock Text="默认启动参数" FontSize="13" FontWeight="SemiBold"
                            Foreground="{DynamicResource Text}" />
                 <TextBlock Text="作用域：全局（所有实例）· 生效：下次启动" FontSize="9.5"
                            Foreground="{DynamicResource Faint}" Margin="0,4,0,0" />
 
-                <Border Background="{DynamicResource Surface}" Margin="0,10,0,0"
+                <TextBlock Text="JVM 参数" FontSize="10.5"
+                           Foreground="{DynamicResource Muted}" Margin="0,12,0,0" />
+                <Border Background="{DynamicResource Surface}" Margin="0,5,0,0"
                         BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                         CornerRadius="6" Padding="8,5">
                     <Grid>
@@ -105,14 +442,194 @@
                     </Grid>
                 </Border>
 
-                <TextBlock Text="会拼在实例自己的「额外参数」之前；两处都填就都生效（顺序：全局 → 实例）。"
+                <TextBlock Text="游戏参数" FontSize="10.5"
+                           Foreground="{DynamicResource Muted}" Margin="0,12,0,0" />
+                <Border Background="{DynamicResource Surface}" Margin="0,5,0,0"
+                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                        CornerRadius="6" Padding="8,5">
+                    <Grid>
+                        <TextBlock Text="例如 --demo"
+                                   FontSize="10.5" Foreground="{DynamicResource Faint}"
+                                   IsHitTestVisible="False"
+                                   Visibility="{Binding DefaultGameArgs, Converter={StaticResource EmptyToVisibility}}" />
+                        <TextBox Text="{Binding DefaultGameArgs, UpdateSourceTrigger=PropertyChanged}"
+                                 Background="Transparent" BorderThickness="0" FontSize="10.5"
+                                 Foreground="{DynamicResource Text}" />
+                    </Grid>
+                </Border>
+
+                <TextBlock Text="JVM 参数会拼在实例「额外参数」之前；游戏参数只传给游戏本体，也是全局 → 实例。不要在这里填 -Xmx（请用内存设置）。"
                            FontSize="9.5" Foreground="{DynamicResource Faint}"
                            Margin="0,8,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 
+        </StackPanel>
+
+        <StackPanel Tag="外观 主题 缩放 窗口 动效 高对比度">
+            <StackPanel.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </StackPanel.Visibility>
+        <TextBlock Text="外观" FontSize="10" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+
+        <!-- 外观 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="外观 主题 缩放 窗口 动效 高对比度">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="外观" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="主题" FontSize="10.5"
+                                   Foreground="{DynamicResource Muted}" />
+                        <ComboBox ItemsSource="{Binding ThemeOptions}"
+                                  SelectedItem="{Binding SelectedTheme}"
+                                  Width="150" Margin="0,5,0,0" Padding="8,5"
+                                  Background="{DynamicResource Surface}"
+                                  Foreground="{DynamicResource Text}"
+                                  BorderBrush="{DynamicResource BorderColor}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Margin="20,0,0,0" Width="230">
+                        <Grid>
+                            <TextBlock Text="窗口缩放" FontSize="10.5"
+                                       Foreground="{DynamicResource Muted}" />
+                            <TextBlock Text="{Binding UiScaleText}" FontSize="10.5"
+                                       HorizontalAlignment="Right"
+                                       Foreground="{DynamicResource Text}" />
+                        </Grid>
+                        <Slider Minimum="80" Maximum="150" TickFrequency="5"
+                                IsSnapToTickEnabled="True" Margin="0,8,0,0"
+                                Value="{Binding UiScalePercent, Mode=TwoWay}" />
+                    </StackPanel>
+                </Grid>
+
+                <StackPanel Margin="0,14,0,0" Width="400" HorizontalAlignment="Left">
+                    <Grid>
+                        <TextBlock Text="最大化缩放" FontSize="10.5"
+                                   Foreground="{DynamicResource Muted}" />
+                        <TextBlock Text="{Binding UiScaleMaximizedText}" FontSize="10.5"
+                                   HorizontalAlignment="Right"
+                                   Foreground="{DynamicResource Text}" />
+                    </Grid>
+                    <Slider Minimum="100" Maximum="200" TickFrequency="5"
+                            IsSnapToTickEnabled="True" Margin="0,8,0,0"
+                            Value="{Binding UiScaleMaximizedPercent, Mode=TwoWay}" />
+                </StackPanel>
+
+                <CheckBox Content="减少动效（跳过提示条滑入/淡出）"
+                          Margin="0,14,0,0" FontSize="10.5"
+                          Foreground="{DynamicResource Text}"
+                          IsChecked="{Binding ReduceMotion}" />
+
+                <TextBlock Text="普通窗口与最大化各记一档：默认 100% / 150%，最大化、还原时自动切换。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,10,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        </StackPanel>
+
+        <StackPanel Tag="下载 线程 限速 镜像 网络 BMCLAPI">
+            <StackPanel.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </StackPanel.Visibility>
+        <TextBlock Text="下载与网络" FontSize="10" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+
+        <!-- 下载与网络 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="下载 线程 限速 镜像 网络 BMCLAPI">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="下载与网络" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+
+                <StackPanel Width="230" HorizontalAlignment="Left" Margin="0,12,0,0">
+                    <TextBlock Text="下载线程" FontSize="10.5"
+                               Foreground="{DynamicResource Muted}" />
+                    <ComboBox ItemsSource="{Binding ThreadOptions}"
+                              SelectedItem="{Binding SelectedThreads}"
+                              Margin="0,5,0,0" Padding="8,5" />
+                </StackPanel>
+                <TextBlock Text="线程越多越快，但可能被服务器限速；6 是 PCL 的默认值。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,8,0,0" TextWrapping="Wrap" />
+
+                <StackPanel Width="230" HorizontalAlignment="Left" Margin="0,12,0,0">
+                    <TextBlock Text="下载限速" FontSize="10.5"
+                               Foreground="{DynamicResource Muted}" />
+                    <ComboBox ItemsSource="{Binding SpeedLimitOptions}"
+                              SelectedItem="{Binding SelectedSpeedLimit}"
+                              Margin="0,5,0,0" Padding="8,5" />
+                </StackPanel>
+                <TextBlock Text="限速只影响启动器下载；游戏内 AutoModpack 不受影响。修改后立即生效。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,8,0,0" TextWrapping="Wrap" />
+
+                <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,12,0,10" />
+                <TextBlock Text="{Binding DownloadRetryText}" FontSize="9.5"
+                           Foreground="{DynamicResource Faint}" TextWrapping="Wrap" />
+                <TextBlock Text="当前重试策略固定，不提供“看起来可调、实际不生效”的开关。"
+                           FontSize="9" Foreground="{DynamicResource Faint}"
+                           Margin="0,3,0,0" TextWrapping="Wrap" />
+
+                <Border Height="1" Background="{DynamicResource BorderColor}" Margin="0,12,0,12" />
+
+                <CheckBox Content="使用国内镜像（BMCLAPI 元数据）" Margin="0,0,0,0"
+                          IsChecked="{Binding UseMirror}"
+                          Foreground="{DynamicResource Text}" FontSize="11" />
+                <TextBlock Text="作用域：全局 · 生效：立即（下次下载就换源）"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,8,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="镜像只改 Mojang 元数据与库；客户端 jar、资源对象走官方 CDN（实测镜像二进制更慢）。失败会自动回退官方。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,4,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        </StackPanel>
+
+        <StackPanel Tag="日志 诊断 目录 诊断包">
+            <StackPanel.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </StackPanel.Visibility>
+        <TextBlock Text="日志与诊断" FontSize="10" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+
         <!-- 日志与诊断 -->
-        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10">
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="日志 诊断 目录 诊断包">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
             <StackPanel>
                 <TextBlock Text="日志与诊断" FontSize="13" FontWeight="SemiBold"
                            Foreground="{DynamicResource Text}" />
@@ -135,26 +652,175 @@
             </StackPanel>
         </Border>
 
-            <!-- 分区重置：只恢复设置默认值，不动账号/实例/存档 -->
-            <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10">
-                <StackPanel>
-                    <TextBlock Text="重置" FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Text}" />
-                    <TextBlock Text="只恢复设置默认值；账号、游戏目录、实例设置、存档都不动"
-                               FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
+        </StackPanel>
 
-                    <WrapPanel Margin="0,10,0,0">
-                        <Button Content="重置外观" Style="{StaticResource GhostButton}" Padding="12,6"
-                                Margin="0,0,8,8" Command="{Binding ResetAppearanceDefaultsCommand}" />
-                        <Button Content="重置下载" Style="{StaticResource GhostButton}" Padding="12,6"
-                                Margin="0,0,8,8" Command="{Binding ResetDownloadDefaultsCommand}" />
-                        <Button Content="重置启动" Style="{StaticResource GhostButton}" Padding="12,6"
-                                Margin="0,0,8,8" Command="{Binding ResetLaunchDefaultsCommand}" />
-                        <Button Content="全部重置" Style="{StaticResource GhostButton}" Padding="12,6"
-                                Command="{Binding ResetAllDefaultsCommand}" />
-                    </WrapPanel>
+        <StackPanel Tag="数据 备份 导入 导出 缓存 清理 重置 自动 快照 保留 启动前 恢复 默认">
+            <StackPanel.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </StackPanel.Visibility>
+        <TextBlock Text="数据与备份" FontSize="10" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+
+        <!-- 自动快照 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="数据 自动 快照 保留 启动前">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="启动前自动快照" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="作用域：全局 · 生效：下次启动游戏"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,4,0,0" />
+
+                <CheckBox Content="启动游戏前自动备份存档 / config / options.txt"
+                          IsChecked="{Binding AutoSnapshotBeforeLaunch}"
+                          Foreground="{DynamicResource Text}" FontSize="11"
+                          Margin="0,10,0,0" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <TextBlock Text="自动快照保留" FontSize="10.5" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Muted}" />
+                    <ComboBox ItemsSource="{Binding SnapshotRetentionOptions}"
+                              SelectedItem="{Binding SnapshotRetention}"
+                              Width="90" Margin="8,0,0,0" Padding="8,5" />
+                    <TextBlock Text="份" FontSize="10.5" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Muted}" Margin="6,0,0,0" />
                 </StackPanel>
-            </Border>
 
+                <TextBlock Text="只清理自动创建的快照，不删除手动快照。大存档可能让启动稍慢，默认关闭。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,8,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- 设置导入导出 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="数据 备份 导入 导出">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="设置导入导出" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="导出主题、缩放、下载、默认内存和启动参数；不含游戏目录、账号令牌、Java 路径"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,4,0,0"
+                           TextWrapping="Wrap" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <Button Content="导出设置…" Style="{StaticResource GhostButton}" Padding="12,6"
+                            Command="{Binding Transfer.ExportCommand}"
+                            IsEnabled="{Binding Transfer.IsBusy, Converter={StaticResource InverseBool}}" />
+                    <Button Content="导入设置…" Style="{StaticResource GhostButton}" Padding="12,6" Margin="8,0,0,0"
+                            Command="{Binding Transfer.ImportCommand}"
+                            IsEnabled="{Binding Transfer.IsBusy, Converter={StaticResource InverseBool}}" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding Transfer.StatusText}" FontSize="9.5"
+                           Foreground="{DynamicResource Faint}" Margin="0,8,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <!-- 缓存清理 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="数据 缓存 清理">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="缓存清理" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="只清理启动器自己的临时文件；不会动存档、mods、版本和资源库"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,4,0,0" />
+
+                <ItemsControl ItemsSource="{Binding Cache.Categories}" Margin="0,10,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <CheckBox IsChecked="{Binding IsSelected}"
+                                          VerticalAlignment="Top"
+                                          Foreground="{DynamicResource Text}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Title}" FontSize="11" />
+                                        <TextBlock Text="{Binding Description}" FontSize="9"
+                                                   Foreground="{DynamicResource Faint}"
+                                                   TextWrapping="Wrap" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </CheckBox>
+
+                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Top">
+                                    <TextBlock Text="{Binding SizeText}" FontSize="10.5"
+                                               HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource Text}" />
+                                    <TextBlock Text="{Binding CountText}" FontSize="9"
+                                               HorizontalAlignment="Right"
+                                               Foreground="{DynamicResource Faint}" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                    <Button Content="重新扫描" Style="{StaticResource GhostButton}" Padding="12,6"
+                            Command="{Binding Cache.RefreshCommand}"
+                            IsEnabled="{Binding Cache.IsBusy, Converter={StaticResource InverseBool}}" />
+                    <Button Content="清理选中" Style="{StaticResource GhostButton}" Padding="12,6" Margin="8,0,0,0"
+                            Command="{Binding Cache.CleanSelectedCommand}"
+                            IsEnabled="{Binding Cache.IsBusy, Converter={StaticResource InverseBool}}" />
+                    <TextBlock Text="{Binding Cache.StatusText}" FontSize="9.5" Margin="10,0,0,0"
+                               VerticalAlignment="Center" Foreground="{DynamicResource Faint}"
+                               TextWrapping="Wrap" MaxWidth="360" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <!-- 重置 -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="数据 重置 恢复 默认">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="重置" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="只恢复设置默认值；账号、游戏目录、实例设置、存档都不动"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
+
+                <WrapPanel Margin="0,10,0,0">
+                    <Button Content="重置外观" Style="{StaticResource GhostButton}" Padding="12,6"
+                            Margin="0,0,8,8" Command="{Binding ResetAppearanceDefaultsCommand}" />
+                    <Button Content="重置下载" Style="{StaticResource GhostButton}" Padding="12,6"
+                            Margin="0,0,8,8" Command="{Binding ResetDownloadDefaultsCommand}" />
+                    <Button Content="重置启动" Style="{StaticResource GhostButton}" Padding="12,6"
+                            Margin="0,0,8,8" Command="{Binding ResetLaunchDefaultsCommand}" />
+                    <Button Content="全部重置" Style="{StaticResource GhostButton}" Padding="12,6"
+                            Command="{Binding ResetAllDefaultsCommand}" />
+                </WrapPanel>
+            </StackPanel>
+        </Border>
+
+        </StackPanel>
     </StackPanel>
 </UserControl>

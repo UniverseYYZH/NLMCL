@@ -79,6 +79,9 @@ namespace NLMCL.Abstractions
     public interface IDownloadTuning
     {
         void ApplyThreadCount(int threads);
+
+        /// <summary>设置下载限速；0 表示不限速，单位为 MB/s。</summary>
+        void ApplySpeedLimit(int megabytesPerSecond);
     }
 
     public interface IVersionListProvider

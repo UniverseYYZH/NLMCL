@@ -213,6 +213,9 @@
             <ProgressBar Height="4" Minimum="0" Maximum="100" Value="{Binding Progress}"
                          Foreground="{DynamicResource Primary}" Background="{DynamicResource Surface}"
                          Visibility="{Binding HasProgress, Converter={StaticResource BoolToVisibility}}" />
+            <TextBlock Text="{Binding ProgressDetails}" FontSize="9.5"
+                       Foreground="{DynamicResource Faint}" Margin="0,4,0,0"
+                       TextWrapping="Wrap" />
             <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                 <TextBlock Text="{Binding StatusText}" FontSize="11" VerticalAlignment="Center"
                            Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />

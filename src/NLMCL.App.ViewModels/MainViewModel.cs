@@ -14,6 +14,7 @@ using NLMCL.Core.Installing;
 using NLMCL.Core.Networking;
 using NLMCL.Core.Servers;
 using NLMCL.Core.Settings;
+using NLMCL.Core.Maintenance;
 using System.Diagnostics;
 
 namespace NLMCL.App.ViewModels
@@ -21,7 +22,7 @@ namespace NLMCL.App.ViewModels
     /// <summary>
     /// 主窗口的展示逻辑。刻意不引用任何 WPF 类型，因此可以在没有 UI 线程的情况下单测。
     /// </summary>
-    public sealed partial class MainViewModel : ObservableObject
+    public sealed partial class MainViewModel : ObservableObject, ISettingsCommandHost
     {
         private readonly IVersionCatalog _catalog;
         private readonly IGameLauncher _launcher;
@@ -33,7 +34,7 @@ namespace NLMCL.App.ViewModels
         private readonly ILocalNetworkInfo _network;
         private readonly IClipboard _clipboard;
         private readonly IFolderPicker _folderPicker;
-        private readonly IAppSettingsStore _appSettings;
+        private readonly IAppSettingsService _appSettings;
     private readonly IMirrorSwitch? _mirror;
     private readonly IAppPaths _paths;
 
@@ -72,6 +73,13 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>皮肤服务（取账号头像用；可能为 null）。</summary>
         private readonly ISkinService? _skins;
+
+        /// <summary>头像请求代次：快速切换账号时，旧请求不能覆盖新账号的头像。</summary>
+        private int _avatarGeneration;
+
+        private readonly IGameDirectoryScanner? _directoryScanner;
+        private readonly IVersionDetailsService? _versionDetails;
+        private readonly IFilePicker? _filePicker;
 
         /// <summary>常用服务器（快捷入口）。</summary>
         private readonly IServerBookmarkStore? _bookmarks;
@@ -157,7 +165,14 @@ namespace NLMCL.App.ViewModels
             IFileDownloader? fileDownloader = null,
             IResourceCatalog? resourceCatalog = null,
             IFabricLoaderCatalog? fabricCatalog = null,
-            IMirrorSwitch? mirror = null)
+            IMirrorSwitch? mirror = null,
+            ICacheCleaner? cacheCleaner = null,
+            IAppSettingsService? appSettingsService = null,
+            ISettingsTransferService? settingsTransfer = null,
+            IFilePicker? filePicker = null,
+            IFileSavePicker? saveFilePicker = null,
+            IGameDirectoryScanner? directoryScanner = null,
+            IVersionDetailsService? versionDetails = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -169,9 +184,18 @@ namespace NLMCL.App.ViewModels
             _network = network ?? throw new ArgumentNullException(nameof(network));
             _clipboard = clipboard ?? throw new ArgumentNullException(nameof(clipboard));
             _folderPicker = folderPicker ?? throw new ArgumentNullException(nameof(folderPicker));
-            _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
-            _appSettings = appSettings ?? throw new ArgumentNullException(nameof(appSettings));
+            _appSettings = appSettingsService
+                ?? new AppSettingsService(appSettings ?? throw new ArgumentNullException(nameof(appSettings)));
             _paths = paths;
+            Cache = new CacheCleanupViewModel(
+                cacheCleaner ?? new CacheCleaner(paths),
+                dialogs);
+            Transfer = new SettingsTransferViewModel(
+                settingsTransfer ?? new SettingsTransferService(_appSettings),
+                filePicker,
+                saveFilePicker,
+                dialogs);
+            Transfer.Imported += () => _ = ApplyImportedSettingsAsync();
             _mirror = mirror;
             _sessionLauncher = sessionLauncher;
             _externalAuthenticator = externalAuthenticator;
@@ -180,6 +204,9 @@ namespace NLMCL.App.ViewModels
             _dialogs = dialogs;
             _appearance = appearance;
             _downloadTuning = downloadTuning;
+            _directoryScanner = directoryScanner;
+            _versionDetails = versionDetails;
+            _filePicker = filePicker;
             _resource = resource;
             _skin = skin;
             _lanScan = lanScan;
@@ -203,6 +230,7 @@ namespace NLMCL.App.ViewModels
             }
 
             Download = download ?? throw new ArgumentNullException(nameof(download));
+            Download.TargetDirectoryPicked += (_, path) => _ = ApplyDownloadDirectoryAsync(path);
 
 
             Console = console ?? throw new ArgumentNullException(nameof(console));
@@ -232,15 +260,37 @@ namespace NLMCL.App.ViewModels
 
             // 装完一个版本后自动重扫本地列表，省掉"回版本页再点扫描"这一步。
             Download.InstallCompleted += OnDownloadInstallCompleted;
+
+            Settings = new SettingsViewModel(
+                this, _javaLocator, _filePicker, _paths, Cache, Transfer, this);
+            Settings.SaveRequested += (_, __) => _ = SaveAppearanceAsync();
+            Settings.SpeedLimitChanged += (_, __) => OnSettingsSpeedLimitChanged();
+            Settings.ThreadsChanged += (_, __) => OnSettingsThreadsChanged();
+            Settings.MirrorChanged += (_, __) => OnSettingsMirrorChanged();
+            Settings.ThemeChanged += (_, __) => OnSettingsThemeChanged();
+            Settings.ScaleChanged += (_, __) => OnSettingsScaleChanged();
+            Settings.MemoryChanged += (_, __) => OnSettingsMemoryChanged();
+            Settings.LaunchArgsChanged += (_, __) => OnSettingsLaunchArgsChanged();
+            Settings.GeneralChanged += (_, __) => OnSettingsGeneralChanged();
+            Settings.DefaultJavaPathChanged += (_, __) => OnSettingsJavaPathChanged();
         }
 
         /// <summary>下载页的展示逻辑（由组合根注入）。</summary>
         public DownloadViewModel Download { get; }
 
+        /// <summary>设置页的 ViewModel 边界；当前状态仍由 MainViewModel 持有。</summary>
+        public SettingsViewModel Settings { get; }
+
 
 
         /// <summary>启动控制台的展示逻辑。</summary>
         public LaunchConsoleViewModel Console { get; }
+
+        /// <summary>设置页的缓存清理（独立 ViewModel，避免 MainViewModel 继续膨胀）。</summary>
+        public CacheCleanupViewModel Cache { get; }
+
+        /// <summary>设置导入导出。</summary>
+        public SettingsTransferViewModel Transfer { get; }
 
         /// <summary>
         /// 游戏目录是"一个"状态：本地版本、启动控制台、下载页必须看到同一个。
@@ -252,6 +302,13 @@ namespace NLMCL.App.ViewModels
         {
             Console.GameDirectory = value;
             Download.TargetDirectory = value;
+            OnPropertyChanged(nameof(GameDirectoryStatusText));
+            OnPropertyChanged(nameof(GameDirectoryDiskText));
+
+            if (!string.Equals(SelectedGameDirectory, value, StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedGameDirectory = value;
+            }
         }
 
         /// <summary>选中版本时把控制台的"版本目录名"一起带过去，省得用户再抄一遍。</summary>
@@ -273,6 +330,60 @@ namespace NLMCL.App.ViewModels
 
         public string ProductTagline => "Minecraft Launcher";
 
+        /// <summary>设置页“当前生效”摘要用。</summary>
+        public string GameDirectoryStatusText => Directory.Exists(CurrentGameDirectory)
+            ? "目录存在"
+            : "目录不存在";
+
+        /// <summary>当前游戏目录所在磁盘的可用空间。</summary>
+        public string GameDirectoryDiskText
+        {
+            get
+            {
+                try
+                {
+                    if (string.IsNullOrWhiteSpace(CurrentGameDirectory))
+                    {
+                        return "未选择目录";
+                    }
+
+                    string root = Path.GetPathRoot(Path.GetFullPath(CurrentGameDirectory))
+                        ?? string.Empty;
+
+                    if (string.IsNullOrWhiteSpace(root))
+                    {
+                        return "无法读取磁盘空间";
+                    }
+
+                    DriveInfo drive = new DriveInfo(root);
+
+                    if (!drive.IsReady)
+                    {
+                        return "磁盘未就绪";
+                    }
+
+                    return drive.Name.TrimEnd('\\') +
+                        " · 可用 " + FormatDiskSize(drive.AvailableFreeSpace) +
+                        " / " + FormatDiskSize(drive.TotalSize);
+                }
+                catch (Exception)
+                {
+                    return "无法读取磁盘空间";
+                }
+            }
+        }
+
+        public string EffectiveJavaText => Settings?.EffectiveJavaText ?? "自动（按版本要求）";
+
+        public string EffectiveJavaDetailText => Settings?.EffectiveJavaDetailText
+            ?? "自动：由启动器按每个实例需要的 Java 版本挑选";
+
+        public string DownloadSourceText => UseMirror ? "镜像（元数据）+ 官方 CDN" : "官方源";
+
+        public string DownloadRetryText => DownloadRetryPolicy.Describe();
+
+        public string LogDirectory => Path.Combine(_paths.DataRoot, "logs");
+
         public string StageLabel => "v1.0 · 全功能";
 
         public string StageHint => "版本 · 下载 · 启动 · 联机 · 快照 · 导入";
@@ -280,6 +391,30 @@ namespace NLMCL.App.ViewModels
         public IReadOnlyList<NavigationGroup> NavigationGroups { get; }
 
         public ObservableCollection<VersionItem> Versions { get; } = new ObservableCollection<VersionItem>();
+
+        public ObservableCollection<VersionDetailsLine> VersionDetailsLines { get; }
+            = new ObservableCollection<VersionDetailsLine>();
+
+        [ObservableProperty]
+        private bool _isVersionDetailsOpen;
+
+        [ObservableProperty]
+        private string _versionDetailsTitle = string.Empty;
+
+        [ObservableProperty]
+        private string _versionDetailsSubtitle = string.Empty;
+
+        /// <summary>用户添加过的 .minecraft 目录；当前目录是 <see cref="CurrentGameDirectory"/>。</summary>
+        public ObservableCollection<string> GameDirectories { get; } = new ObservableCollection<string>();
+
+        [ObservableProperty]
+        private bool _isScanningDirectories;
+
+        [ObservableProperty]
+        private string _scanProgressText = string.Empty;
+
+        private CancellationTokenSource? _scanDirectoriesCts;
+        private readonly List<string> _scanFoundDuringRun = new List<string>();
 
         [ObservableProperty]
         private NavigationItem? _selectedNavigation;
@@ -390,24 +525,49 @@ namespace NLMCL.App.ViewModels
             AccountName = value == null ? "未登录" : value.Name;
             AccountType = value == null ? "点击登录账号" : value.TypeLabel;
 
+            RefreshSavedAccountSelection();
+            _skin?.SetAccount(value);
+
+            if (IsSkinSection)
+            {
+                _skin?.ActivateLibrary();
+            }
+
             _ = LoadAvatarAsync(value);
         }
         /// <summary>拉取账号头像（头部正面）。失败就算了，侧栏继续显示 "?"。</summary>
         private async Task LoadAvatarAsync(Account? account)
         {
+            int generation = ++_avatarGeneration;
+
             if (_skins == null || account == null)
             {
-                AvatarPath = null;
+                if (generation == _avatarGeneration)
+                {
+                    AvatarPath = null;
+                }
+
                 return;
             }
 
             try
             {
-                AvatarPath = await _skins.GetAvatarAsync(account, CancellationToken.None).ConfigureAwait(true);
+                string? path = await _skins
+                    .GetAvatarAsync(account, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                // 切换账号后旧请求可能晚回来：只接受当前代次的结果。
+                if (generation == _avatarGeneration)
+                {
+                    AvatarPath = path;
+                }
             }
             catch (Exception)
             {
-                AvatarPath = null;
+                if (generation == _avatarGeneration)
+                {
+                    AvatarPath = null;
+                }
             }
         }
 
@@ -476,6 +636,29 @@ namespace NLMCL.App.ViewModels
 
         [ObservableProperty]
         private string _currentGameDirectory = string.Empty;
+
+        /// <summary>游戏目录下拉框的当前项。</summary>
+        [ObservableProperty]
+        private string? _selectedGameDirectory;
+
+        partial void OnSelectedGameDirectoryChanged(string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value)
+                && !string.Equals(value, CurrentGameDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                CurrentGameDirectory = value!;
+            }
+        }
+
+        [ObservableProperty]
+        private string _settingsReadOnlyWarning = string.Empty;
+
+        public bool HasSettingsReadOnlyWarning => !string.IsNullOrEmpty(SettingsReadOnlyWarning);
+
+        partial void OnSettingsReadOnlyWarningChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasSettingsReadOnlyWarning));
+        }
 
         [ObservableProperty]
         private string _statusText = "就绪";
@@ -588,8 +771,8 @@ namespace NLMCL.App.ViewModels
 
 
         /// <summary>已保存的账号（当前账号在第一位）。</summary>
-        public ObservableCollection<Account> SavedAccounts { get; }
-            = new ObservableCollection<Account>();
+        public ObservableCollection<AccountItemViewModel> SavedAccounts { get; }
+            = new ObservableCollection<AccountItemViewModel>();
 
         /// <summary>常用服务器列表（方块宁理三条线路 + 用户自定义）。</summary>
         public ObservableCollection<ServerBookmark> Servers { get; }
@@ -623,50 +806,332 @@ namespace NLMCL.App.ViewModels
         private bool _isSettingsSection;
 
         // ── 设置页的选项（界面用字符串，存盘时换算）─────────────────────────
-        public IReadOnlyList<string> ThemeOptions { get; } = new[] { "浅色", "深色", "跟随系统" };
+        public IReadOnlyList<string> ThemeOptions { get; } = new[] { "浅色", "深色", "高对比度", "跟随系统" };
 
-        [ObservableProperty]
-        private string _selectedTheme = "浅色";
+        public string SelectedTheme
+        {
+            get => Settings?.SelectedTheme ?? "浅色";
+            set
+            {
+                if (Settings != null && !string.Equals(Settings.SelectedTheme, value, StringComparison.Ordinal))
+                {
+                    Settings.SelectedTheme = value;
+                }
+            }
+        }
 
-        /// <summary>普通窗口的缩放（百分比，滑块 80–150）。</summary>
-        [ObservableProperty]
-        private double _uiScalePercent = 100;
+        public double UiScalePercent
+        {
+            get => Settings?.UiScalePercent ?? 100;
+            set
+            {
+                if (Settings != null && Math.Abs(Settings.UiScalePercent - value) > double.Epsilon)
+                {
+                    Settings.UiScalePercent = value;
+                }
+            }
+        }
 
-        /// <summary>最大化时的缩放（百分比，滑块 100–200）。</summary>
-        [ObservableProperty]
-        private double _uiScaleMaximizedPercent = 150;
-
-        public string UiScaleText => (int)Math.Round(UiScalePercent) + "%";
-
-        public string UiScaleMaximizedText => (int)Math.Round(UiScaleMaximizedPercent) + "%";
+        public double UiScaleMaximizedPercent
+        {
+            get => Settings?.UiScaleMaximizedPercent ?? 150;
+            set
+            {
+                if (Settings != null
+                    && Math.Abs(Settings.UiScaleMaximizedPercent - value) > double.Epsilon)
+                {
+                    Settings.UiScaleMaximizedPercent = value;
+                }
+            }
+        }
 
         public IReadOnlyList<string> ThreadOptions { get; } = new[] { "2", "4", "6", "8", "16" };
 
-        [ObservableProperty]
-        private string _selectedThreads = "6";
+        public string SelectedThreads
+        {
+            get => Settings?.SelectedThreads ?? "6";
+            set
+            {
+                if (Settings != null && !string.Equals(Settings.SelectedThreads, value, StringComparison.Ordinal))
+                {
+                    Settings.SelectedThreads = value;
+                }
+            }
+        }
+
+        public IReadOnlyList<string> SpeedLimitOptions { get; }
+            = new[] { "不限速", "1 MB/s", "2 MB/s", "5 MB/s", "10 MB/s" };
+
+        public string SelectedSpeedLimit
+        {
+            get => Settings?.SelectedSpeedLimit ?? "不限速";
+            set
+            {
+                if (Settings != null && !string.Equals(Settings.SelectedSpeedLimit, value, StringComparison.Ordinal))
+                {
+                    Settings.SelectedSpeedLimit = value;
+                }
+            }
+        }
+
+        public IReadOnlyList<string> DefaultPageOptions { get; }
+            = new[] { "上次页面", "本地版本", "联机房间", "版本下载" };
+
+        public string SelectedDefaultPage
+        {
+            get => Settings?.SelectedDefaultPage ?? "本地版本";
+            set
+            {
+                if (Settings != null && !string.Equals(Settings.SelectedDefaultPage, value, StringComparison.Ordinal))
+                {
+                    Settings.SelectedDefaultPage = value;
+                }
+            }
+        }
+
+        public bool AutoSnapshotBeforeLaunch
+        {
+            get => Settings?.AutoSnapshotBeforeLaunch ?? false;
+            set
+            {
+                if (Settings != null && Settings.AutoSnapshotBeforeLaunch != value)
+                {
+                    Settings.AutoSnapshotBeforeLaunch = value;
+                }
+            }
+        }
+
+        public IReadOnlyList<int> SnapshotRetentionOptions { get; } = new[] { 5, 10, 20 };
+
+        public int SnapshotRetention
+        {
+            get => Settings?.SnapshotRetention ?? 5;
+            set
+            {
+                if (Settings != null && Settings.SnapshotRetention != value)
+                {
+                    Settings.SnapshotRetention = value;
+                }
+            }
+        }
+
+        public IReadOnlyList<string> CloseBehaviorOptions { get; }
+            = new[] { "退出", "最小化到托盘", "每次询问" };
+
+        public string SelectedCloseBehavior
+        {
+            get => Settings?.SelectedCloseBehavior ?? "退出";
+            set
+            {
+                if (Settings != null && !string.Equals(Settings.SelectedCloseBehavior, value, StringComparison.Ordinal))
+                {
+                    Settings.SelectedCloseBehavior = value;
+                }
+            }
+        }
+
+        public bool ReduceMotion
+        {
+            get => Settings?.ReduceMotion ?? false;
+            set
+            {
+                if (Settings != null && Settings.ReduceMotion != value)
+                {
+                    Settings.ReduceMotion = value;
+                }
+            }
+        }
+
+        private void OnSettingsGeneralChanged()
+        {
+            if (_settingsLoaded)
+            {
+                _ = SaveAppearanceAsync();
+            }
+        }
+
+        private void OnSettingsJavaPathChanged()
+        {
+            OnPropertyChanged(nameof(EffectiveJavaText));
+            OnPropertyChanged(nameof(EffectiveJavaDetailText));
+
+            if (_settingsLoaded)
+            {
+                _ = SaveAppearanceAsync();
+            }
+        }
+
+        private static string CloseBehaviorKey(string? text)
+        {
+            switch (text)
+            {
+                case "最小化到托盘":
+                    return "tray";
+                case "每次询问":
+                    return "ask";
+                default:
+                    return "exit";
+            }
+        }
+
+        private static string CloseBehaviorText(string? key)
+        {
+            switch (key)
+            {
+                case "tray":
+                    return "最小化到托盘";
+                case "ask":
+                    return "每次询问";
+                default:
+                    return "退出";
+            }
+        }
+
+        private static string PageToKey(string? text)
+        {
+            switch (text)
+            {
+                case "上次页面":
+                    return "last";
+                case "联机房间":
+                    return "multiplayer";
+                case "版本下载":
+                    return "download";
+                default:
+                    return "versions";
+            }
+        }
+
+        private static string PageToText(string? key)
+        {
+            switch (key)
+            {
+                case "last":
+                    return "上次页面";
+                case "multiplayer":
+                    return "联机房间";
+                case "download":
+                    return "版本下载";
+                default:
+                    return "本地版本";
+            }
+        }
+
+        private void OnSettingsSpeedLimitChanged()
+        {
+            _downloadTuning?.ApplySpeedLimit(ParseSpeedLimit(SelectedSpeedLimit));
+
+            if (_settingsLoaded)
+            {
+                _ = SaveAppearanceAsync();
+            }
+        }
+
+        private static int ParseSpeedLimit(string? text)
+        {
+            switch (text)
+            {
+                case "1 MB/s":
+                    return 1;
+                case "2 MB/s":
+                    return 2;
+                case "5 MB/s":
+                    return 5;
+                case "10 MB/s":
+                    return 10;
+                default:
+                    return 0;
+            }
+        }
+
+        private static string SpeedLimitToText(int megabytesPerSecond)
+        {
+            switch (megabytesPerSecond)
+            {
+                case 1:
+                    return "1 MB/s";
+                case 2:
+                    return "2 MB/s";
+                case 5:
+                    return "5 MB/s";
+                case 10:
+                    return "10 MB/s";
+                default:
+                    return "不限速";
+            }
+        }
 
         /// <summary>默认内存（MB）：新建实例第一次启动时使用。</summary>
-        [ObservableProperty]
-        private int _defaultMemoryMb = 2048;
+        public int DefaultMemoryMb
+        {
+            get => Settings?.DefaultMemoryMb ?? 2048;
+            set
+            {
+                if (Settings != null && Settings.DefaultMemoryMb != value)
+                {
+                    Settings.DefaultMemoryMb = value;
+                }
+            }
+        }
 
         /// <summary>下载是否走国内镜像（BMCLAPI）。</summary>
-        [ObservableProperty]
-        private bool _useMirror = true;
+        public bool UseMirror
+        {
+            get => Settings?.UseMirror ?? true;
+            set
+            {
+                if (Settings != null && Settings.UseMirror != value)
+                {
+                    Settings.UseMirror = value;
+                }
+            }
+        }
 
         /// <summary>全局 JVM 参数（拼在实例参数之前）。</summary>
-        [ObservableProperty]
-        private string _defaultJvmArgs = string.Empty;
+        public string DefaultJvmArgs
+        {
+            get => Settings?.DefaultJvmArgs ?? string.Empty;
+            set
+            {
+                if (Settings != null && !string.Equals(Settings.DefaultJvmArgs, value, StringComparison.Ordinal))
+                {
+                    Settings.DefaultJvmArgs = value;
+                }
+            }
+        }
+
+        /// <summary>全局游戏参数（只传给游戏本体，拼在实例游戏参数之前）。</summary>
+        public string DefaultGameArgs
+        {
+            get => Settings?.DefaultGameArgs ?? string.Empty;
+            set
+            {
+                if (Settings != null && !string.Equals(Settings.DefaultGameArgs, value, StringComparison.Ordinal))
+                {
+                    Settings.DefaultGameArgs = value;
+                }
+            }
+        }
 
         /// <summary>内存预设，点一下直接填。</summary>
 
         /// <summary>全局默认 Java 的可执行文件路径；空表示自动。</summary>
-        [ObservableProperty]
-        private string? _defaultJavaPath;
+        public string? DefaultJavaPath
+        {
+            get => Settings?.DefaultJavaPath;
+            set
+            {
+                if (Settings != null && !string.Equals(Settings.DefaultJavaPath, value, StringComparison.Ordinal))
+                {
+                    Settings.DefaultJavaPath = value;
+                }
+            }
+        }
         public IReadOnlyList<string> MemoryPresets { get; } = new[] { "2048", "4096", "6144", "8192" };
 
         /// <summary>打开日志目录（%APPDATA%\NLMCL\logs）。</summary>
         [RelayCommand]
-        private void OpenLogsFolder()
+        public void OpenLogsFolder()
         {
             string logs = Path.Combine(_paths.DataRoot, "logs");
 
@@ -684,7 +1149,7 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>把日志与启动记录打成一个 zip，方便发给开发者。</summary>
         [RelayCommand]
-        private void CreateDiagnosticBundle()
+        public void CreateDiagnosticBundle()
         {
             try
             {
@@ -749,7 +1214,7 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>在资源管理器里打开当前游戏目录。</summary>
         [RelayCommand]
-        private void OpenGameDirectory()
+        public void OpenGameDirectory()
         {
             try
             {
@@ -776,75 +1241,77 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        partial void OnUseMirrorChanged(bool value)
+        private void OnSettingsMirrorChanged()
         {
-            if (!_settingsLoaded)
+            OnPropertyChanged(nameof(DownloadSourceText));
+
+            if (_mirror != null)
             {
-                return;
+                _mirror.Enabled = UseMirror;
             }
 
-            _ = SaveAppearanceAsync();
+            if (_settingsLoaded)
+            {
+                _ = SaveAppearanceAsync();
+            }
         }
 
-        partial void OnDefaultMemoryMbChanged(int value)
+        private void OnSettingsMemoryChanged()
         {
-            if (!_settingsLoaded)
+            if (_settingsLoaded)
             {
-                return;
+                _ = SaveAppearanceAsync();
             }
-
-            _ = SaveAppearanceAsync();
         }
 
-        partial void OnSelectedThreadsChanged(string value)
+        private void OnSettingsLaunchArgsChanged()
         {
-            if (!_settingsLoaded)
+            if (_settingsLoaded)
             {
-                return;
+                _ = SaveAppearanceAsync();
             }
+        }
 
-            if (int.TryParse(value, out int threads))
+        private void OnSettingsThreadsChanged()
+        {
+            if (int.TryParse(SelectedThreads, out int threads))
             {
                 _downloadTuning?.ApplyThreadCount(threads);
                 Download.Parallelism = threads;
             }
 
-            _ = SaveAppearanceAsync();
+            if (_settingsLoaded)
+            {
+                _ = SaveAppearanceAsync();
+            }
         }
 
-        partial void OnSelectedThemeChanged(string value)
+        private void OnSettingsThemeChanged()
         {
             if (!_settingsLoaded)
             {
                 return;
             }
 
-            _appearance?.ApplyTheme(ThemeFromText(value));
+            _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
             _ = SaveAppearanceAsync();
         }
 
-        partial void OnUiScalePercentChanged(double value)
+        private void OnSettingsScaleChanged()
         {
-            OnPropertyChanged(nameof(UiScaleText));
-
-            if (!_settingsLoaded || _appearance?.IsMaximized == true)
+            if (!_settingsLoaded)
             {
                 return;
             }
 
-            ScheduleScaleApply(ref _scaleDebounce);
-        }
-
-        partial void OnUiScaleMaximizedPercentChanged(double value)
-        {
-            OnPropertyChanged(nameof(UiScaleMaximizedText));
-
-            if (!_settingsLoaded || _appearance?.IsMaximized != true)
+            if (_appearance?.IsMaximized == true)
             {
-                return;
+                ScheduleScaleApply(ref _scaleMaximizedDebounce);
             }
-
-            ScheduleScaleApply(ref _scaleMaximizedDebounce);
+            else
+            {
+                ScheduleScaleApply(ref _scaleDebounce);
+            }
         }
 
         /// <summary>
@@ -899,6 +1366,11 @@ namespace NLMCL.App.ViewModels
                 return "dark";
             }
 
+            if (string.Equals(text, "高对比度", StringComparison.Ordinal))
+            {
+                return "highcontrast";
+            }
+
             return string.Equals(text, "跟随系统", StringComparison.Ordinal) ? "system" : "light";
         }
 
@@ -907,6 +1379,11 @@ namespace NLMCL.App.ViewModels
             if (string.Equals(theme, "dark", StringComparison.OrdinalIgnoreCase))
             {
                 return "深色";
+            }
+
+            if (string.Equals(theme, "highcontrast", StringComparison.OrdinalIgnoreCase))
+            {
+                return "高对比度";
             }
 
             return string.Equals(theme, "system", StringComparison.OrdinalIgnoreCase) ? "跟随系统" : "浅色";
@@ -932,6 +1409,7 @@ namespace NLMCL.App.ViewModels
             SelectedTheme = "浅色";
             UiScalePercent = 100;
             UiScaleMaximizedPercent = 150;
+            ReduceMotion = false;
 
             await SaveAppearanceAsync().ConfigureAwait(true);
             StatusText = "已重置外观设置";
@@ -947,17 +1425,18 @@ namespace NLMCL.App.ViewModels
             }
 
             SelectedThreads = "6";
+            SelectedSpeedLimit = "不限速";
             UseMirror = true;
 
             await SaveAppearanceAsync().ConfigureAwait(true);
             StatusText = "已重置下载设置";
         }
 
-        /// <summary>重置启动（默认内存 / 默认 Java / 全局 JVM 参数）。</summary>
+        /// <summary>重置启动（默认内存 / 默认 Java / 全局 JVM 与游戏参数）。</summary>
         [RelayCommand]
         public async Task ResetLaunchDefaultsAsync()
         {
-            if (!ConfirmReset("启动", "新实例默认内存、默认 Java、全局 JVM 参数"))
+            if (!ConfirmReset("启动", "新实例默认内存、默认 Java、全局 JVM 参数、全局游戏参数"))
             {
                 return;
             }
@@ -965,6 +1444,7 @@ namespace NLMCL.App.ViewModels
             DefaultMemoryMb = 2048;
             DefaultJavaPath = null;
             DefaultJvmArgs = string.Empty;
+            DefaultGameArgs = string.Empty;
 
             await SaveAppearanceAsync().ConfigureAwait(true);
 
@@ -980,7 +1460,7 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task ResetAllDefaultsAsync()
         {
-            if (!ConfirmReset("全部", "主题、缩放、下载、镜像、内存、Java、JVM 参数"))
+            if (!ConfirmReset("全部", "主题、缩放、下载、镜像、内存、Java、JVM 参数、游戏参数"))
             {
                 return;
             }
@@ -988,11 +1468,17 @@ namespace NLMCL.App.ViewModels
             SelectedTheme = "浅色";
             UiScalePercent = 100;
             UiScaleMaximizedPercent = 150;
+            ReduceMotion = false;
             SelectedThreads = "6";
+            SelectedSpeedLimit = "不限速";
             UseMirror = true;
             DefaultMemoryMb = 2048;
             DefaultJavaPath = null;
             DefaultJvmArgs = string.Empty;
+            DefaultGameArgs = string.Empty;
+            AutoSnapshotBeforeLaunch = false;
+            SnapshotRetention = 5;
+            SelectedCloseBehavior = "退出";
 
             await SaveAppearanceAsync().ConfigureAwait(true);
 
@@ -1015,18 +1501,41 @@ namespace NLMCL.App.ViewModels
         {
             try
             {
-                AppSettings settings = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+                // 先在 UI 线程取好值，再交给串行化服务落盘，避免回调里跨线程读 VM。
+                string theme = ThemeFromText(SelectedTheme);
+                double scale = ClampPercent(UiScalePercent) / 100.0;
+                double scaleMaximized = ClampMaximizedPercent(UiScaleMaximizedPercent) / 100.0;
+                int threads = int.TryParse(SelectedThreads, out int parsedThreads) ? parsedThreads : 6;
+                int speedLimit = ParseSpeedLimit(SelectedSpeedLimit);
+                int memory = DefaultMemoryMb <= 0 ? 2048 : DefaultMemoryMb;
+                bool mirror = UseMirror;
+                string? jvmArgs = string.IsNullOrWhiteSpace(DefaultJvmArgs) ? null : DefaultJvmArgs.Trim();
+                string? gameArgs = string.IsNullOrWhiteSpace(DefaultGameArgs) ? null : DefaultGameArgs.Trim();
+                string? javaPath = string.IsNullOrWhiteSpace(DefaultJavaPath) ? null : DefaultJavaPath;
+                string defaultPage = PageToKey(SelectedDefaultPage);
+                bool autoSnapshot = AutoSnapshotBeforeLaunch;
+                int snapshotRetention = SnapshotRetention;
+                string closeBehavior = CloseBehaviorKey(SelectedCloseBehavior);
+                bool reduceMotion = ReduceMotion;
 
-                settings.Theme = ThemeFromText(SelectedTheme);
-                settings.UiScale = ClampPercent(UiScalePercent) / 100.0;
-                settings.UiScaleMaximized = ClampMaximizedPercent(UiScaleMaximizedPercent) / 100.0;
-                settings.DownloadThreads = int.TryParse(SelectedThreads, out int threads) ? threads : 6;
-                settings.DefaultMemoryMb = DefaultMemoryMb <= 0 ? 2048 : DefaultMemoryMb;
-                settings.UseMirror = UseMirror;
-                settings.DefaultJvmArgs = string.IsNullOrWhiteSpace(DefaultJvmArgs) ? null : DefaultJvmArgs.Trim();
-                settings.DefaultJavaPath = string.IsNullOrWhiteSpace(DefaultJavaPath) ? null : DefaultJavaPath;
-
-                await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
+                await _appSettings.UpdateAsync(settings =>
+                {
+                    settings.Theme = theme;
+                    settings.ReduceMotion = reduceMotion;
+                    settings.UiScale = scale;
+                    settings.UiScaleMaximized = scaleMaximized;
+                    settings.DownloadThreads = threads;
+                    settings.DownloadSpeedLimitMb = speedLimit;
+                    settings.DefaultMemoryMb = memory;
+                    settings.UseMirror = mirror;
+                    settings.DefaultJvmArgs = jvmArgs;
+                    settings.DefaultGameArgs = gameArgs;
+                    settings.DefaultJavaPath = javaPath;
+                    settings.DefaultPage = defaultPage;
+                    settings.AutoSnapshotBeforeLaunch = autoSnapshot;
+                    settings.SnapshotRetention = snapshotRetention;
+                    settings.CloseBehavior = closeBehavior;
+                }, CancellationToken.None).ConfigureAwait(true);
 
                 if (_mirror != null)
                 {
@@ -1052,6 +1561,12 @@ namespace NLMCL.App.ViewModels
             if (item == null)
             {
                 return;
+            }
+
+            // 每次进入设置页都从「全部」开始，避免上次搜索把设置藏起来。
+            if (item.Section == ShellSection.Settings)
+            {
+                Settings?.ClearSettingsSearchCommand.Execute(null);
             }
 
             // 「实例快照」是独立页面：切过去时加载列表。
@@ -1089,13 +1604,15 @@ namespace NLMCL.App.ViewModels
 
             // 首次进入这两页时自动拉数据，避免"点进去一片空白，要手动刷新"
             if (IsDownloadSection)
+            {
+                _ = Download.EnsureLoadedAsync();
+            }
+
             if (IsSettingsSection)
             {
                 _ = EnsureJavaScannedAsync();
-            }
-
-            {
-                _ = Download.EnsureLoadedAsync();
+                Cache.GameDirectory = CurrentGameDirectory;
+                _ = Cache.RefreshAsync();
             }
 
             if (IsImportSection)
@@ -1109,10 +1626,79 @@ namespace NLMCL.App.ViewModels
             if (IsSkinSection)
             {
                 _skin?.SetAccount(Account);
+                _skin?.ActivateLibrary();
             }
             if (IsImportSection && _resource != null)
             {
                 _resource.SyncFromInstance(CurrentGameDirectory, SelectedVersion?.FolderName ?? string.Empty);
+            }
+
+            _ = SaveLastPageAsync(item.Section);
+        }
+
+        private void ApplyStartupPage(AppSettings settings)
+        {
+            string key = settings.DefaultPage;
+            if (string.Equals(key, "last", StringComparison.OrdinalIgnoreCase))
+            {
+                key = settings.LastPage;
+            }
+
+            ShellSection target;
+            switch (key)
+            {
+                case "multiplayer":
+                    target = ShellSection.Multiplayer;
+                    break;
+                case "download":
+                    target = ShellSection.Download;
+                    break;
+                default:
+                    target = ShellSection.Versions;
+                    break;
+            }
+
+            NavigationItem? item = NavigationGroups
+                .SelectMany(group => group.Items)
+                .FirstOrDefault(candidate => candidate.Section == target);
+
+            if (item != null)
+            {
+                SelectSection(item);
+            }
+        }
+
+        private async Task SaveLastPageAsync(ShellSection section)
+        {
+            if (!_settingsLoaded)
+            {
+                return;
+            }
+
+            string key;
+            switch (section)
+            {
+                case ShellSection.Multiplayer:
+                    key = "multiplayer";
+                    break;
+                case ShellSection.Download:
+                    key = "download";
+                    break;
+                case ShellSection.Versions:
+                    key = "versions";
+                    break;
+                default:
+                    return;
+            }
+
+            try
+            {
+                await _appSettings.UpdateAsync(
+                    settings => settings.LastPage = key, CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception)
+            {
+                // 页面记忆失败不影响使用
             }
         }
 
@@ -1128,6 +1714,8 @@ namespace NLMCL.App.ViewModels
             }
 
             CurrentGameDirectory = picked!;
+            EnsureCurrentDirectoryInList();
+            await SaveGameDirectoryAsync().ConfigureAwait(true);
             await RefreshAsync().ConfigureAwait(true);
         }
 
@@ -2042,12 +2630,52 @@ namespace NLMCL.App.ViewModels
 
                 foreach (Account item in accounts)
                 {
-                    SavedAccounts.Add(item);
+                    SavedAccounts.Add(new AccountItemViewModel(item)
+                    {
+                        IsCurrent = Account != null &&
+                            string.Equals(item.Uuid, Account.Uuid, StringComparison.OrdinalIgnoreCase)
+                    });
+                }
+
+                RefreshSavedAccountSelection();
+
+                // 头像各自异步拉：一个账号失败不影响其它行。
+                foreach (AccountItemViewModel item in SavedAccounts)
+                {
+                    _ = LoadSavedAccountAvatarAsync(item);
                 }
             }
             catch (Exception)
             {
                 // 读不到就空着
+            }
+        }
+
+        private void RefreshSavedAccountSelection()
+        {
+            foreach (AccountItemViewModel item in SavedAccounts)
+            {
+                item.IsCurrent = Account != null &&
+                    string.Equals(item.Account.Uuid, Account.Uuid, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private async Task LoadSavedAccountAvatarAsync(AccountItemViewModel item)
+        {
+            if (_skins == null)
+            {
+                return;
+            }
+
+            try
+            {
+                item.AvatarPath = await _skins
+                    .GetAvatarAsync(item.Account, CancellationToken.None)
+                    .ConfigureAwait(true);
+            }
+            catch (Exception)
+            {
+                // 头像失败就保留 "?"，不弹错误
             }
         }
         /// <summary>快捷入口：填入地址并直接启动（不探测端口——公网服务器常挡住端口探测）。</summary>
@@ -2126,10 +2754,19 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        /// <summary>把实例设置翻译成游戏参数：额外参数 + 窗口尺寸 + 全屏。</summary>
+        /// <summary>把实例设置翻译成游戏参数：全局默认 + 实例额外参数（窗口尺寸/全屏另走设置）。</summary>
         internal IReadOnlyList<string> BuildExtraGameArguments()
         {
             List<string> args = new List<string>();
+
+            string global = (DefaultGameArgs ?? string.Empty).Trim();
+
+            if (global.Length > 0)
+            {
+                args.AddRange(global.Split(
+                    new[] { ' ', '\t', '\r', '\n' },
+                    StringSplitOptions.RemoveEmptyEntries));
+            }
 
             string extra = (ExtraArguments ?? string.Empty).Trim();
 
@@ -2180,80 +2817,57 @@ namespace NLMCL.App.ViewModels
 // ---------- Java 运行时管理 ----------
 
         /// <summary>探测到的 Java 列表（第一项固定是「自动」）。</summary>
-        public ObservableCollection<JavaOption> JavaOptions { get; } = new ObservableCollection<JavaOption>();
+        private static readonly ObservableCollection<JavaOption> EmptyJavaOptions
+            = new ObservableCollection<JavaOption>();
 
-        /// <summary>当前选中的默认 Java；null 表示自动。</summary>
-        [ObservableProperty]
-        private JavaOption? _selectedJava;
+        public ObservableCollection<JavaOption> JavaOptions => Settings?.JavaOptions ?? EmptyJavaOptions;
 
-        /// <summary>是否正在探测 Java。</summary>
-        [ObservableProperty]
-        private bool _isScanningJava;
-
-        /// <summary>Java 列表的状态说明（探测数量 / 默认项）。</summary>
-        [ObservableProperty]
-        private string _javaStatus = "尚未探测";
-
-        /// <summary>重新探测本机 Java，并刷新可选列表。</summary>
-        [RelayCommand]
-        public async Task RefreshJavaAsync()
+        public JavaOption? SelectedJava
         {
-            if (IsScanningJava)
+            get => Settings?.SelectedJava;
+            set
             {
-                return;
-            }
-
-            IsScanningJava = true;
-            JavaStatus = "正在探测 Java…";
-
-            try
-            {
-                IReadOnlyList<JavaRuntime> javas = await _javaLocator
-                    .FindInstalledAsync(CancellationToken.None)
-                    .ConfigureAwait(true);
-
-                JavaOptions.Clear();
-
-                JavaOptions.Add(new JavaOption(null, "自动（按版本要求）", "由启动器按每个实例需要的 Java 版本挑选"));
-
-                foreach (JavaRuntime java in javas.OrderByDescending(item => item.Major))
+                if (Settings != null && !ReferenceEquals(Settings.SelectedJava, value))
                 {
-                    JavaOptions.Add(new JavaOption(
-                        java.ExecutablePath,
-                        "Java " + (java.Major > 0 ? java.Major.ToString() : "?") + " · " + java.Home,
-                        java.Exists ? java.ExecutablePath : java.ExecutablePath + "（文件不存在）"));
+                    Settings.SelectedJava = value;
                 }
-
-                // 恢复选中项：优先配置里的默认 Java
-                string? configured = DefaultJavaPath;
-                JavaOption? match = JavaOptions.FirstOrDefault(option =>
-                    option.Path != null
-                    && (string.Equals(option.Path, configured, StringComparison.OrdinalIgnoreCase)));
-
-                SelectedJava = match ?? JavaOptions[0];
-                SyncJavaSelection();
-
-                JavaStatus = javas.Count == 0
-                    ? "没有探测到 Java；启动时会尝试自动下载 Mojang 运行时"
-                    : "探测到 " + javas.Count + " 个 Java"
-                      + (match == null ? "（当前为自动）" : "（默认：" + match.Title + "）");
-            }
-            catch (Exception ex)
-            {
-                JavaStatus = "探测失败：" + ex.Message;
-            }
-            finally
-            {
-                IsScanningJava = false;
             }
         }
 
-        partial void OnSelectedJavaChanged(JavaOption? value)
+        public bool IsScanningJava
         {
-            DefaultJavaPath = value?.Path;
+            get => Settings?.IsScanningJava ?? false;
+            set
+            {
+                if (Settings != null)
+                {
+                    Settings.IsScanningJava = value;
+                }
+            }
+        }
 
-            SyncJavaSelection();
-            _ = SaveAppearanceAsync();
+        public string JavaStatus
+        {
+            get => Settings?.JavaStatus ?? "尚未探测";
+            set
+            {
+                if (Settings != null)
+                {
+                    Settings.JavaStatus = value;
+                }
+            }
+        }
+
+        /// <summary>兼容入口：真正的 Java 添加逻辑在 SettingsViewModel。</summary>
+        public Task AddJavaAsync()
+        {
+            return Settings.AddJavaAsync();
+        }
+
+        /// <summary>兼容入口：真正的 Java 探测逻辑在 SettingsViewModel。</summary>
+        public Task RefreshJavaAsync()
+        {
+            return Settings.RefreshJavaAsync();
         }
 
         /// <summary>让列表里的单选按钮与 SelectedJava 保持一致。</summary>
@@ -2338,9 +2952,10 @@ namespace NLMCL.App.ViewModels
             // 记住这次填的 id，下次不用再填（环境变量仍然优先）
             try
             {
-                AppSettings settings = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
-                settings.MicrosoftClientId = clientId;
-                await _appSettings.SaveAsync(settings, CancellationToken.None).ConfigureAwait(true);
+                string remembered = clientId!;
+                await _appSettings.UpdateAsync(
+                    settings => settings.MicrosoftClientId = remembered,
+                    CancellationToken.None).ConfigureAwait(true);
             }
             catch (Exception)
             {
@@ -2446,6 +3061,51 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>打开快照面板，并加载当前版本的快照列表。</summary>
         [RelayCommand]
+        /// <summary>启动前自动快照；失败不阻止启动。</summary>
+        internal async Task CreateAutoSnapshotAsync()
+        {
+            if (!AutoSnapshotBeforeLaunch
+                || _snapshotService == null
+                || SelectedVersion == null)
+            {
+                return;
+            }
+
+            try
+            {
+                StatusText = "正在创建启动前自动快照…";
+
+                await _snapshotService.CreateAsync(
+                    CurrentGameDirectory,
+                    SelectedVersion.FolderName,
+                    "[自动] 启动前",
+                    CancellationToken.None).ConfigureAwait(true);
+
+                int keep = SnapshotRetention <= 0 ? 5 : SnapshotRetention;
+                IReadOnlyList<SnapshotInfo> all = await _snapshotService
+                    .ListAsync(CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                foreach (SnapshotInfo old in all
+                    .Where(item => item.FolderName == SelectedVersion.FolderName
+                        && item.Note.StartsWith("[自动]", StringComparison.Ordinal))
+                    .OrderByDescending(item => item.CreatedAt)
+                    .Skip(keep))
+                {
+                    await _snapshotService
+                        .DeleteAsync(old.Id, CancellationToken.None)
+                        .ConfigureAwait(true);
+                }
+
+                StatusText = "已创建启动前自动快照。";
+            }
+            catch (Exception ex)
+            {
+                // 快照失败不能阻止玩家进游戏。
+                StatusText = "自动快照失败，继续启动：" + ex.Message;
+            }
+        }
+
         public async Task OpenSnapshotsAsync()
         {
             if (_snapshotService == null)
@@ -2692,11 +3352,17 @@ namespace NLMCL.App.ViewModels
             {
                 AppSettings settings = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
 
+                SettingsReadOnlyWarning = settings.IsReadOnly
+                    ? settings.ReadOnlyReason ?? "设置文件来自更高版本，当前版本不会覆盖它。"
+                    : string.Empty;
+
                 if (!string.IsNullOrWhiteSpace(settings.GameDirectory) &&
                     System.IO.Directory.Exists(settings.GameDirectory))
                 {
                     CurrentGameDirectory = settings.GameDirectory!;
                 }
+
+                LoadGameDirectories(settings);
 
                 // 微软登录的 client id：设置里存过就带出来（环境变量仍优先，构造函数里已设）
                 if (!string.IsNullOrWhiteSpace(settings.MicrosoftClientId))
@@ -2710,36 +3376,8 @@ namespace NLMCL.App.ViewModels
                 }
 
                 // 设置页的当前值 + 立刻应用一次外观（窗口可能已经显示，DynamicResource 会即时刷新）
-                SelectedTheme = ThemeToText(settings.Theme);
-                UiScalePercent = ClampPercent(settings.UiScale <= 0 ? 100 : settings.UiScale * 100);
-                UiScaleMaximizedPercent = ClampMaximizedPercent(
-                    settings.UiScaleMaximized <= 0 ? 150 : settings.UiScaleMaximized * 100);
-                SelectedThreads = (settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads).ToString();
-
-                _downloadTuning?.ApplyThreadCount(settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads);
-                Download.Parallelism = settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads;
-
-
-                DefaultMemoryMb = settings.DefaultMemoryMb <= 0 ? 2048 : settings.DefaultMemoryMb;
-                UseMirror = settings.UseMirror;
-                DefaultJvmArgs = settings.DefaultJvmArgs ?? string.Empty;
-                DefaultJavaPath = settings.DefaultJavaPath;
-
-                if (_mirror != null)
-                {
-                    _mirror.Enabled = settings.UseMirror;
-                }
-                _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
-
-                // 窗口最大化/还原时按对应档位重算（只订阅一次）
-                if (_appearance != null && !_windowStateHooked)
-                {
-                    _windowStateHooked = true;
-                    _appearance.WindowStateChanged += (_, __) => ApplyScaleForCurrentWindowState();
-                }
-
-                ApplyScaleForCurrentWindowState();
-
+                ApplySettingsToUi(settings);
+                ApplyStartupPage(settings);
                 _settingsLoaded = true;
             }
             catch (Exception ex)
@@ -2752,17 +3390,359 @@ namespace NLMCL.App.ViewModels
             await RefreshAsync().ConfigureAwait(true);
         }
 
+        /// <summary>
+        /// 把 AppSettings 应用到界面。Initialize 和设置导入共用，避免两套赋值逻辑漂移。
+        /// 应用期间暂时关闭自动保存，避免每个属性触一次落盘。
+        /// </summary>
+        private void ApplySettingsToUi(AppSettings settings)
+        {
+            bool wasLoaded = _settingsLoaded;
+            _settingsLoaded = false;
+
+            try
+            {
+                SelectedTheme = ThemeToText(settings.Theme);
+                ReduceMotion = settings.ReduceMotion;
+                UiScalePercent = ClampPercent(settings.UiScale <= 0 ? 100 : settings.UiScale * 100);
+                UiScaleMaximizedPercent = ClampMaximizedPercent(
+                    settings.UiScaleMaximized <= 0 ? 150 : settings.UiScaleMaximized * 100);
+                SelectedThreads = (settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads).ToString();
+                SelectedSpeedLimit = SpeedLimitToText(settings.DownloadSpeedLimitMb);
+                SelectedDefaultPage = PageToText(settings.DefaultPage);
+                AutoSnapshotBeforeLaunch = settings.AutoSnapshotBeforeLaunch;
+                SnapshotRetention = settings.SnapshotRetention <= 0 ? 5 : settings.SnapshotRetention;
+                SelectedCloseBehavior = CloseBehaviorText(settings.CloseBehavior);
+
+                _downloadTuning?.ApplyThreadCount(settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads);
+                _downloadTuning?.ApplySpeedLimit(settings.DownloadSpeedLimitMb);
+                Download.Parallelism = settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads;
+
+                DefaultMemoryMb = settings.DefaultMemoryMb <= 0 ? 2048 : settings.DefaultMemoryMb;
+                UseMirror = settings.UseMirror;
+                DefaultJvmArgs = settings.DefaultJvmArgs ?? string.Empty;
+                DefaultGameArgs = settings.DefaultGameArgs ?? string.Empty;
+                DefaultJavaPath = settings.DefaultJavaPath;
+
+                if (_mirror != null)
+                {
+                    _mirror.Enabled = settings.UseMirror;
+                }
+
+                _appearance?.ApplyTheme(ThemeFromText(SelectedTheme));
+            }
+            finally
+            {
+                _settingsLoaded = wasLoaded;
+            }
+
+            // 窗口最大化/还原时按对应档位重算（只订阅一次）
+            if (_appearance != null && !_windowStateHooked)
+            {
+                _windowStateHooked = true;
+                _appearance.WindowStateChanged += (_, __) => ApplyScaleForCurrentWindowState();
+            }
+
+            ApplyScaleForCurrentWindowState();
+        }
+
+        /// <summary>设置导入后重新读回并应用到界面。</summary>
+        private async Task ApplyImportedSettingsAsync()
+        {
+            try
+            {
+                AppSettings settings = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+                ApplySettingsToUi(settings);
+                StatusText = "已重新载入导入的设置";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "重新载入设置失败：" + ex.Message;
+            }
+        }
+
+        private void LoadGameDirectories(AppSettings settings)
+        {
+            GameDirectories.Clear();
+
+            foreach (string directory in settings.GameDirectories ?? new List<string>())
+            {
+                string normalized = NormalizeDirectory(directory);
+
+                if (!string.IsNullOrEmpty(normalized)
+                    && !GameDirectories.Any(item => string.Equals(
+                        item, normalized, StringComparison.OrdinalIgnoreCase)))
+                {
+                    GameDirectories.Add(normalized);
+                }
+            }
+
+            EnsureCurrentDirectoryInList();
+            SelectedGameDirectory = CurrentGameDirectory;
+        }
+
+        private void EnsureCurrentDirectoryInList()
+        {
+            string normalized = NormalizeDirectory(CurrentGameDirectory);
+
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return;
+            }
+
+            if (!GameDirectories.Any(item => string.Equals(
+                    item, normalized, StringComparison.OrdinalIgnoreCase)))
+            {
+                GameDirectories.Add(normalized);
+            }
+
+            SelectedGameDirectory = normalized;
+        }
+
+        private static string NormalizeDirectory(string? directory)
+        {
+            if (string.IsNullOrWhiteSpace(directory))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                string full = Path.GetFullPath(directory!);
+                string root = Path.GetPathRoot(full) ?? string.Empty;
+
+                return full.Length > root.Length
+                    ? full.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    : full;
+            }
+            catch (Exception)
+            {
+                return directory!.Trim();
+            }
+        }
+
+        [RelayCommand]
+        public async Task AddGameDirectoryAsync()
+        {
+            if (_folderPicker == null)
+            {
+                StatusText = "目录选择不可用。";
+                return;
+            }
+
+            string? picked = _folderPicker.PickFolder(
+                "选择 .minecraft 文件夹", CurrentGameDirectory);
+
+            if (string.IsNullOrWhiteSpace(picked))
+            {
+                return;
+            }
+
+            string directory = ResolveMinecraftDirectory(picked!);
+
+            if (!Directory.Exists(directory))
+            {
+                StatusText = "目录不存在：" + picked;
+                return;
+            }
+
+            if (!GameDirectories.Any(item => string.Equals(
+                    item, directory, StringComparison.OrdinalIgnoreCase)))
+            {
+                GameDirectories.Add(directory);
+            }
+
+            CurrentGameDirectory = directory;
+            SelectedGameDirectory = directory;
+            await SaveGameDirectoryAsync().ConfigureAwait(true);
+            await RefreshAsync().ConfigureAwait(true);
+        }
+
+        [RelayCommand]
+        public async Task ScanAllGameDirectoriesAsync()
+        {
+            if (_directoryScanner == null)
+            {
+                StatusText = "全盘扫描不可用。";
+                return;
+            }
+
+            if (IsScanningDirectories)
+            {
+                return;
+            }
+
+            IsScanningDirectories = true;
+            ScanProgressText = "正在准备扫描…";
+            StatusText = "正在扫描整台电脑的 .minecraft 目录…";
+            _scanFoundDuringRun.Clear();
+            _scanDirectoriesCts?.Dispose();
+            _scanDirectoriesCts = new CancellationTokenSource();
+            CancellationToken token = _scanDirectoriesCts.Token;
+
+            IProgress<GameDirectoryScanProgress> progress =
+                new Progress<GameDirectoryScanProgress>(item =>
+                {
+                    ScanProgressText = item.Stage +
+                        " · 已检查 " + item.ScannedDirectories +
+                        " 个目录 · 找到 " + item.FoundCount + " 个" +
+                        (string.IsNullOrWhiteSpace(item.CurrentDirectory)
+                            ? string.Empty
+                            : "\n" + item.CurrentDirectory);
+
+                    if (!string.IsNullOrWhiteSpace(item.FoundDirectory))
+                    {
+                        _scanFoundDuringRun.Add(item.FoundDirectory!);
+                    }
+                });
+
+            try
+            {
+                IReadOnlyList<string> found = await _directoryScanner
+                    .ScanAsync(progress, token)
+                    .ConfigureAwait(true);
+
+                int added = await ApplyScannedDirectoriesAsync(found).ConfigureAwait(true);
+
+                StatusText = "全盘扫描完成：发现 " + found.Count +
+                             " 个 .minecraft，新增 " + added + " 个目录";
+            }
+            catch (OperationCanceledException)
+            {
+                int added = await ApplyScannedDirectoriesAsync(_scanFoundDuringRun)
+                    .ConfigureAwait(true);
+
+                StatusText = "全盘扫描已停止：已发现 " + _scanFoundDuringRun.Count +
+                             " 个 .minecraft，新增 " + added + " 个目录";
+            }
+            catch (Exception ex)
+            {
+                StatusText = "全盘扫描失败：" + ex.Message;
+            }
+            finally
+            {
+                _scanDirectoriesCts?.Dispose();
+                _scanDirectoriesCts = null;
+                IsScanningDirectories = false;
+                ScanProgressText = string.Empty;
+            }
+        }
+
+        [RelayCommand]
+        public void StopScanAllGameDirectories()
+        {
+            _scanDirectoriesCts?.Cancel();
+        }
+
+        private async Task<int> ApplyScannedDirectoriesAsync(IEnumerable<string> paths)
+        {
+            int added = 0;
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string path in paths)
+            {
+                string directory = ResolveMinecraftDirectory(path);
+
+                if (!seen.Add(directory) || !Directory.Exists(directory))
+                {
+                    continue;
+                }
+
+                if (!GameDirectories.Any(item => string.Equals(
+                        item, directory, StringComparison.OrdinalIgnoreCase)))
+                {
+                    GameDirectories.Add(directory);
+                    added++;
+                }
+            }
+
+            if (GameDirectories.Count > 0
+                && (string.IsNullOrWhiteSpace(CurrentGameDirectory)
+                    || !Directory.Exists(CurrentGameDirectory)))
+            {
+                CurrentGameDirectory = GameDirectories[0];
+                SelectedGameDirectory = CurrentGameDirectory;
+            }
+
+            await SaveGameDirectoryAsync().ConfigureAwait(true);
+            await RefreshAsync().ConfigureAwait(true);
+            return added;
+        }
+
+        private static string ResolveMinecraftDirectory(string path)
+        {
+            string normalized = NormalizeDirectory(path);
+
+            if (string.IsNullOrEmpty(normalized))
+            {
+                return normalized;
+            }
+
+            // 用户可能选中了 .minecraft 的父目录（例如 E:\NLMCL-game）。
+            if (!string.Equals(
+                    Path.GetFileName(normalized), ".minecraft", StringComparison.OrdinalIgnoreCase))
+            {
+                string child = Path.Combine(normalized, ".minecraft");
+
+                if (Directory.Exists(child)
+                    && !Directory.Exists(Path.Combine(normalized, "versions")))
+                {
+                    return NormalizeDirectory(child);
+                }
+            }
+
+            return normalized;
+        }
+
+        [RelayCommand]
+        public async Task RemoveGameDirectoryAsync()
+        {
+            string directory = NormalizeDirectory(CurrentGameDirectory);
+
+            if (GameDirectories.Count <= 1)
+            {
+                StatusText = "至少保留一个游戏目录。";
+                return;
+            }
+
+            GameDirectories.Remove(directory);
+
+            if (GameDirectories.Count > 0
+                && string.Equals(CurrentGameDirectory, directory, StringComparison.OrdinalIgnoreCase))
+            {
+                CurrentGameDirectory = GameDirectories[0];
+            }
+
+            SelectedGameDirectory = CurrentGameDirectory;
+            await SaveGameDirectoryAsync().ConfigureAwait(true);
+            await RefreshAsync().ConfigureAwait(true);
+        }
+
+        private async Task ApplyDownloadDirectoryAsync(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            CurrentGameDirectory = path;
+            EnsureCurrentDirectoryInList();
+            await SaveGameDirectoryAsync().ConfigureAwait(true);
+        }
+
         /// <summary>记住当前游戏目录。</summary>
         private async Task SaveGameDirectoryAsync()
         {
             try
             {
                 // 只改目录：其它字段（主题、缩放、wizardCompleted、clientId）必须原样保留。
-                // 之前这里 new 了一个空 AppSettings，保存一次就把引导标记和 client id 抹掉了。
-                AppSettings current = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
-                current.GameDirectory = CurrentGameDirectory;
+                string directory = CurrentGameDirectory;
+                List<string> directories = GameDirectories.ToList();
 
-                await _appSettings.SaveAsync(current, CancellationToken.None).ConfigureAwait(true);
+                await _appSettings.UpdateAsync(settings =>
+                {
+                    settings.GameDirectory = directory;
+                    settings.GameDirectories = directories;
+                }, CancellationToken.None).ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -2868,6 +3848,10 @@ namespace NLMCL.App.ViewModels
             {
                 StatusText = "读取账号失败：" + ex.Message;
             }
+
+            // 当前账号读完后，把「已保存账号」列表也填上；
+            // 否则首次启动时弹层只有离线/微软登录，看不到可切换的账号。
+            await ReloadSavedAccountsAsync().ConfigureAwait(true);
         }
 
         /// <summary>外置账号续期；没装配认证器时抛异常，由调用方保留旧账号。</summary>
@@ -2895,12 +3879,146 @@ namespace NLMCL.App.ViewModels
                 candidate.IsSelected = ReferenceEquals(candidate, item);
             }
 
+            if (!string.IsNullOrWhiteSpace(item.GameDirectory)
+                && !string.Equals(item.GameDirectory, CurrentGameDirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                CurrentGameDirectory = item.GameDirectory;
+                SelectedGameDirectory = item.GameDirectory;
+            }
+
             SelectedVersion = item;
             HasSelection = true;
             StatusText = "已选择 " + item.Name;
 
             // 切版本时把该实例的设置带出来
             _ = LoadInstanceSettingsAsync(item);
+        }
+
+        /// <summary>打开某个版本的只读详情浮层。</summary>
+        [RelayCommand]
+        public void ShowVersionDetails(VersionItem item)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            SelectVersion(item);
+
+            VersionDetailsLines.Clear();
+            VersionDetailsTitle = "版本详情 · " + item.Name;
+            VersionDetailsSubtitle = item.GameDirectory;
+
+            AddVersionDetails("版本名称", item.Name);
+            AddVersionDetails("文件夹", item.FolderName);
+            AddVersionDetails("基础版本", item.MinecraftVersion);
+            AddVersionDetails("加载器", DescribeLoader(item.LoaderHint));
+            AddVersionDetails("类型", item.KindLabel);
+            AddVersionDetails("发布时间", item.ReleasedLabel);
+            AddVersionDetails("来源目录", item.GameDirectory);
+
+            VersionDetailsData? data = null;
+
+            try
+            {
+                data = _versionDetails?.Read(item.GameDirectory, item.FolderName);
+            }
+            catch (Exception ex)
+            {
+                AddVersionDetails("读取失败", ex.Message);
+            }
+
+            if (data != null)
+            {
+                AddVersionDetails("版本 JSON", data.VersionJsonExists
+                    ? data.VersionJsonPath
+                    : data.VersionJsonPath + "（缺失）");
+
+                AddVersionDetails("客户端 JAR", data.ClientJarExists
+                    ? data.ClientJarPath + "（" + FormatSize(data.ClientJarSize) + "）"
+                    : data.ClientJarPath + "（缺失）");
+
+                AddVersionDetails("版本 ID", data.VersionId ?? "未声明");
+                AddVersionDetails("主类", data.MainClass ?? "未声明");
+                AddVersionDetails("继承自", data.InheritsFrom ?? "无");
+                AddVersionDetails("资源索引", data.Assets ?? "未声明");
+                AddVersionDetails("Java 要求", data.JavaMajor.HasValue
+                    ? "Java " + data.JavaMajor.Value
+                    : "未声明");
+                AddVersionDetails("库数量", data.LibraryCount.ToString());
+                AddVersionDetails("模组数量", data.ModCount + " 个（mods 目录）");
+
+                if (!string.IsNullOrWhiteSpace(data.Error))
+                {
+                    AddVersionDetails("读取警告", data.Error!);
+                }
+            }
+            else
+            {
+                AddVersionDetails("详情读取", "详情服务不可用");
+            }
+
+            AddVersionDetails("实例内存", MemoryMb + " MB");
+            AddVersionDetails("实例 Java", string.IsNullOrWhiteSpace(JavaPath) ? "自动选择" : JavaPath);
+            AddVersionDetails("额外参数", string.IsNullOrWhiteSpace(ExtraArguments)
+                ? "无"
+                : ExtraArguments);
+
+            IsVersionDetailsOpen = true;
+        }
+
+        [RelayCommand]
+        public void CloseVersionDetails()
+        {
+            IsVersionDetailsOpen = false;
+        }
+
+        private void AddVersionDetails(string label, string value)
+        {
+            VersionDetailsLines.Add(new VersionDetailsLine(label, value));
+        }
+
+        private static string DescribeLoader(string loader)
+        {
+            if (string.IsNullOrWhiteSpace(loader))
+            {
+                return "原版";
+            }
+
+            switch (loader.ToLowerInvariant())
+            {
+                case "fabric":
+                    return "Fabric";
+                case "forge":
+                    return "Forge";
+                case "neoforge":
+                    return "NeoForge";
+                case "quilt":
+                    return "Quilt";
+                default:
+                    return loader;
+            }
+        }
+
+        private static string FormatSize(long bytes)
+        {
+            if (bytes < 1024)
+            {
+                return bytes + " B";
+            }
+
+            if (bytes < 1024L * 1024L)
+            {
+                return (bytes / 1024.0).ToString("0.0") + " KB";
+            }
+
+            return (bytes / (1024.0 * 1024.0)).ToString("0.0") + " MB";
+        }
+
+        private static string FormatDiskSize(long bytes)
+        {
+            double gb = bytes / (1024.0 * 1024.0 * 1024.0);
+            return gb.ToString("0.0") + " GB";
         }
 
         /// <summary>
@@ -3029,6 +4147,8 @@ namespace NLMCL.App.ViewModels
                     StatusText = "没有找到可用的 Java，请先安装 JDK 17 或更高版本";
                     return;
                 }
+
+                await CreateAutoSnapshotAsync().ConfigureAwait(true);
 
                 StatusText = "正在启动 " + SelectedVersion.Name + "（内存 " + MemoryMb + " MB）…";
 
@@ -3355,17 +4475,49 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                IReadOnlyList<MinecraftVersion> versions =
-                    await _catalog.GetInstalledAsync(CurrentGameDirectory, _scanCts.Token).ConfigureAwait(true);
+                EnsureCurrentDirectoryInList();
+
+                List<VersionItem> discovered = new List<VersionItem>();
+                List<string> ids = new List<string>();
+                int scanned = 0;
+
+                foreach (string directory in GameDirectories.ToList())
+                {
+                    scanned++;
+
+                    try
+                    {
+                        IReadOnlyList<MinecraftVersion> versions = await _catalog
+                            .GetInstalledAsync(directory, _scanCts.Token)
+                            .ConfigureAwait(true);
+
+                        foreach (MinecraftVersion version in versions)
+                        {
+                            discovered.Add(new VersionItem(
+                                version, !version.HasClientJar, directory));
+                            ids.Add(version.Id);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        StatusText = "目录扫描失败（" + directory + "）：" + ex.Message;
+                    }
+                }
 
                 Versions.Clear();
-                foreach (MinecraftVersion version in versions)
+
+                foreach (VersionItem item in discovered)
                 {
-                    Versions.Add(new VersionItem(version, !version.HasClientJar));
+                    item.ShowDirectory = scanned > 1;
+                    Versions.Add(item);
                 }
 
                 // 下载页的"已安装"标记跟着本地列表走（装完会自动重扫，这里顺带刷新标记）
-                Download.MarkInstalled(versions.Select(version => version.Id));
+                Download.MarkInstalled(ids.Distinct(StringComparer.OrdinalIgnoreCase));
 
                 UpdateSummary();
 
@@ -3374,7 +4526,9 @@ namespace NLMCL.App.ViewModels
                 if (Versions.Count > 0)
                 {
                     bool previousStillExists = SelectedVersion != null &&
-                        Versions.Any(item => item.FolderName == SelectedVersion.FolderName);
+                        Versions.Any(item =>
+                            string.Equals(item.FolderName, SelectedVersion.FolderName, StringComparison.Ordinal)
+                            && string.Equals(item.GameDirectory, SelectedVersion.GameDirectory, StringComparison.OrdinalIgnoreCase));
 
                     if (!previousStillExists)
                     {
@@ -3382,13 +4536,14 @@ namespace NLMCL.App.ViewModels
                     }
                 }
 
-                // 扫描成功说明这个目录可用，记下来下次直接用
+                // 扫描成功说明目录列表可用，记下来下次直接用
                 await SaveGameDirectoryAsync().ConfigureAwait(true);
 
                 IsEmpty = Versions.Count == 0;
+                string directorySuffix = scanned > 1 ? " · 扫描 " + scanned + " 个目录" : string.Empty;
                 StatusText = IsEmpty
-                    ? "未发现已安装版本"
-                    : "共 " + Versions.Count + " 个版本";
+                    ? "未发现已安装版本" + directorySuffix
+                    : "共 " + Versions.Count + " 个版本" + directorySuffix;
             }
             catch (OperationCanceledException)
             {

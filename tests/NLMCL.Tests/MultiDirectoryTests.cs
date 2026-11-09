@@ -1,0 +1,126 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using NLMCL.Abstractions;
+using NLMCL.App.ViewModels;
+using Xunit;
+
+namespace NLMCL.Tests
+{
+    /// <summary>多目录：扫描全部目录，选中版本时切换活动目录。</summary>
+    public sealed class MultiDirectoryTests
+    {
+        [Fact]
+        public async Task Scans_all_directories_and_switches_active_directory()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-multi-" + Guid.NewGuid().ToString("N"));
+            string first = System.IO.Path.Combine(root, "one");
+            string second = System.IO.Path.Combine(root, "two");
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(first);
+                System.IO.Directory.CreateDirectory(second);
+
+                TestSupport.FakeAppSettings settings = new TestSupport.FakeAppSettings();
+                settings.Current.GameDirectory = first;
+                settings.Current.GameDirectories = new List<string> { first, second };
+
+                MainViewModel vm = TestSupport.CreateMain(
+                    new MultiCatalog(first, second),
+                    new NLMCL.Core.AppPaths(root),
+                    appSettings: settings);
+
+                await vm.InitializeAsync();
+
+                Assert.Equal(2, vm.Versions.Count);
+                Assert.Equal(2, vm.GameDirectories.Count);
+                Assert.Contains(vm.Versions, item => item.GameDirectory == first);
+                Assert.Contains(vm.Versions, item => item.GameDirectory == second);
+
+                VersionItem target = vm.Versions.First(item => item.GameDirectory == second);
+                vm.SelectVersion(target);
+
+                Assert.Equal(target.GameDirectory, vm.CurrentGameDirectory);
+            }
+            finally
+            {
+                try
+                {
+                    System.IO.Directory.Delete(root, true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Add_folder_button_uses_folder_picker()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-pick-" + Guid.NewGuid().ToString("N"));
+            string picked = System.IO.Path.Combine(root, ".minecraft");
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(picked);
+
+                TestSupport.FakeFolderPicker picker = new TestSupport.FakeFolderPicker
+                {
+                    Next = picked
+                };
+
+                MainViewModel vm = TestSupport.CreateMain(
+                    new TestSupport.EmptyCatalog(),
+                    new NLMCL.Core.AppPaths(root),
+                    folderPicker: picker);
+
+                await vm.InitializeAsync();
+                await vm.AddGameDirectoryAsync();
+
+                Assert.Contains(vm.GameDirectories, item =>
+                    string.Equals(item, picked, StringComparison.OrdinalIgnoreCase));
+                Assert.Equal(picked, vm.CurrentGameDirectory);
+            }
+            finally
+            {
+                try
+                {
+                    System.IO.Directory.Delete(root, true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+
+        private sealed class MultiCatalog : IVersionCatalog
+        {
+            private readonly string _first;
+            private readonly string _second;
+
+            public MultiCatalog(string first, string second)
+            {
+                _first = first;
+                _second = second;
+            }
+
+            public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
+                string minecraftDirectory, CancellationToken cancellationToken)
+            {
+                string id = string.Equals(minecraftDirectory, _first, StringComparison.OrdinalIgnoreCase)
+                    ? "1.20.1"
+                    : "1.21.1";
+
+                return Task.FromResult<IReadOnlyList<MinecraftVersion>>(new[]
+                {
+                    new MinecraftVersion(id, id, VersionKind.Release, DateTimeOffset.Now)
+                });
+            }
+        }
+    }
+}

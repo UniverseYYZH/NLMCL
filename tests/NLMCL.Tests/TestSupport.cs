@@ -350,7 +350,12 @@ namespace NLMCL.Tests
             ResourceViewModel? resource = null,
             IServerBookmarkStore? bookmarks = null,
             IServerProfileStore? profileStore = null,
-            IAccountStore? accounts = null)
+            IAccountStore? accounts = null,
+            ISkinService? skins = null,
+            SkinViewModel? skin = null,
+            IFolderPicker? folderPicker = null,
+            IVersionDetailsService? versionDetails = null,
+            IFilePicker? filePicker = null)
         {
             return new MainViewModel(
                 catalog,
@@ -364,7 +369,7 @@ namespace NLMCL.Tests
                 new MemoryInstanceSettingsStore(),
                 new FakeNetwork(),
                 new FakeClipboard(),
-                new FakeFolderPicker(),
+                (folderPicker ?? new FakeFolderPicker()),
                 (appSettings ?? new FakeAppSettings()),
                 javaInstaller: null,
                 sessionLauncher: sessionLauncher,
@@ -373,7 +378,11 @@ namespace NLMCL.Tests
                 appearance: appearance,
                 resource: resource,
                 bookmarks: bookmarks,
-                profileStore: profileStore);
+                profileStore: profileStore,
+                skins: skins,
+                skin: skin,
+                versionDetails: versionDetails,
+                filePicker: filePicker);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {
@@ -399,6 +408,64 @@ namespace NLMCL.Tests
                 ResourceFile file, ResourceKind kind, string minecraftDirectory, string versionFolder,
                 CancellationToken cancellationToken)
                 => Task.FromResult(Path.Combine(minecraftDirectory, "mods", file.Name));
+        }
+
+        internal sealed class NoopSkinService : ISkinService
+        {
+            public Func<Account, Task<string?>>? AvatarHandler { get; set; }
+
+            private static string DefaultSkinPath =>
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
+
+            public Task<SkinInfo?> GetAsync(Account account, CancellationToken cancellationToken)
+                => Task.FromResult<SkinInfo?>(null);
+
+            public Task<string> SaveAsync(SkinInfo skin, CancellationToken cancellationToken)
+                => Task.FromResult(string.Empty);
+
+            public Task SavePreviewAsync(string url, string targetPath, CancellationToken cancellationToken)
+                => Task.CompletedTask;
+
+            public Task<string> ImportLocalAsync(
+                string sourcePath, string playerName, CancellationToken cancellationToken)
+                => Task.FromResult(sourcePath);
+
+            public Task<string> ImportLocalAsync(
+                Account account, string sourcePath, CancellationToken cancellationToken)
+                => Task.FromResult(sourcePath);
+
+            public Task<string?> GetLocalSkinPathAsync(
+                Account account, CancellationToken cancellationToken)
+                => Task.FromResult<string?>(null);
+
+            public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
+                => Task.FromResult(skinPngPath);
+
+            public Task<string> Create3DPreviewAsync(
+                string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
+                CancellationToken cancellationToken)
+                => Task.FromResult(skinPngPath);
+
+            public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
+                => AvatarHandler == null
+                    ? Task.FromResult<string?>(null)
+                    : AvatarHandler(account);
+
+            public string GetDefaultSkinPath() => DefaultSkinPath;
+
+            public Task<string> GetDefaultSkinAsync(CancellationToken cancellationToken)
+                => Task.FromResult(DefaultSkinPath);
+
+            public Task<SkinInfo?> LookupByNameAsync(string playerName, CancellationToken cancellationToken)
+                => Task.FromResult<SkinInfo?>(null);
+
+            public IReadOnlyList<SkinPreset> GetPresets() => Array.Empty<SkinPreset>();
+
+            public string GetPresetPath(string presetId) => string.Empty;
+
+            public Task<string> SavePresetAsync(
+                string presetId, string playerName, CancellationToken cancellationToken)
+                => Task.FromResult(string.Empty);
         }
 
     }

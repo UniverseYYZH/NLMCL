@@ -20,6 +20,14 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _hasAnalysis;
 
+        /// <summary>关闭崩溃分析卡片；日志区随即恢复完整高度。</summary>
+        [RelayCommand]
+        public void CloseAnalysis()
+        {
+            HasAnalysis = false;
+            AnalysisText = string.Empty;
+        }
+
         [RelayCommand]
         public async Task AnalyzeCrashAsync()
         {

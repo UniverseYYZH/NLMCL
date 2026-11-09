@@ -32,6 +32,7 @@ namespace NLMCL.Core.Resources
 
         private readonly IDownloadService _download;
         private readonly IAppPaths _paths;
+        private readonly object _localSkinGate = new object();
 
         public SkinService(IDownloadService download, IAppPaths paths)
         {
@@ -164,6 +165,155 @@ namespace NLMCL.Core.Resources
             return Task.FromResult(target);
         }
 
+        public async Task<string> ImportLocalAsync(
+            Account account, string sourcePath, CancellationToken cancellationToken)
+        {
+            if (account == null)
+            {
+                throw new ArgumentNullException(nameof(account));
+            }
+
+            string saved = await ImportLocalAsync(sourcePath, account.Name, cancellationToken)
+                .ConfigureAwait(false);
+
+            RememberLocalSkin(account, saved);
+            return saved;
+        }
+
+        public Task<string?> GetLocalSkinPathAsync(
+            Account account, CancellationToken cancellationToken)
+        {
+            if (account == null)
+            {
+                return Task.FromResult<string?>(null);
+            }
+
+            lock (_localSkinGate)
+            {
+                Dictionary<string, string> map = ReadLocalSkinMap();
+
+                if (map.TryGetValue(AccountKey(account), out string? mapped)
+                    && !string.IsNullOrWhiteSpace(mapped)
+                    && File.Exists(mapped))
+                {
+                    return Task.FromResult<string?>(mapped);
+                }
+            }
+
+            // 兼容旧版本：当时只把文件写进 skins 目录，还没有 manifest。
+            return Task.FromResult(FindLatestLocalSkin(account));
+        }
+
+        private string LocalSkinMapPath => Path.Combine(_paths.SkinDirectory, "local-skins.json");
+
+        private static string AccountKey(Account account)
+        {
+            string uuid = (account.Uuid ?? string.Empty).Replace("-", string.Empty).Trim();
+            return uuid.Length > 0 ? uuid.ToLowerInvariant() : SafeName(account.Name).ToLowerInvariant();
+        }
+
+        private void RememberLocalSkin(Account account, string path)
+        {
+            Directory.CreateDirectory(_paths.SkinDirectory);
+
+            lock (_localSkinGate)
+            {
+                Dictionary<string, string> map = ReadLocalSkinMap();
+                map[AccountKey(account)] = path;
+
+                JObject root = new JObject
+                {
+                    ["version"] = 1
+                };
+
+                JObject accounts = new JObject();
+
+                foreach (KeyValuePair<string, string> pair in map)
+                {
+                    accounts[pair.Key] = pair.Value;
+                }
+
+                root["accounts"] = accounts;
+
+                string temp = LocalSkinMapPath + ".tmp";
+                File.WriteAllText(temp, root.ToString(), new UTF8Encoding(false));
+
+                if (File.Exists(LocalSkinMapPath))
+                {
+                    File.Replace(temp, LocalSkinMapPath, null);
+                }
+                else
+                {
+                    File.Move(temp, LocalSkinMapPath);
+                }
+            }
+        }
+
+        private Dictionary<string, string> ReadLocalSkinMap()
+        {
+            Dictionary<string, string> map = new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
+
+            try
+            {
+                if (!File.Exists(LocalSkinMapPath))
+                {
+                    return map;
+                }
+
+                JObject root = JObject.Parse(File.ReadAllText(LocalSkinMapPath, Encoding.UTF8));
+                JObject? accounts = root["accounts"] as JObject;
+
+                if (accounts == null)
+                {
+                    return map;
+                }
+
+                foreach (JProperty property in accounts.Properties())
+                {
+                    string? path = property.Value.Type == JTokenType.String
+                        ? property.Value.ToString()
+                        : null;
+
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        map[property.Name] = path!;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // manifest 损坏就当没有；旧文件兜底还能找到皮肤
+            }
+
+            return map;
+        }
+
+        private string? FindLatestLocalSkin(Account account)
+        {
+            try
+            {
+                if (!Directory.Exists(_paths.SkinDirectory))
+                {
+                    return null;
+                }
+
+                string prefix = SafeName(account.Name) + "-local-";
+
+                string? newest = Directory.GetFiles(_paths.SkinDirectory, "*.png")
+                    .Where(file => Path.GetFileName(file)
+                        .StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .FirstOrDefault();
+
+                return newest != null && File.Exists(newest) ? newest : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
         public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
         {
             string output = Path.Combine(
@@ -254,38 +404,94 @@ namespace NLMCL.Core.Resources
 
         public async Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
         {
-            SkinInfo? skin;
-
-            try
+            if (account == null)
             {
-                skin = await GetAsync(account, cancellationToken).ConfigureAwait(false);
-            }
-            catch (Exception)
-            {
-                // 皮肤接口挂了不该让头像消失：退回默认皮肤
-                skin = null;
+                return null;
             }
 
-            string source;
+            // 同一个账号会被侧栏、账号列表、皮肤页同时请求头像；
+            // 用唯一文件名，避免并发写同一个 PNG 时互相覆盖/触发 GDI+ 占用错误。
+            string requestId = Guid.NewGuid().ToString("N").Substring(0, 10);
 
-            if (skin == null || string.IsNullOrWhiteSpace(skin.SkinUrl))
+            string? localSkin = await GetLocalSkinPathAsync(account, cancellationToken)
+                .ConfigureAwait(false);
+
+            string? source = null;
+
+            if (account.Type == AccountType.Offline && localSkin != null)
             {
-                source = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
+                // 离线账号没有服务端皮肤：优先用用户自己保存的那张。
+                source = localSkin;
             }
             else
             {
-                source = Path.Combine(
-                    Path.GetTempPath(), "nlmcl-skin-src-" + SafeName(account.Name) + ".png");
+                SkinInfo? skin = null;
 
-                await _download.DownloadFileAsync(skin.SkinUrl!, source, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    skin = await GetAsync(account, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    // 皮肤接口挂了不该让头像消失：退回本地皮肤/默认皮肤
+                }
+
+                if (skin?.SkinUrl != null)
+                {
+                    try
+                    {
+                        string downloaded = Path.Combine(
+                            Path.GetTempPath(),
+                            "nlmcl-skin-src-" + AccountKey(account) + "-" + requestId + ".png");
+
+                        await _download
+                            .DownloadFileAsync(skin.SkinUrl, downloaded, cancellationToken)
+                            .ConfigureAwait(false);
+
+                        source = downloaded;
+                    }
+                    catch (Exception)
+                    {
+                        source = localSkin;
+                    }
+                }
+                else
+                {
+                    source = localSkin;
+                }
+            }
+
+            if (source == null)
+            {
+                source = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
             }
 
             string avatar = Path.Combine(
-                Path.GetTempPath(), "nlmcl-avatar-" + SafeName(account.Name) + ".png");
+                Path.GetTempPath(),
+                "nlmcl-avatar-" + AccountKey(account) + "-" + requestId + ".png");
 
-            SkinAvatarRenderer.RenderHead(source, avatar, 8);
+            try
+            {
+                SkinAvatarRenderer.RenderHead(source, avatar, 8);
+                return avatar;
+            }
+            catch (Exception)
+            {
+                // 官方皮肤 URL 偶尔会返回损坏/HTML 内容；再用默认 Steve 渲染一次，
+                // 不要因为一张坏图把侧栏头像变成空白。
+                try
+                {
+                    string fallback = await GetDefaultSkinAsync(cancellationToken)
+                        .ConfigureAwait(false);
 
-            return avatar;
+                    SkinAvatarRenderer.RenderHead(fallback, avatar, 8);
+                    return avatar;
+                }
+                catch (Exception)
+                {
+                    return null;
+                }
+            }
         }
 
         // ---------- 内置预设皮肤 ----------
@@ -396,19 +602,47 @@ namespace NLMCL.Core.Resources
                 .FirstOrDefault(item => string.Equals(
                     item.Value<string>("name"), "textures", StringComparison.OrdinalIgnoreCase));
 
-            if (property == null)
+            if (property != null)
             {
-                return new SkinInfo(name, null, "default", source);
+                string? value = property.Value<string>("value");
+
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    SkinInfo parsed = ParseTexturesProperty(value!, name, source);
+
+                    // 老格式（Mojang sessionserver / Yggdrasil）能解析就直接用。
+                    if (parsed.SkinUrl != null)
+                    {
+                        return parsed;
+                    }
+                }
             }
 
-            string? value = property.Value<string>("value");
-
-            if (string.IsNullOrWhiteSpace(value))
+            // 新版 Minecraft Services 的 /minecraft/profile 不再返回
+            // properties[textures]，而是在顶层给 skins / capes 数组：
+            //   "skins":[{"url":"...","variant":"CLASSIC","state":"ACTIVE"}]
+            if (root["skins"] is JArray skins && skins.Count > 0)
             {
-                return new SkinInfo(name, null, "default", source);
+                JToken? active = skins.FirstOrDefault(item => string.Equals(
+                    item.Value<string>("state"), "ACTIVE", StringComparison.OrdinalIgnoreCase));
+                JToken selected = active ?? skins[0];
+
+                string? url = selected.Value<string>("url");
+                string variant = selected.Value<string>("variant") ?? "CLASSIC";
+
+                if (!string.IsNullOrWhiteSpace(url))
+                {
+                    return new SkinInfo(
+                        name,
+                        NormalizeTextureUrl(url),
+                        string.Equals(variant, "SLIM", StringComparison.OrdinalIgnoreCase)
+                            ? "slim"
+                            : "default",
+                        source);
+                }
             }
 
-            return ParseTexturesProperty(value!, name, source);
+            return new SkinInfo(name, null, "default", source);
         }
 
         /// <summary>base64 → JSON → 皮肤 URL 与模型。</summary>
@@ -434,12 +668,31 @@ namespace NLMCL.Core.Resources
                 string? url = skin?.Value<string>("url");
                 string model = skin?.SelectToken("metadata.model")?.Value<string>() ?? "default";
 
-                return new SkinInfo(playerName, url, model, source);
+                return new SkinInfo(playerName, NormalizeTextureUrl(url), model, source);
             }
             catch (Exception)
             {
                 return new SkinInfo(playerName, null, "default", source);
             }
+        }
+
+        private static string? NormalizeTextureUrl(string? url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return url;
+            }
+
+            // Mojang 的 profile 仍返回 http://textures.minecraft.net/...；
+            // 用 https 下载更稳，也避免中间网络设备拦截明文 HTTP。
+            const string httpPrefix = "http://textures.minecraft.net/";
+
+            if (url.StartsWith(httpPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return "https://textures.minecraft.net/" + url.Substring(httpPrefix.Length);
+            }
+
+            return url;
         }
 
         private static string SafeName(string name)

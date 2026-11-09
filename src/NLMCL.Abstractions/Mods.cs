@@ -80,9 +80,18 @@ namespace NLMCL.Abstractions
         Task DeleteAsync(ModEntry entry, CancellationToken cancellationToken);
     }
 
+    /// <summary>一次更新检查的结果；由 UI 线程写回 ModEntry，避免跨线程通知。</summary>
+    public sealed class ModUpdateInfo
+    {
+        public string? LatestVersion { get; set; }
+
+        public string? ProjectUrl { get; set; }
+    }
+
     /// <summary>更新检查：按文件 SHA1 反查 Modrinth，再比最新版本号。</summary>
     public interface IModUpdateChecker
     {
-        Task CheckAsync(ModEntry entry, string? gameVersion, string? loader, CancellationToken cancellationToken);
+        Task<ModUpdateInfo?> CheckAsync(
+            ModEntry entry, string? gameVersion, string? loader, CancellationToken cancellationToken);
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -13,13 +14,11 @@ namespace NLMCL.Core.Lan
 {
     /// <summary>
     /// 局域网发现 + 状态查询。
-    ///
-    /// 发现：Minecraft 开"对局域网开放"时每秒向 <c>224.0.2.60:4445</c> 广播
-    /// <c>[MOTD]标题[/MOTD][AD]端口[/AD]</c>。这里加入组播组收包，收满 timeout 或安静 1.5 秒就结束。
-    ///
+    /// 发现：Minecraft 开“对局域网开放”时每秒向 <c>224.0.2.60:4445</c> 广播
+    /// <c>[MOTD]标题[/MOTD][AD]端口[/AD]</c>。这里对所有活动 IPv4 网卡加入组播组收包。
     /// 查询：对每个房间走 SLP，拿版本、在线人数、MOTD；查不到也保留房间（标未响应）。
     /// </summary>
-    public sealed class LanScanner : ILanScanner
+    public sealed class LanScanner : ILanScanner, ILanScannerDiagnostics
     {
         public const int DiscoveryPort = 4445;
 
@@ -35,11 +34,20 @@ namespace NLMCL.Core.Lan
         public async Task<IReadOnlyList<LanRoom>> ScanAsync(
             TimeSpan timeout, IProgress<LanRoom>? progress, CancellationToken cancellationToken)
         {
-            List<LanRoom> rooms = await DiscoverAsync(timeout, cancellationToken).ConfigureAwait(false);
+            LanScanReport report = await ScanWithReportAsync(timeout, progress, cancellationToken)
+                .ConfigureAwait(false);
+            return report.Rooms;
+        }
+
+        public async Task<LanScanReport> ScanWithReportAsync(
+            TimeSpan timeout, IProgress<LanRoom>? progress, CancellationToken cancellationToken)
+        {
+            (List<LanRoom> rooms, List<LanInterfaceStatus> interfaces) =
+                await DiscoverAsync(timeout, cancellationToken).ConfigureAwait(false);
 
             if (rooms.Count == 0)
             {
-                return rooms;
+                return new LanScanReport(rooms, interfaces);
             }
 
             // 逐个 SLP，最多 8 个并发
@@ -76,7 +84,7 @@ namespace NLMCL.Core.Lan
                         }
                         catch (Exception)
                         {
-                            // 房间可能已关闭：保留条目，标记未响应
+                            // 房间可能已关闭：保留条目，标未响应
                         }
                         finally
                         {
@@ -89,20 +97,24 @@ namespace NLMCL.Core.Lan
                 await Task.WhenAll(tasks).ConfigureAwait(false);
             }
 
-            return rooms
+            List<LanRoom> sorted = rooms
                 .OrderByDescending(room => room.Pinged)
                 .ThenByDescending(room => room.Online)
                 .ToList();
+
+            return new LanScanReport(sorted, interfaces);
         }
 
         /// <summary>监听组播广播，按 endpoint 去重。</summary>
-        internal static async Task<List<LanRoom>> DiscoverAsync(
+        internal static async Task<(List<LanRoom> Rooms, List<LanInterfaceStatus> Interfaces)> DiscoverAsync(
             TimeSpan timeout, CancellationToken cancellationToken)
         {
             ConcurrentDictionary<string, LanRoom> found =
                 new ConcurrentDictionary<string, LanRoom>(StringComparer.OrdinalIgnoreCase);
 
-            using (UdpClient client = new UdpClient())
+            List<LanInterfaceStatus> interfaces = new List<LanInterfaceStatus>();
+
+            using (UdpClient client = new UdpClient(AddressFamily.InterNetwork))
             {
                 client.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
@@ -110,19 +122,60 @@ namespace NLMCL.Core.Lan
                 {
                     client.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
                 }
-                catch (SocketException)
+                catch (SocketException ex)
                 {
-                    // 端口被占用（例如 PCL 自己也在听）：直接返回空，不抛给界面
-                    return new List<LanRoom>();
+                    interfaces.Add(new LanInterfaceStatus(
+                        "UDP " + DiscoveryPort,
+                        "0.0.0.0",
+                        false,
+                        "端口被占用，无法监听：" + ex.Message));
+                    return (new List<LanRoom>(), interfaces);
                 }
 
                 try
                 {
-                    client.JoinMulticastGroup(IPAddress.Parse(MulticastGroup));
+                    client.Client.SetSocketOption(
+                        SocketOptionLevel.IP,
+                        SocketOptionName.MulticastLoopback,
+                        true);
+                    client.Client.SetSocketOption(
+                        SocketOptionLevel.IP,
+                        SocketOptionName.MulticastTimeToLive,
+                        1);
                 }
                 catch (SocketException)
                 {
-                    // 某些网络（校园网/虚拟网卡）不允许组播，退化成只听单播广播
+                    // 某些系统不允许改这些选项，继续用默认值。
+                }
+
+                IPAddress group = IPAddress.Parse(MulticastGroup);
+
+                foreach ((string name, string address) in EnumerateIPv4Addresses())
+                {
+                    IPAddress parsed = IPAddress.Parse(address);
+
+                    try
+                    {
+                        client.Client.SetSocketOption(
+                            SocketOptionLevel.IP,
+                            SocketOptionName.AddMembership,
+                            new MulticastOption(group, parsed));
+
+                        interfaces.Add(new LanInterfaceStatus(name, address, true, null));
+                    }
+                    catch (SocketException ex)
+                    {
+                        interfaces.Add(new LanInterfaceStatus(name, address, false, ex.Message));
+                    }
+                }
+
+                if (interfaces.Count == 0)
+                {
+                    interfaces.Add(new LanInterfaceStatus(
+                        "IPv4 网卡",
+                        string.Empty,
+                        false,
+                        "没有找到可用的 IPv4 网卡"));
                 }
 
                 using (CancellationTokenSource deadline =
@@ -162,7 +215,37 @@ namespace NLMCL.Core.Lan
                 }
             }
 
-            return found.Values.ToList();
+            return (found.Values.ToList(), interfaces);
+        }
+
+        /// <summary>活动网卡的 IPv4 地址，含 VPN，排除回环/未连接。</summary>
+        internal static IEnumerable<(string Name, string Address)> EnumerateIPv4Addresses()
+        {
+            HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (NetworkInterface network in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (network.OperationalStatus != OperationalStatus.Up
+                    || network.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                {
+                    continue;
+                }
+
+                foreach (UnicastIPAddressInformation unicast in network.GetIPProperties().UnicastAddresses)
+                {
+                    if (unicast.Address.AddressFamily != AddressFamily.InterNetwork)
+                    {
+                        continue;
+                    }
+
+                    string address = unicast.Address.ToString();
+
+                    if (seen.Add(address))
+                    {
+                        yield return (network.Name, address);
+                    }
+                }
+            }
         }
 
         /// <summary>解析 <c>[MOTD]...[/MOTD][AD]25565[/AD]</c>。</summary>

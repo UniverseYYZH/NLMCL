@@ -8,13 +8,13 @@ using NLMCL.Abstractions;
 namespace NLMCL.Core.Installing
 {
     /// <summary>
-    /// 下载装饰器：对 Mojang 域名**优先走 BMCLAPI 镜像**，失败再回退官方源。
+    /// 下载装饰器：元数据优先走 BMCLAPI 镜像，失败回退官方；
+    /// 二进制文件（client.jar / assets）优先官方 CDN，失败回退 BMCLAPI。
     ///
-    /// 为什么不做成"设置里选源"：镜像慢/挂掉时回退官方已经能保证正确性，
-    /// 而多一个开关就多一份需要用户理解的东西（真需要再加）。
-    /// 安装器本身（版本、资产、Java 运行时）不需要知道这件事——它们只认下载端口。
+    /// 为什么二进制不镜像优先：真机实测 BMCLAPI 二进制 20–30 秒/文件，
+    /// 官方 CDN 毫秒到几秒。保留回退是为了官方 CDN 不可用的网络。
     /// </summary>
-    public sealed class MirroredDownloadService : IDownloadService, IMirrorSwitch
+    public sealed class MirroredDownloadService : IDownloadService, IMirrorSwitch, IByteProgressFileDownloader
     {
         private readonly IDownloadService _inner;
 
@@ -41,7 +41,34 @@ namespace NLMCL.Core.Installing
 
             if (mirror == null)
             {
-                await _inner.DownloadFileAsync(url, localPath, cancellationToken).ConfigureAwait(false);
+                if (!Enabled || !MojangMirror.IsBinaryHost(url))
+                {
+                    await _inner.DownloadFileAsync(url, localPath, cancellationToken).ConfigureAwait(false);
+                    return;
+                }
+
+                // 二进制：官方优先，失败再回退 BMCLAPI。
+                try
+                {
+                    await _inner.DownloadFileAsync(url, localPath, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    TryDelete(localPath);
+                    string? fallback = MojangMirror.TryRewriteForFallback(url);
+
+                    if (fallback == null)
+                    {
+                        throw;
+                    }
+
+                    await _inner.DownloadFileAsync(fallback, localPath, cancellationToken).ConfigureAwait(false);
+                }
+
                 return;
             }
 
@@ -58,6 +85,72 @@ namespace NLMCL.Core.Installing
                 // 镜像失败：把可能残留的半截文件清掉，再走官方
                 TryDelete(localPath);
                 await _inner.DownloadFileAsync(url, localPath, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>字节进度也要穿过镜像装饰器，否则安装器看不到 PCL 的 LoaderDownload 进度。</summary>
+        public async Task DownloadAsync(
+            string url,
+            string localPath,
+            IProgress<FileDownloadProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            if (progress == null || _inner is not IByteProgressFileDownloader byteDownloader)
+            {
+                await DownloadFileAsync(url, localPath, cancellationToken).ConfigureAwait(false);
+                return;
+            }
+
+            string? mirror = RewriteIfEnabled(url);
+
+            if (mirror == null)
+            {
+                if (!Enabled || !MojangMirror.IsBinaryHost(url))
+                {
+                    await byteDownloader.DownloadAsync(url, localPath, progress, cancellationToken)
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                // 二进制：官方优先，失败再回退 BMCLAPI。
+                try
+                {
+                    await byteDownloader.DownloadAsync(url, localPath, progress, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    TryDelete(localPath);
+                    string? fallback = MojangMirror.TryRewriteForFallback(url);
+
+                    if (fallback == null)
+                    {
+                        throw;
+                    }
+
+                    await byteDownloader.DownloadAsync(fallback, localPath, progress, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                return;
+            }
+
+            try
+            {
+                await byteDownloader.DownloadAsync(mirror, localPath, progress, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                TryDelete(localPath);
+                await byteDownloader.DownloadAsync(url, localPath, progress, cancellationToken).ConfigureAwait(false);
             }
         }
 

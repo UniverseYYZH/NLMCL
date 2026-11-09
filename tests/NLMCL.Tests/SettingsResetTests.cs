@@ -30,10 +30,12 @@ namespace NLMCL.Tests
 
             vm.SelectedTheme = "深色";
             vm.UiScalePercent = 130;
+            vm.ReduceMotion = true;
             await vm.ResetAppearanceDefaultsAsync();
 
             Assert.Equal("浅色", vm.SelectedTheme);
             Assert.Equal(100, vm.UiScalePercent);
+            Assert.False(vm.ReduceMotion);
         }
 
         [Fact]
@@ -50,19 +52,21 @@ namespace NLMCL.Tests
         }
 
         [Fact]
-        public async Task Resetting_launch_restores_memory_java_and_jvm_args()
+        public async Task Resetting_launch_restores_memory_java_and_args()
         {
             (MainViewModel vm, AppPaths _) = Create();
 
             vm.DefaultMemoryMb = 8192;
             vm.DefaultJavaPath = @"C:\Java\21\bin\javaw.exe";
             vm.DefaultJvmArgs = "-XX:+UseG1GC";
+            vm.DefaultGameArgs = "--demo";
 
             await vm.ResetLaunchDefaultsAsync();
 
             Assert.Equal(2048, vm.DefaultMemoryMb);
             Assert.True(string.IsNullOrEmpty(vm.DefaultJavaPath));
             Assert.True(string.IsNullOrEmpty(vm.DefaultJvmArgs));
+            Assert.True(string.IsNullOrEmpty(vm.DefaultGameArgs));
         }
 
         [Fact]
@@ -73,6 +77,7 @@ namespace NLMCL.Tests
             vm.SelectedTheme = "深色";
             vm.UseMirror = false;
             vm.DefaultMemoryMb = 16384;
+            vm.DefaultGameArgs = "--demo";
 
             await vm.ResetAllDefaultsAsync();
 
@@ -81,6 +86,7 @@ namespace NLMCL.Tests
             Assert.Equal("light", saved.Theme);
             Assert.True(saved.UseMirror);
             Assert.Equal(2048, saved.DefaultMemoryMb);
+            Assert.True(string.IsNullOrEmpty(saved.DefaultGameArgs));
         }
     }
 }

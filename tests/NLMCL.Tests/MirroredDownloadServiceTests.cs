@@ -13,11 +13,21 @@ namespace NLMCL.Tests
     /// </summary>
     public class MirroredDownloadServiceTests
     {
-        private sealed class RecordingDownload : DownloadServiceStub
+        private sealed class RecordingDownload : DownloadServiceStub, IByteProgressFileDownloader
         {
             public List<string> Requested { get; } = new List<string>();
 
             public Func<string, bool> Fail { get; set; } = _ => false;
+
+            public Task DownloadAsync(
+                string url,
+                string localPath,
+                IProgress<FileDownloadProgress>? progress,
+                CancellationToken cancellationToken)
+            {
+                progress?.Report(new FileDownloadProgress(10, 10));
+                return DownloadFileAsync(url, localPath, cancellationToken);
+            }
 
             public override Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
             {
@@ -58,10 +68,6 @@ namespace NLMCL.Tests
             "https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json")]
         [InlineData("https://piston-meta.mojang.com/v1/products/java-runtime/x/all.json",
             "https://bmclapi2.bangbang93.com/v1/products/java-runtime/x/all.json")]
-        [InlineData("https://piston-data.mojang.com/v1/objects/ab/cdef/client.jar",
-            "https://bmclapi2.bangbang93.com/v1/objects/ab/cdef/client.jar")]
-        [InlineData("https://resources.download.minecraft.net/ab/abcdef",
-            "https://bmclapi2.bangbang93.com/assets/ab/abcdef")]
         [InlineData("https://libraries.minecraft.net/org/ow2/asm/asm/9.6/asm-9.6.jar",
             "https://bmclapi2.bangbang93.com/maven/org/ow2/asm/asm/9.6/asm-9.6.jar")]
         [InlineData("https://meta.fabricmc.net/v2/versions/loader/1.21.2",
@@ -71,6 +77,57 @@ namespace NLMCL.Tests
         public void Rewrites_known_mojang_hosts(string official, string expected)
         {
             Assert.Equal(expected, MojangMirror.TryRewrite(official));
+        }
+
+        [Fact]
+        public void Binary_files_use_official_cdn()
+        {
+            Assert.Null(MojangMirror.TryRewrite(
+                "https://piston-data.mojang.com/v1/objects/ab/cdef/client.jar"));
+            Assert.Null(MojangMirror.TryRewrite(
+                "https://launcher.mojang.com/v1/objects/ab/cdef/client.jar"));
+            Assert.Null(MojangMirror.TryRewrite(
+                "https://resources.download.minecraft.net/ab/abcdef"));
+
+            Assert.Equal(
+                "https://bmclapi2.bangbang93.com/v1/objects/ab/cdef/client.jar",
+                MojangMirror.TryRewriteForFallback(
+                    "https://piston-data.mojang.com/v1/objects/ab/cdef/client.jar"));
+            Assert.Equal(
+                "https://bmclapi2.bangbang93.com/assets/ab/abcdef",
+                MojangMirror.TryRewriteForFallback(
+                    "https://resources.download.minecraft.net/ab/abcdef"));
+        }
+
+        [Fact]
+        public async Task Binary_download_tries_official_first_then_mirror()
+        {
+            RecordingDownload inner = new RecordingDownload
+            {
+                Fail = url => url.IndexOf("launcher.mojang.com", StringComparison.Ordinal) >= 0
+            };
+            MirroredDownloadService service = new MirroredDownloadService(inner);
+            string path = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-mirror-binary-" + Guid.NewGuid().ToString("N") + ".jar");
+
+            try
+            {
+                await service.DownloadFileAsync(
+                    "https://launcher.mojang.com/v1/objects/ab/cdef/client.jar",
+                    path,
+                    CancellationToken.None);
+
+                Assert.Equal(2, inner.Requested.Count);
+                Assert.Contains("launcher.mojang.com", inner.Requested[0]);
+                Assert.Contains("bmclapi2.bangbang93.com", inner.Requested[1]);
+            }
+            finally
+            {
+                if (System.IO.File.Exists(path))
+                {
+                    System.IO.File.Delete(path);
+                }
+            }
         }
 
         [Fact]
@@ -108,6 +165,68 @@ namespace NLMCL.Tests
 
             Assert.Equal("ok:https://piston-meta.mojang.com/a.json", result);
             Assert.Equal(2, inner.Requested.Count);
+        }
+
+        [Fact]
+        public async Task Passes_byte_progress_through_mirror()
+        {
+            RecordingDownload inner = new RecordingDownload();
+            MirroredDownloadService service = new MirroredDownloadService(inner);
+            List<FileDownloadProgress> reports = new List<FileDownloadProgress>();
+
+            await ((IByteProgressFileDownloader)service).DownloadAsync(
+                "https://piston-meta.mojang.com/a.jar",
+                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nlmcl-mirror-test.jar"),
+                new InlineProgress(reports.Add),
+                CancellationToken.None);
+
+            Assert.NotEmpty(reports);
+            Assert.Equal(10, reports[0].Received);
+            Assert.Equal("https://bmclapi2.bangbang93.com/a.jar", inner.Requested[0]);
+        }
+
+        [Fact]
+        public async Task Binary_byte_download_falls_back_to_mirror()
+        {
+            RecordingDownload inner = new RecordingDownload
+            {
+                Fail = url => url.IndexOf("launcher.mojang.com", StringComparison.Ordinal) >= 0
+            };
+            MirroredDownloadService service = new MirroredDownloadService(inner);
+            string path = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-mirror-binary-bytes-" + Guid.NewGuid().ToString("N") + ".jar");
+
+            try
+            {
+                await ((IByteProgressFileDownloader)service).DownloadAsync(
+                    "https://launcher.mojang.com/v1/objects/ab/cdef/client.jar",
+                    path,
+                    new InlineProgress(_ => { }),
+                    CancellationToken.None);
+
+                Assert.Equal(2, inner.Requested.Count);
+                Assert.Contains("launcher.mojang.com", inner.Requested[0]);
+                Assert.Contains("bmclapi2.bangbang93.com", inner.Requested[1]);
+            }
+            finally
+            {
+                if (System.IO.File.Exists(path))
+                {
+                    System.IO.File.Delete(path);
+                }
+            }
+        }
+
+        private sealed class InlineProgress : IProgress<FileDownloadProgress>
+        {
+            private readonly Action<FileDownloadProgress> _apply;
+
+            public InlineProgress(Action<FileDownloadProgress> apply)
+            {
+                _apply = apply;
+            }
+
+            public void Report(FileDownloadProgress value) => _apply(value);
         }
 
         [Fact]

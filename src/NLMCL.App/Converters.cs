@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Windows;
 using System.Windows.Data;
 
@@ -70,6 +71,74 @@ namespace NLMCL.App
     /// 把资源图标 URL 换成 ImageSource（带内存缓存，同一 URL 只解码一次）。
     /// 下载失败返回 null，界面自动退回占位图标。
     /// </summary>
+    /// <summary>把游戏目录路径转成“父目录\.minecraft”短名，用于目录下拉。</summary>
+    public sealed class DirectoryNameConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            string path = value as string ?? string.Empty;
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                string trimmed = path.TrimEnd(
+                    Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string name = Path.GetFileName(trimmed);
+
+                if (string.Equals(name, ".minecraft", StringComparison.OrdinalIgnoreCase))
+                {
+                    string? parent = Path.GetDirectoryName(trimmed);
+                    string parentName = string.IsNullOrEmpty(parent)
+                        ? string.Empty
+                        : Path.GetFileName(parent);
+
+                    return string.IsNullOrEmpty(parentName)
+                        ? name
+                        : parentName + "\\.minecraft";
+                }
+
+                return string.IsNullOrEmpty(name) ? path : name;
+            }
+            catch (Exception)
+            {
+                return path;
+            }
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    /// <summary>设置搜索：分组 Tag 与搜索词匹配时显示。</summary>
+    public sealed class SettingsSearchVisibilityConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            string tags = values.Length > 0 ? values[0] as string ?? string.Empty : string.Empty;
+            string query = values.Length > 1 ? values[1] as string ?? string.Empty : string.Empty;
+
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return Visibility.Visible;
+            }
+
+            return tags.IndexOf(query.Trim(), StringComparison.OrdinalIgnoreCase) >= 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
     public sealed class ThumbnailConverter : System.Windows.Data.IValueConverter
     {
         private static readonly System.Collections.Generic.Dictionary<string, System.Windows.Media.Imaging.BitmapImage> Cache

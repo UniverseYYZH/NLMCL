@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
@@ -41,7 +41,7 @@ namespace NLMCL.Tests
             }
         }
 
-        private sealed class FakeDownloadService : DownloadServiceStub
+        private sealed class FakeDownloadService : DownloadServiceStub, IByteProgressFileDownloader
         {
             public readonly Dictionary<string, byte[]> Content = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             public readonly List<string> Requested = new List<string>();
@@ -57,6 +57,17 @@ namespace NLMCL.Tests
                 Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
                 File.WriteAllBytes(localPath, bytes);
                 return Task.CompletedTask;
+            }
+
+            public Task DownloadAsync(
+                string url,
+                string localPath,
+                IProgress<FileDownloadProgress>? progress,
+                CancellationToken cancellationToken)
+            {
+                int size = Content.TryGetValue(url, out byte[]? bytes) ? bytes.Length : 0;
+                progress?.Report(new FileDownloadProgress(size, size));
+                return DownloadFileAsync(url, localPath, cancellationToken);
             }
 
             public override Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
@@ -181,6 +192,7 @@ namespace NLMCL.Tests
             }
 
             Assert.Equal(100d, last);
+            Assert.Contains(progress.Items, item => item.BytesTotal > 0 && item.BytesReceived > 0);
         }
 
         [Fact]

@@ -16,6 +16,7 @@ using NLMCL.Core.Networking;
 using NLMCL.Core.Settings;
 using NLMCL.Core.Snapshots;
 using NLMCL.Core.Resources;
+using NLMCL.Core.Maintenance;
 
 namespace NLMCL.App
 {
@@ -50,7 +51,11 @@ namespace NLMCL.App
                 IAppPaths paths = _services.GetRequiredService<IAppPaths>();
 
                 // 改名迁移：老数据在 %APPDATA%\NLCL，新目录不存在时先整体复制（只跑一次）
-                LegacyDataMigration.TryMigrate(paths.DataRoot);
+                // 便携模式的数据在 exe 目录，不应从 %APPDATA% 迁移。
+                if (!paths.IsPortable)
+                {
+                    LegacyDataMigration.TryMigrate(paths.DataRoot);
+                }
 
                 paths.EnsureDirectories();
 
@@ -147,10 +152,16 @@ namespace NLMCL.App
             services.AddSingleton<IAccountStore, JsonAccountStore>();
             services.AddSingleton<IInstanceSettingsStore, JsonInstanceSettingsStore>();
             services.AddSingleton<IAppSettingsStore, JsonAppSettingsStore>();
+            services.AddSingleton<IAppSettingsService, AppSettingsService>();
+            services.AddSingleton<ISettingsTransferService, SettingsTransferService>();
+            services.AddSingleton<ICacheCleaner, CacheCleaner>();
+            services.AddSingleton<IGameDirectoryScanner, GameDirectoryScanner>();
+            services.AddSingleton<IVersionDetailsService, VersionDetailsService>();
             services.AddSingleton<ILocalNetworkInfo, LocalNetworkInfo>();
             services.AddSingleton<IClipboard, Services.WpfClipboard>();
             services.AddSingleton<IFolderPicker, Services.WinFormsFolderPicker>();
             services.AddSingleton<IFilePicker, Services.WinFormsFilePicker>();
+            services.AddSingleton<IFileSavePicker, Services.WinFormsSaveFilePicker>();
             // ViewModel 不引用 WPF，需要封送到 UI 线程时走这个端口
             services.AddSingleton<IUiDispatcher, Services.WpfUiDispatcher>();
             // 主题 / 缩放：同样只在 App 层碰 WPF
@@ -175,13 +186,17 @@ namespace NLMCL.App
             // 中文查询兜底翻译（Modrinth 只有英文元数据）
             services.AddSingleton<ITranslator, MyMemoryTranslator>();
             services.AddSingleton<ISkinService, SkinService>();
+            services.AddSingleton<IMuaSkinLibrary, MuaSkinLibraryService>();
+            services.AddSingleton<IProfileTextureUploader, ProfileTextureUploader>();
             services.AddSingleton<IServerBookmarkStore, Core.Servers.ServerBookmarkStore>();
             services.AddSingleton<IModManager, Core.Mods.ModManager>();
         services.AddSingleton<IInstancePathResolver, PclInstancePathResolver>();
             services.AddSingleton<IVersionRepairer, Core.Repair.VersionRepairer>();
             services.AddSingleton<ICrashAnalyzer, Core.Crash.CrashAnalyzer>();
             services.AddSingleton<IVersionManager, Core.Versions.VersionManager>();
-            services.AddSingleton<IModUpdateChecker, Core.Mods.ModrinthUpdateChecker>();
+            services.AddSingleton<IModUpdateChecker>(sp => new Core.Mods.CompositeModUpdateChecker(
+                new Core.Mods.ModrinthUpdateChecker(sp.GetRequiredService<IDownloadService>()),
+                new Core.Mods.CurseForgeUpdateChecker(sp.GetRequiredService<IDownloadService>())));
             services.AddSingleton<IServerPinger, Core.Lan.ServerListPing>();
             services.AddSingleton<IServerAddressResolver, Core.Servers.SrvResolver>();
             services.AddSingleton<IServerProfileStore, Core.Servers.ServerProfileStore>();

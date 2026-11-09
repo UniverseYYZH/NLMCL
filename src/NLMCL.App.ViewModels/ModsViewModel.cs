@@ -1,6 +1,8 @@
 using System.IO;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -189,21 +191,49 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            StatusText = "正在向 Modrinth 查询更新…";
+            StatusText = "正在并发检查 Mod 更新…";
 
-            int found = 0;
+            List<ModEntry> snapshot = Mods.ToList();
+            List<(ModEntry Mod, ModUpdateInfo? Update)> results = new List<(ModEntry, ModUpdateInfo?)>();
+            object gate = new object();
+            using SemaphoreSlim slots = new SemaphoreSlim(4);
 
-            foreach (ModEntry mod in Mods)
+            Task[] tasks = snapshot.Select(mod => Task.Run(async () =>
             {
+                await slots.WaitAsync().ConfigureAwait(false);
+
                 try
                 {
-                    await _updates
+                    ModUpdateInfo? update = await _updates
                         .CheckAsync(mod, _gameVersion, _loader, CancellationToken.None)
-                        .ConfigureAwait(true);
+                        .ConfigureAwait(false);
+
+                    lock (gate)
+                    {
+                        results.Add((mod, update));
+                    }
                 }
                 catch (Exception)
                 {
-                    // 不在 Modrinth 上 / 网络失败：跳过这一条，不影响其它
+                    // 单个 mod 查询失败不影响其它。
+                }
+                finally
+                {
+                    slots.Release();
+                }
+            })).ToArray();
+
+            await Task.WhenAll(tasks).ConfigureAwait(true);
+
+            int found = 0;
+
+            // 结果统一回到 UI 线程写回，避免 ModEntry.PropertyChanged 跨线程。
+            foreach ((ModEntry mod, ModUpdateInfo? update) in results)
+            {
+                if (update != null)
+                {
+                    mod.ProjectUrl = update.ProjectUrl;
+                    mod.LatestVersion = update.LatestVersion;
                 }
 
                 if (mod.HasUpdate)

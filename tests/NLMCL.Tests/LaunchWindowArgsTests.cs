@@ -52,6 +52,29 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Builds_global_game_args_before_instance_args()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-win-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+
+            try
+            {
+                var vm = TestSupport.CreateMain(new EmptyCatalog(), new AppPaths(root));
+
+                vm.DefaultGameArgs = "--demo  --global-flag";
+                vm.ExtraArguments = "--instance-flag";
+
+                IReadOnlyList<string> args = vm.BuildExtraGameArguments();
+
+                Assert.Equal(new[] { "--demo", "--global-flag", "--instance-flag" }, args);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public void Zero_size_means_game_default()
         {
             string root = Path.Combine(Path.GetTempPath(), "nlmcl-win-" + Guid.NewGuid().ToString("N"));

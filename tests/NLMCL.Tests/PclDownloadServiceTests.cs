@@ -1,13 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
+using NLMCL.Abstractions;
 using NLMCL.Core.Pcl.Vb;
 using Xunit;
-
 namespace NLMCL.Tests
 {
     /// <summary>
@@ -117,6 +119,66 @@ namespace NLMCL.Tests
 
             Assert.True(File.Exists(target));
             Assert.Equal(Payload, File.ReadAllBytes(target));
+        }
+
+        [Fact]
+        public void Downloads_file_with_byte_progress_through_pcl_loader()
+        {
+            string target = Path.Combine(_workDir, "nested", "payload-loader.bin");
+            List<FileDownloadProgress> reports = new List<FileDownloadProgress>();
+            Exception? failure = null;
+
+            // LoaderBase.State 会通过 WPF Dispatcher 触发状态事件，测试里必须给一个 STA + Application。
+            Thread thread = new Thread(() =>
+            {
+                try
+                {
+                    Application app = Application.Current ?? new Application();
+                    PclBootstrap.InitializeOnUiThread();
+
+                    PclDownloadService service = new PclDownloadService();
+                    ((IByteProgressFileDownloader)service)
+                        .DownloadAsync(
+                            _baseUrl + "payload.bin",
+                            target,
+                            new InlineProgress(reports.Add),
+                            CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
+
+                    if (Application.Current == app)
+                    {
+                        app.Shutdown();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            });
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            thread.Join();
+
+            Assert.Null(failure);
+            Assert.True(File.Exists(target));
+            Assert.Equal(Payload, File.ReadAllBytes(target));
+            Assert.NotEmpty(reports);
+            Assert.Equal(Payload.Length, reports[reports.Count - 1].Received);
+            Assert.Equal(Payload.Length, reports[reports.Count - 1].Total);
+        }
+
+        private sealed class InlineProgress : IProgress<FileDownloadProgress>
+        {
+            private readonly Action<FileDownloadProgress> _apply;
+
+            public InlineProgress(Action<FileDownloadProgress> apply)
+            {
+                _apply = apply;
+            }
+
+            public void Report(FileDownloadProgress value) => _apply(value);
         }
 
         [Fact]

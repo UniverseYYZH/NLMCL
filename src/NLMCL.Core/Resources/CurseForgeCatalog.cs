@@ -32,6 +32,7 @@ namespace NLMCL.Core.Resources
             string url = ApiBase + "/mods/search?gameId=432"
                 + "&classId=" + ClassIdOf(query.Kind).ToString(CultureInfo.InvariantCulture)
                 + "&searchFilter=" + Uri.EscapeDataString(query.Text ?? string.Empty)
+                + "&sortField=2&sortOrder=desc"
                 + "&pageSize=" + Math.Max(1, Math.Min(50, query.Limit)).ToString(CultureInfo.InvariantCulture)
                 + "&index=" + Math.Max(0, query.Offset / Math.Max(1, query.Limit)).ToString(CultureInfo.InvariantCulture);
 

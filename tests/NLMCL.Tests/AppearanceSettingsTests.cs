@@ -65,6 +65,45 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Changing_default_game_and_jvm_args_persists()
+        {
+            TestSupport.FakeAppSettings store = new TestSupport.FakeAppSettings();
+            MainViewModel vm = TestSupport.CreateMain(
+                new EmptyCatalog(), new AppPaths(@"C:\Temp\roaming"),
+                appSettings: store);
+
+            await vm.InitializeAsync();
+
+            vm.DefaultJvmArgs = "-XX:+UseG1GC";
+            vm.DefaultGameArgs = "--demo";
+
+            await Task.Delay(300);
+
+            Assert.Equal("-XX:+UseG1GC", store.Current.DefaultJvmArgs);
+            Assert.Equal("--demo", store.Current.DefaultGameArgs);
+        }
+
+        [Fact]
+        public async Task Changing_theme_to_high_contrast_applies_it_and_persists()
+        {
+            TestSupport.FakeAppSettings store = new TestSupport.FakeAppSettings();
+            FakeAppearance appearance = new FakeAppearance();
+
+            MainViewModel vm = TestSupport.CreateMain(
+                new EmptyCatalog(), new AppPaths(@"C:\Temp\roaming"),
+                appearance: appearance, appSettings: store);
+
+            await vm.InitializeAsync();
+            Assert.Contains("高对比度", vm.ThemeOptions);
+
+            vm.SelectedTheme = "高对比度";
+            await Task.Delay(500);
+
+            Assert.Equal("highcontrast", appearance.Theme);
+            Assert.Equal("highcontrast", store.Current.Theme);
+        }
+
+        [Fact]
         public async Task Changing_theme_applies_it_and_persists()
         {
             TestSupport.FakeAppSettings store = new TestSupport.FakeAppSettings();

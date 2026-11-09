@@ -27,6 +27,33 @@ namespace NLMCL.Tests
             ""dependencies"": { ""minecraft"": ""1.20.1"", ""fabric-loader"": ""0.16.9"" }
         }";
 
+        private const string CurseForgeManifest = @"{
+            ""manifestType"": ""minecraftModpack"",
+            ""manifestVersion"": 1,
+            ""name"": ""Curse Test Pack"",
+            ""version"": ""1.2.3"",
+            ""minecraft"": {
+                ""version"": ""1.20.1"",
+                ""modLoaders"": [ { ""id"": ""fabric-0.15.11"", ""primary"": true } ]
+            },
+            ""files"": [
+                { ""projectID"": 238222, ""fileID"": 123456, ""required"": true }
+            ],
+            ""overrides"": ""overrides""
+        }";
+
+        [Fact]
+        public void Parses_curseforge_manifest()
+        {
+            ModpackInfo info = ModpackInstaller.Parse(JObject.Parse(CurseForgeManifest));
+
+            Assert.Equal("Curse Test Pack", info.Name);
+            Assert.Equal("1.20.1", info.MinecraftVersion);
+            Assert.Equal(ModpackLoader.Fabric, info.Loader);
+            Assert.Equal("0.15.11", info.LoaderVersion);
+            Assert.Equal(1, info.FileCount);
+        }
+
         [Fact]
         public void Parses_fabric_pack()
         {
@@ -126,6 +153,18 @@ namespace NLMCL.Tests
                 File.WriteAllText(localPath, "fake");
                 return Task.CompletedTask;
             }
+
+            public override Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+            {
+                if (url.IndexOf("/files/", StringComparison.Ordinal) >= 0)
+                {
+                    return Task.FromResult(
+                        @"{ ""data"": { ""downloadUrl"": ""https://cdn.curseforge/cf.jar"", ""fileName"": ""cf.jar"", ""fileLength"": 4, ""hashes"": { ""sha1"": """" } } }");
+                }
+
+                // 项目查询：classId=12 资源包，验证会落 resourcepacks 而不是 mods。
+                return Task.FromResult(@"{ ""data"": { ""classId"": 12 } }");
+            }
         }
 
         private sealed class FakeFileDownloader : IFileDownloader
@@ -133,7 +172,10 @@ namespace NLMCL.Tests
             public List<string> Downloaded { get; } = new List<string>();
 
         public Task DownloadAsync(string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
-            => DownloadAsync(url, targetPath, cancellationToken);
+        {
+            progress?.Report(1);
+            return DownloadAsync(url, targetPath, cancellationToken);
+        }
 
             public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
             {
@@ -149,6 +191,18 @@ namespace NLMCL.Tests
 
             public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
                 => Task.FromResult("{}");
+        }
+
+        private sealed class InlineInstallProgress : IProgress<InstallProgress>
+        {
+            private readonly Action<InstallProgress> _apply;
+
+            public InlineInstallProgress(Action<InstallProgress> apply)
+            {
+                _apply = apply;
+            }
+
+            public void Report(InstallProgress value) => _apply(value);
         }
 
         private sealed class FakeVersions : IVersionInstaller
@@ -199,6 +253,74 @@ namespace NLMCL.Tests
             }
 
             return path;
+        }
+
+        private static string BuildCurseForgePack(string directory)
+        {
+            string path = Path.Combine(directory, "curse.zip");
+
+            using (ZipArchive archive = ZipFile.Open(path, ZipArchiveMode.Create))
+            {
+                void Add(string name, string content)
+                {
+                    ZipArchiveEntry entry = archive.CreateEntry(name);
+
+                    using (Stream stream = entry.Open())
+                    using (StreamWriter writer = new StreamWriter(stream, new UTF8Encoding(false)))
+                    {
+                        writer.Write(content);
+                    }
+                }
+
+                Add("manifest.json", CurseForgeManifest);
+                Add("overrides/config/curse.toml", "a=1");
+                Add("overrides/", string.Empty);
+            }
+
+            return path;
+        }
+
+        [Fact]
+        public async Task Installs_curseforge_pack_into_isolated_instance()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-cf-" + Guid.NewGuid().ToString("N"));
+            string mc = Path.Combine(root, ".minecraft");
+            Directory.CreateDirectory(mc);
+
+            try
+            {
+                string pack = BuildCurseForgePack(root);
+                FakeDownload download = new FakeDownload();
+                FakeFileDownloader files = new FakeFileDownloader();
+                FakeVersions versions = new FakeVersions();
+                ModpackInstaller installer = new ModpackInstaller(
+                    download, versions, new FakeLoaders(), files);
+                List<InstallProgress> reports = new List<InstallProgress>();
+
+                string versionId = await installer.InstallAsync(
+                    pack, mc, @"C:\Java\bin\javaw.exe", new InlineInstallProgress(reports.Add),
+                    CancellationToken.None);
+
+                Assert.Equal("Curse-Test-Pack", versionId);
+                Assert.Equal("fabric", versions.LastRequest!.Loader);
+                Assert.Equal("0.15.11", versions.LastRequest.LoaderVersion);
+
+                string instanceDir = Path.Combine(mc, "versions", versionId);
+                Assert.True(File.Exists(Path.Combine(instanceDir, "resourcepacks", "cf.jar")));
+                Assert.True(File.Exists(Path.Combine(instanceDir, "config", "curse.toml")));
+                Assert.Contains(files.Downloaded, url => url.Contains("cf.jar"));
+                Assert.Contains(reports, item => item.BytesTotal > 0 && item.BytesReceived > 0);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
         }
 
         [Fact]

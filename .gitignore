@@ -9,13 +9,13 @@ obj/
 *.nupkg
 packages/
 
-## 第三方源码（只读参考，不入库）
+## Third-party source (reference only, not committed)
 pcl_src/
 
-## 分析产物
+## Analysis output
 analysis/
 
-## 工具与环境
+## Tools and environment
 .dotnet/
 dsh-dotnet/
 *.log
@@ -24,5 +24,10 @@ dsh-dotnet/
 Thumbs.db
 desktop.ini
 
-# 发布产物
+## Release artifacts
 artifacts/
+
+## Local-only material (not uploaded)
+项目现状/
+*.lnk
+README-启动说明.txt

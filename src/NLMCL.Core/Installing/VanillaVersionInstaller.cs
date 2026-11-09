@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MeloongCore;
@@ -86,7 +88,7 @@ namespace NLMCL.Core.Installing
             if (plan.AssetIndex != null)
             {
                 relay.Report("下载资源索引", 56);
-                await EnsureFileAsync(plan.AssetIndex, cancellationToken).ConfigureAwait(false);
+                await EnsureFileAsync(plan.AssetIndex, null, cancellationToken).ConfigureAwait(false);
 
                 string indexText = File.ReadAllText(plan.AssetIndex.TargetPath);
                 List<RemoteFile> assets = new List<RemoteFile>(
@@ -105,7 +107,7 @@ namespace NLMCL.Core.Installing
                 foreach (RemoteFile archive in plan.NativeArchives)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    await EnsureFileAsync(archive, cancellationToken).ConfigureAwait(false);
+                    await EnsureFileAsync(archive, null, cancellationToken).ConfigureAwait(false);
                     ExtractNatives(archive.TargetPath, plan.NativesDirectory);
                 }
             }
@@ -134,6 +136,9 @@ namespace NLMCL.Core.Installing
 
             float span = toPercent - fromPercent;
 
+            long totalBytes = files.Sum(item => item.Size > 0 ? item.Size : 0);
+            long completedBytes = 0;
+
             // 资源动辄几千个，串行下载会慢到不可用（一个文件一次 TLS 往返）。
             // 这里开有限并发：ModNet 每次调用都是独立请求，PCL 自己也是并行下的。
             int parallelism = Math.Max(1, Math.Min(16, maxParallelism));
@@ -148,20 +153,44 @@ namespace NLMCL.Core.Installing
                     gate.Wait(cancellationToken);
 
                     RemoteFile current = file;
+                    long[] currentBytes = new long[1];
                     tasks.Add(Task.Run(async () =>
                     {
                         try
                         {
-                            await EnsureFileAsync(current, cancellationToken).ConfigureAwait(false);
+                            IProgress<FileDownloadProgress>? byteSink = _download is IByteProgressFileDownloader
+                                ? new InlineByteProgress(value =>
+                                {
+                                    Interlocked.Exchange(ref currentBytes[0], value.Received);
+                                    long received = Interlocked.Read(ref completedBytes) + value.Received;
+                                    int bytePercent = totalBytes > 0
+                                        ? fromPercent + (int)(span * received / totalBytes)
+                                        : fromPercent;
+                                    relay.ReportBytes(
+                                        stage + " " + (totalBytes > 0 ? received * 100 / totalBytes : 0) + "%",
+                                        bytePercent,
+                                        received,
+                                        totalBytes);
+                                })
+                                : null;
+
+                            await EnsureFileAsync(current, byteSink, cancellationToken).ConfigureAwait(false);
                         }
                         finally
                         {
+                            Interlocked.Add(
+                                ref completedBytes,
+                                current.Size > 0 ? current.Size : currentBytes[0]);
                             gate.Release();
                         }
 
                         int done = Interlocked.Increment(ref completed);
                         int percent = fromPercent + (int)(span * done / files.Count);
-                        relay.Report(stage + " " + done + "/" + files.Count, percent);
+                        relay.ReportBytes(
+                            stage + " " + done + "/" + files.Count,
+                            percent,
+                            Interlocked.Read(ref completedBytes),
+                            totalBytes);
                     }, cancellationToken));
                 }
 
@@ -170,7 +199,10 @@ namespace NLMCL.Core.Installing
         }
 
         /// <summary>文件已存在且哈希匹配时直接跳过；否则下载到临时文件、校验后再替换。</summary>
-        private async Task EnsureFileAsync(RemoteFile file, CancellationToken cancellationToken)
+        private async Task EnsureFileAsync(
+            RemoteFile file,
+            IProgress<FileDownloadProgress>? byteProgress,
+            CancellationToken cancellationToken)
         {
             if (IsUpToDate(file))
             {
@@ -184,14 +216,47 @@ namespace NLMCL.Core.Installing
             }
 
             string temporary = file.TargetPath + ".nlmcl-tmp";
+            Stopwatch watch = Stopwatch.StartNew();
+
+            // PCL LoaderDownload 对大量几 KB 的资源文件有明显额外开销；
+            // 大文件用它拿字节进度，小文件仍走 NetDownloadByClient 快速直下。
+            const long ByteProgressThreshold = 1024 * 1024;
+            bool usedPclBytePath = byteProgress != null
+                && _download is IByteProgressFileDownloader
+                && file.Size >= ByteProgressThreshold;
+            DownloadDiagnostics.Write(
+                "start " + (usedPclBytePath ? "pcl " : "small/fb ") + file.Url
+                + " size=" + file.Size + " target=" + file.TargetPath);
 
             try
             {
                 // 单个文件有超时：ModNet 在某些网络/镜像状态下会挂住不返回，
                 // 并发下几个挂住的请求会把整个安装拖死（实测停在同一进度不动）。
-                await ResilientDownload
-                    .DownloadAsync(_download, file.Url, temporary, cancellationToken, fallback: _files)
-                    .ConfigureAwait(false);
+                if (usedPclBytePath && _download is IByteProgressFileDownloader byteDownloader)
+                {
+                    try
+                    {
+                        await byteDownloader
+                            .DownloadAsync(file.Url, temporary, byteProgress!, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (TimeoutException ex)
+                    {
+                        DownloadDiagnostics.Write(
+                            "timeout " + file.Url + " after " + watch.ElapsedMilliseconds + "ms: " + ex.Message);
+                        // PCL Loader 偶发卡住：退回带超时/重试的 ResilientDownload。
+                        await ResilientDownload
+                            .DownloadAsync(_download, file.Url, temporary, cancellationToken, fallback: _files)
+                            .ConfigureAwait(false);
+                        usedPclBytePath = false;
+                    }
+                }
+                else
+                {
+                    await ResilientDownload
+                        .DownloadAsync(_download, file.Url, temporary, cancellationToken, fallback: _files)
+                        .ConfigureAwait(false);
+                }
 
                 cancellationToken.ThrowIfCancellationRequested();
 
@@ -211,6 +276,17 @@ namespace NLMCL.Core.Installing
                 }
 
                 File.Move(temporary, file.TargetPath);
+                DownloadDiagnostics.Write(
+                    "done " + (usedPclBytePath ? "pcl " : "small/fb ") + file.Url
+                    + " elapsed=" + watch.ElapsedMilliseconds + "ms size="
+                    + (File.Exists(file.TargetPath) ? new FileInfo(file.TargetPath).Length : 0));
+            }
+            catch (Exception ex)
+            {
+                DownloadDiagnostics.Write(
+                    "fail " + file.Url + " elapsed=" + watch.ElapsedMilliseconds + "ms "
+                    + ex.GetType().Name + ": " + ex.Message);
+                throw;
             }
             finally
             {
@@ -318,6 +394,11 @@ namespace NLMCL.Core.Installing
 
             public void Report(string stage, int percent)
             {
+                ReportBytes(stage, percent, 0, 0);
+            }
+
+            public void ReportBytes(string stage, int percent, long received, long total)
+            {
                 // 并发下载后多个线程会同时上报，必须串行化，否则 _lastPercent 会竞争
                 lock (_lock)
                 {
@@ -328,9 +409,21 @@ namespace NLMCL.Core.Installing
 
                     _lastPercent = percent;
                     _lastStage = stage;
-                    _progress?.Report(new InstallProgress(stage, percent, 0));
+                    _progress?.Report(new InstallProgress(stage, percent, 0, received, total));
                 }
             }
+        }
+
+        private sealed class InlineByteProgress : IProgress<FileDownloadProgress>
+        {
+            private readonly Action<FileDownloadProgress> _apply;
+
+            public InlineByteProgress(Action<FileDownloadProgress> apply)
+            {
+                _apply = apply;
+            }
+
+            public void Report(FileDownloadProgress value) => _apply(value);
         }
     }
 }

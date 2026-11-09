@@ -144,6 +144,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private double _progress;
 
+        /// <summary>字节进度文案：12.3 MB / 45.6 MB · 速度 · 剩余。</summary>
+        [ObservableProperty]
+        private string _progressDetails = string.Empty;
+
         [ObservableProperty]
         private bool _hasProgress;
 
@@ -550,6 +554,7 @@ namespace NLMCL.App.ViewModels
                 System.TimeSpan now = watch.Elapsed;
                 System.TimeSpan elapsed = now - lastAt;
                 string speed = string.Empty;
+                long received = file.Size > 0 ? (long)(ratio * file.Size) : 0;
 
                 if (elapsed.TotalMilliseconds >= 400 && ratio > lastRatio && file.Size > 0)
                 {
@@ -557,12 +562,16 @@ namespace NLMCL.App.ViewModels
                     double perSecond = bytes / elapsed.TotalSeconds;
                     double remain = perSecond > 1 ? (1 - ratio) * file.Size / perSecond : 0;
 
-                    speed = " · " + (perSecond / 1024).ToString("0") + " KB/s"
+                    speed = " · " + FormatSize((long)perSecond) + "/s"
                         + (remain > 0 ? " · 剩余 " + System.TimeSpan.FromSeconds(remain).ToString(@"mm\:ss") : string.Empty);
 
                     lastRatio = ratio;
                     lastAt = now;
                 }
+
+                ProgressDetails = file.Size > 0
+                    ? FormatSize(received) + " / " + FormatSize(file.Size) + speed
+                    : string.Empty;
 
                 StatusText = "正在下载 " + file.Name + " " + (ratio * 100).ToString("0") + "%" + speed;
             });
@@ -601,13 +610,16 @@ namespace NLMCL.App.ViewModels
                 StatusText = "已安装到 " + path;
                 HasProgress = false;
                 Progress = 0;
+                ProgressDetails = string.Empty;
             }
             catch (OperationCanceledException)
             {
+                ProgressDetails = string.Empty;
                 StatusText = "已取消下载（已下载的部分会保留）";
             }
             catch (Exception ex)
             {
+                ProgressDetails = string.Empty;
                 StatusText = "安装失败：" + ex.Message;
             }
             finally
@@ -678,7 +690,7 @@ namespace NLMCL.App.ViewModels
             }
 
             string? path = _filePicker.PickFile(
-                "选择 Modrinth 整合包", "Modrinth 整合包 (*.mrpack)|*.mrpack|所有文件 (*.*)|*.*");
+                "选择整合包", "整合包 (*.mrpack;*.zip)|*.mrpack;*.zip|所有文件 (*.*)|*.*");
 
             if (string.IsNullOrEmpty(path))
             {
@@ -688,6 +700,7 @@ namespace NLMCL.App.ViewModels
             IsBusy = true;
             HasProgress = true;
             Progress = 0;
+            ProgressDetails = string.Empty;
 
             try
             {
@@ -716,10 +729,39 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        private static string FormatSize(long bytes)
+        {
+            if (bytes < 1024)
+            {
+                return bytes + " B";
+            }
+
+            if (bytes < 1024 * 1024)
+            {
+                return (bytes / 1024.0).ToString("0.0") + " KB";
+            }
+
+            if (bytes < 1024L * 1024 * 1024)
+            {
+                return (bytes / 1024.0 / 1024.0).ToString("0.0") + " MB";
+            }
+
+            return (bytes / 1024.0 / 1024.0 / 1024.0).ToString("0.0") + " GB";
+        }
+
         private void ApplyProgress(InstallProgress value)
         {
             Progress = value.Percent;
             StatusText = value.Stage;
+
+            if (value.BytesTotal > 0)
+            {
+                ProgressDetails = FormatSize(value.BytesReceived) + " / " + FormatSize(value.BytesTotal);
+            }
+            else if (value.BytesReceived > 0)
+            {
+                ProgressDetails = "已下载 " + FormatSize(value.BytesReceived);
+            }
         }
 
         /// <summary>Forge/NeoForge 安装器需要 Java；Fabric 其实不需要，但统一挑一个更省事。</summary>

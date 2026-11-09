@@ -20,14 +20,14 @@ namespace NLMCL.Core.Installing
     /// </summary>
     internal static class ResilientDownload
     {
-        public const int DefaultTimeoutSeconds = 300;
+        public const int DefaultTimeoutSeconds = DownloadRetryPolicy.FileTimeoutSeconds;
 
         public static async Task DownloadAsync(
             IDownloadService download,
             string url,
             string targetPath,
             CancellationToken cancellationToken,
-            int attempts = 3,
+            int attempts = DownloadRetryPolicy.Attempts,
             int timeoutSeconds = DefaultTimeoutSeconds,
             IFileDownloader? fallback = null)
         {

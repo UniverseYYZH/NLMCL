@@ -83,6 +83,15 @@ namespace NLMCL.Abstractions
         /// </summary>
         Task<string> ImportLocalAsync(string sourcePath, string playerName, CancellationToken cancellationToken);
 
+        /// <summary>
+        /// 导入并**记住**这个账号的本地皮肤；下次切换回来仍能读到。
+        /// 离线账号的头像/预览优先用这里保存的皮肤。
+        /// </summary>
+        Task<string> ImportLocalAsync(Account account, string sourcePath, CancellationToken cancellationToken);
+
+        /// <summary>读取某个账号上次保存的本地皮肤；没有则返回 null。</summary>
+        Task<string?> GetLocalSkinPathAsync(Account account, CancellationToken cancellationToken);
+
         /// <summary>把皮肤 PNG 渲染成纸娃娃立绘（供界面预览），返回渲染后的文件路径。</summary>
         Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken);
 

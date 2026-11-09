@@ -178,7 +178,7 @@
                 <StackPanel Margin="0,10,0,0">
                     <Border Style="{StaticResource CardStyle}" Padding="14,10">
                         <StackPanel>
-                            <TextBlock Text="① 我开房" Style="{StaticResource SectionHeader}" />
+                            <TextBlock Text="① 创建房间" Style="{StaticResource SectionHeader}" />
                             <TextBlock Text="游戏里按 Esc →「对局域网开放」，把聊天栏显示的端口填进来"
                                        Style="{StaticResource SectionHint}" Margin="0,3,0,8" />
 
@@ -202,7 +202,7 @@
 
                     <Border Style="{StaticResource CardStyle}" Padding="14,10" Margin="0,8,0,0">
                         <StackPanel>
-                            <TextBlock Text="② 我加入" Style="{StaticResource SectionHeader}" />
+                            <TextBlock Text="② 加入房间" Style="{StaticResource SectionHeader}" />
                             <TextBlock Text="填对方给你的地址（形如 10.21.3.9:54321），会先探测端口再启动"
                                        Style="{StaticResource SectionHint}" Margin="0,3,0,8" />
 
