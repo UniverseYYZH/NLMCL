@@ -72,9 +72,9 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,1">
-                                    <TextBlock Text="✓" Foreground="#2E7D32" FontSize="11" Width="16"
+                                    <TextBlock Text="✓" Foreground="{DynamicResource Primary}" FontSize="11" Width="16"
                                                Visibility="{Binding IsOkGlyph, Converter={StaticResource BoolToVisibility}}" />
-                                    <TextBlock Text="!" Foreground="#C62828" FontSize="11" FontWeight="Bold" Width="16"
+                                    <TextBlock Text="!" Foreground="{DynamicResource Error}" FontSize="11" FontWeight="Bold" Width="16"
                                                Visibility="{Binding IsWarnGlyph, Converter={StaticResource BoolToVisibility}}" />
                                     <TextBlock Text="{Binding Text}" FontSize="10.5"
                                                Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
