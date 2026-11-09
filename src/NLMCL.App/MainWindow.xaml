@@ -1,4 +1,4 @@
-﻿<Window x:Class="NLMCL.App.MainWindow"
+<Window x:Class="NLMCL.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         PreviewKeyDown="OnWindowPreviewKeyDown"
@@ -722,13 +722,25 @@
 
                 <ScrollViewer Grid.Row="0" Grid.RowSpan="2" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <TextBlock Text="设置" FontSize="9.5" Foreground="{DynamicResource Faint}" />
-                        <TextBlock Text="外观与运行" FontSize="24" FontWeight="Bold"
-                                   Foreground="{DynamicResource Text}" Margin="0,2,0,0" />
-                        <TextBlock Text="默认值与运行环境；生效时机见各项说明"
-                                   FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="38" Height="38" CornerRadius="9"
+                                    Background="{DynamicResource PrimarySoft}"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                    Margin="0,0,10,0">
+                                <TextBlock Text="⚙" FontSize="19" Foreground="{DynamicResource Primary}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="PREFERENCES / LOCAL ONLY" FontSize="9"
+                                           Foreground="{DynamicResource Faint}" />
+                                <TextBlock Text="设置" FontSize="26" FontWeight="Bold"
+                                           Foreground="{DynamicResource Text}" Margin="0,1,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock Text="通用、游戏与 Java、外观、下载、日志诊断、数据备份；设置只保存在本机。"
+                                   FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,7,0,0" />
 
-                        <views:SettingsPage x:Name="SettingsView" Margin="0,18,0,0" />
+                        <views:SettingsPage x:Name="SettingsView" Margin="0,16,0,0" />
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
