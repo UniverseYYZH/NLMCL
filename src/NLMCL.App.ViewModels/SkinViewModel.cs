@@ -706,6 +706,7 @@ namespace NLMCL.App.ViewModels
 
                 ModelText = "本地皮肤";
                 StatusText = "本地皮肤：" + saved + " · 已记住，切换账号后仍会显示";
+                RefreshLocalSkins();
             }
             catch (Exception ex)
             {
