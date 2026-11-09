@@ -234,7 +234,18 @@
         </Border>
         <!-- 状态 -->
         <TextBlock Grid.Row="4" Text="{Binding StatusText}" FontSize="11"
-                   Foreground="{DynamicResource Muted}" Margin="2,10,0,0" />
+                   Foreground="{DynamicResource Muted}" Margin="2,10,0,0">
+            <TextBlock.Style>
+                <Style TargetType="TextBlock">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding FilteredVersions.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </TextBlock.Style>
+        </TextBlock>
 
         <!-- 安装弹层：选加载器 → 安装 -->
         <Grid Grid.RowSpan="5" Panel.ZIndex="100" Background="#66000000"
