@@ -287,7 +287,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
                             VerticalAlignment="Center" Margin="0,0,18,0">
                     <Ellipse Width="6" Height="6" Fill="{DynamicResource Primary}" Margin="0,0,6,0" />
-                    <TextBlock Text="本地服务在线 · 离线可用" FontSize="10"
+                    <TextBlock Text="本地服务在线" FontSize="10" ToolTip="离线可用"
                                Foreground="{DynamicResource Muted}" />
                 </StackPanel>
                 <Border Grid.Column="2" Height="52" MinWidth="196" Background="{DynamicResource Card}"
@@ -486,7 +486,8 @@
                                         <StackPanel>
                                             <TextBlock Text="JAVA" FontSize="7" Foreground="{DynamicResource Faint}" />
                                             <TextBlock Text="{Binding EffectiveJavaText}" FontSize="8.5"
-                                                       Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
+                                                       Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding EffectiveJavaText}" />
                                         </StackPanel>
                                         <StackPanel>
                                             <TextBlock Text="MEMORY" FontSize="7" Foreground="{DynamicResource Faint}" />
@@ -539,6 +540,7 @@
                                                Foreground="{DynamicResource Faint}" />
                                     <ComboBox ItemsSource="{Binding GameDirectories}"
                                               SelectedItem="{Binding SelectedGameDirectory, Mode=TwoWay}"
+                                              ToolTip="{Binding SelectedGameDirectory}"
                                               FontSize="10" Padding="7,4" Margin="0,6,0,0"
                                               Background="{DynamicResource Surface}"
                                               Foreground="{DynamicResource Text}"
