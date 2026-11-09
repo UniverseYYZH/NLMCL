@@ -30,7 +30,7 @@
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="14" Padding="{TemplateBinding Padding}">
+                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
@@ -200,8 +200,8 @@
                     <Binding Path="SettingsSearchText" />
                 </MultiBinding>
             </StackPanel.Visibility>
-        <TextBlock Text="通用" FontSize="10" FontWeight="SemiBold"
-                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+        <TextBlock Text="通用" FontSize="11.5" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,8,0,7" />
 
         <!-- 启动页面 -->
         <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
@@ -264,8 +264,8 @@
                     <Binding Path="SettingsSearchText" />
                 </MultiBinding>
             </StackPanel.Visibility>
-        <TextBlock Text="游戏与 Java" FontSize="10" FontWeight="SemiBold"
-                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+        <TextBlock Text="游戏与 Java" FontSize="11.5" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,8,0,7" />
 
         <!-- 游戏目录 -->
         <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
@@ -462,8 +462,8 @@
                     <Binding Path="SettingsSearchText" />
                 </MultiBinding>
             </StackPanel.Visibility>
-        <TextBlock Text="外观" FontSize="10" FontWeight="SemiBold"
-                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+        <TextBlock Text="外观" FontSize="11.5" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,8,0,7" />
 
         <!-- 外观 -->
         <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
@@ -539,8 +539,8 @@
                     <Binding Path="SettingsSearchText" />
                 </MultiBinding>
             </StackPanel.Visibility>
-        <TextBlock Text="下载与网络" FontSize="10" FontWeight="SemiBold"
-                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+        <TextBlock Text="下载与网络" FontSize="11.5" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,8,0,7" />
 
         <!-- 下载与网络 -->
         <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
@@ -607,8 +607,8 @@
                     <Binding Path="SettingsSearchText" />
                 </MultiBinding>
             </StackPanel.Visibility>
-        <TextBlock Text="日志与诊断" FontSize="10" FontWeight="SemiBold"
-                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+        <TextBlock Text="日志与诊断" FontSize="11.5" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,8,0,7" />
 
         <!-- 日志与诊断 -->
         <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
@@ -650,8 +650,8 @@
                     <Binding Path="SettingsSearchText" />
                 </MultiBinding>
             </StackPanel.Visibility>
-        <TextBlock Text="数据与备份" FontSize="10" FontWeight="SemiBold"
-                   Foreground="{DynamicResource Muted}" Margin="2,4,0,6" />
+        <TextBlock Text="数据与备份" FontSize="11.5" FontWeight="SemiBold"
+                   Foreground="{DynamicResource Muted}" Margin="2,8,0,7" />
 
         <!-- 自动快照 -->
         <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
