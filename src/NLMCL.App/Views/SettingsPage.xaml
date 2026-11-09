@@ -49,7 +49,50 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <StackPanel>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="154" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- F 左侧设置分组 -->
+        <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="10,10"
+                Margin="0,0,12,0" VerticalAlignment="Top">
+            <StackPanel>
+                <TextBlock Text="设置分组" FontSize="9" Foreground="{DynamicResource Faint}"
+                           Margin="4,0,0,8" />
+                <ToggleButton Content="全部" Style="{StaticResource SettingsFilterToggle}"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectSettingsGroupCommand}" CommandParameter=""
+                              IsChecked="{Binding IsAllGroupActive, Mode=OneWay}" />
+                <ToggleButton Content="通用" Style="{StaticResource SettingsFilterToggle}"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectSettingsGroupCommand}" CommandParameter="general"
+                              IsChecked="{Binding IsGeneralGroupActive, Mode=OneWay}" />
+                <ToggleButton Content="游戏与 Java" Style="{StaticResource SettingsFilterToggle}"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectSettingsGroupCommand}" CommandParameter="game"
+                              IsChecked="{Binding IsGameGroupActive, Mode=OneWay}" />
+                <ToggleButton Content="外观" Style="{StaticResource SettingsFilterToggle}"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectSettingsGroupCommand}" CommandParameter="appearance"
+                              IsChecked="{Binding IsAppearanceGroupActive, Mode=OneWay}" />
+                <ToggleButton Content="下载与网络" Style="{StaticResource SettingsFilterToggle}"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectSettingsGroupCommand}" CommandParameter="download"
+                              IsChecked="{Binding IsDownloadGroupActive, Mode=OneWay}" />
+                <ToggleButton Content="日志与诊断" Style="{StaticResource SettingsFilterToggle}"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectSettingsGroupCommand}" CommandParameter="logs"
+                              IsChecked="{Binding IsLogsGroupActive, Mode=OneWay}" />
+                <ToggleButton Content="数据与备份" Style="{StaticResource SettingsFilterToggle}"
+                              HorizontalContentAlignment="Left"
+                              Command="{Binding SelectSettingsGroupCommand}" CommandParameter="data"
+                              IsChecked="{Binding IsDataGroupActive, Mode=OneWay}" />
+            </StackPanel>
+        </Border>
+
+        <StackPanel Grid.Column="1">
 
         <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,0,10"
                 BorderBrush="{DynamicResource Amber}"
@@ -162,30 +205,6 @@
                             Visibility="{Binding HasSearchInputText, Converter={StaticResource BoolToVisibility}}"
                             Command="{Binding ClearSettingsSearchCommand}" />
                 </Grid>
-
-                <WrapPanel Margin="0,8,0,0">
-                    <ToggleButton Content="全部" Style="{StaticResource SettingsFilterToggle}"
-                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter=""
-                                  IsChecked="{Binding IsAllGroupActive, Mode=OneWay}" />
-                    <ToggleButton Content="通用" Style="{StaticResource SettingsFilterToggle}"
-                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="general"
-                                  IsChecked="{Binding IsGeneralGroupActive, Mode=OneWay}" />
-                    <ToggleButton Content="游戏与 Java" Style="{StaticResource SettingsFilterToggle}"
-                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="game"
-                                  IsChecked="{Binding IsGameGroupActive, Mode=OneWay}" />
-                    <ToggleButton Content="外观" Style="{StaticResource SettingsFilterToggle}"
-                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="appearance"
-                                  IsChecked="{Binding IsAppearanceGroupActive, Mode=OneWay}" />
-                    <ToggleButton Content="下载" Style="{StaticResource SettingsFilterToggle}"
-                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="download"
-                                  IsChecked="{Binding IsDownloadGroupActive, Mode=OneWay}" />
-                    <ToggleButton Content="日志与诊断" Style="{StaticResource SettingsFilterToggle}"
-                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="logs"
-                                  IsChecked="{Binding IsLogsGroupActive, Mode=OneWay}" />
-                    <ToggleButton Content="数据与备份" Style="{StaticResource SettingsFilterToggle}"
-                                  Command="{Binding SelectSettingsGroupCommand}" CommandParameter="data"
-                                  IsChecked="{Binding IsDataGroupActive, Mode=OneWay}" />
-                </WrapPanel>
 
                 <TextBlock Text="没有匹配的设置" FontSize="9.5" Margin="0,6,0,0"
                            Foreground="{DynamicResource Faint}"
@@ -811,5 +830,6 @@
         </Border>
 
         </StackPanel>
-    </StackPanel>
+        </StackPanel>
+    </Grid>
 </UserControl>
