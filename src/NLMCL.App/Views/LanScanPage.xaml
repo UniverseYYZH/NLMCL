@@ -85,6 +85,32 @@
             </ScrollViewer>
         </Border>
 
+        <Border Grid.Row="1" Padding="28" Margin="0,16,0,0">
+            <Border.Style>
+                <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Rooms.Count}" Value="0">
+                            <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsScanning}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="还没有发现局域网房间" FontSize="14" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" HorizontalAlignment="Center" />
+                <TextBlock Text="让对方在游戏里按 Esc →「对局域网开放」，并确保在同一 WiFi / 网段。"
+                           FontSize="10" Foreground="{DynamicResource Muted}" Margin="0,6,0,0"
+                           TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" />
+                <Button Content="开始扫描" Style="{StaticResource PrimaryButton}" Padding="16,7"
+                        Margin="0,12,0,0" HorizontalAlignment="Center"
+                        Command="{Binding ScanCommand}"
+                        IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}" />
+            </StackPanel>
+        </Border>
         <StackPanel Grid.Row="2" Margin="2,10,0,0">
             <TextBlock Text="{Binding StatusText}" FontSize="11"
                        Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
