@@ -305,7 +305,7 @@
                                 <RectangleGeometry Rect="0,0,38,38" RadiusX="19" RadiusY="19" />
                             </Border.Clip>
                             <Grid>
-                                <TextBlock Text="?" FontSize="15" Foreground="White"
+                                <TextBlock Text="?" FontSize="15" Foreground="{DynamicResource OnPrimary}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 <Image Source="{Binding AvatarPath}" Stretch="UniformToFill"
                                        RenderOptions.BitmapScalingMode="NearestNeighbor"
@@ -883,7 +883,7 @@
                                                         <RectangleGeometry Rect="0,0,32,32" RadiusX="16" RadiusY="16" />
                                                     </Border.Clip>
                                                     <Grid>
-                                                        <TextBlock Text="?" FontSize="13" Foreground="White"
+                                                        <TextBlock Text="?" FontSize="13" Foreground="{DynamicResource OnPrimary}"
                                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                         <Image Source="{Binding AvatarPath}" Stretch="UniformToFill"
                                                                RenderOptions.BitmapScalingMode="NearestNeighbor"

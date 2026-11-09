@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -19,6 +19,7 @@ namespace NLMCL.Tests
         {
             Exception? failure = null;
             string? output = null;
+            string? highContrastOutput = null;
             string roaming = Path.Combine(Path.GetTempPath(), "nlmcl-skinpage-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Path.Combine(roaming, ".minecraft"));
 
@@ -73,6 +74,23 @@ namespace NLMCL.Tests
                             encoder.Save(stream);
                         }
 
+                        ApplyOverlay(window);
+                        root.Measure(new Size(width, height));
+                        root.Arrange(new Rect(0, 0, width, height));
+                        root.UpdateLayout();
+
+                        RenderTargetBitmap highContrast = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
+                        highContrast.Render(root);
+
+                        PngBitmapEncoder highContrastEncoder = new PngBitmapEncoder();
+                        highContrastEncoder.Frames.Add(BitmapFrame.Create(highContrast));
+                        highContrastOutput = Path.Combine(dir, "ui-skin-highcontrast.png");
+
+                        using (FileStream stream = File.Create(highContrastOutput))
+                        {
+                            highContrastEncoder.Save(stream);
+                        }
+
                         window.Close();
                     }
                     catch (Exception ex)
@@ -88,11 +106,36 @@ namespace NLMCL.Tests
                 Assert.Null(failure);
                 Assert.NotNull(output);
                 Assert.True(new FileInfo(output!).Length > 10_000, "皮肤页渲染过小，可能是空白。");
+                Assert.NotNull(highContrastOutput);
+                Assert.True(new FileInfo(highContrastOutput!).Length > 10_000, "皮肤页高对比度渲染过小。");
             }
             finally
             {
                 try { Directory.Delete(roaming, true); } catch (IOException) { }
             }
         }
-    }
+
+        /// <summary>给逻辑树里每个合并 Design.xaml 的页面追加 HighContrast.xaml。</summary>
+        private static void ApplyOverlay(FrameworkElement element)
+        {
+            bool hasDesign = element.Resources.MergedDictionaries.Any(dictionary =>
+                dictionary.Source?.OriginalString?.IndexOf(
+                    "Design.xaml", StringComparison.OrdinalIgnoreCase) >= 0);
+
+            if (hasDesign)
+            {
+                element.Resources.MergedDictionaries.Add(new ResourceDictionary
+                {
+                    Source = new Uri("/NLMCL;component/Themes/HighContrast.xaml", UriKind.Relative)
+                });
+            }
+
+            foreach (object child in LogicalTreeHelper.GetChildren(element))
+            {
+                if (child is FrameworkElement childElement)
+                {
+                    ApplyOverlay(childElement);
+                }
+            }
+        }    }
 }
