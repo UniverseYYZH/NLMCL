@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
@@ -246,8 +246,8 @@ namespace NLMCL.App.ViewModels
             NavigationItem lanScanNav = new NavigationItem("局域网扫描", "发现附近的房间", ShellSection.LanScan);
             NavigationItem settings = new NavigationItem("设置", "外观 / Java / 下载", ShellSection.Settings);
             NavigationItem downloadNav = new NavigationItem("版本下载", "原版与加载器", ShellSection.Download);
-            NavigationItem import = new NavigationItem("导入资源", "mod 与整合包", ShellSection.Import);
-            NavigationItem modsNav = new NavigationItem("Mod 管理", "启用 / 删除 / 更新", ShellSection.Mods);
+            NavigationItem import = new NavigationItem("导入资源", "mod 与整合包", ShellSection.Import, topLevel: false);
+            NavigationItem modsNav = new NavigationItem("Mod 管理", "启用 / 删除 / 更新", ShellSection.Mods, topLevel: false);
             NavigationItem skinNav = new NavigationItem("皮肤", "预览与保存", ShellSection.Skin);
 
             NavigationGroups = new ReadOnlyCollection<NavigationGroup>(new List<NavigationGroup>
@@ -1635,6 +1635,40 @@ namespace NLMCL.App.ViewModels
 
             _ = SaveLastPageAsync(item.Section);
         }
+
+        /// <summary>按分区选中；导入/Mod 已合并进下载中心，仍保留内部激活入口。</summary>
+        public void SelectSection(ShellSection section)
+        {
+            NavigationItem? item = NavigationGroups
+                .SelectMany(group => group.Items)
+                .FirstOrDefault(candidate => candidate.Section == section);
+
+            if (item != null)
+            {
+                SelectSection(item);
+            }
+        }
+
+        /// <summary>下载中心的「导入资源」标签激活时调用。</summary>
+        public void ActivateResourceTab()
+        {
+            if (_resource == null)
+            {
+                return;
+            }
+
+            string? gameVersion = SelectedVersion?.MinecraftVersion;
+            string? loader = SelectedVersion?.LoaderHint;
+            _ = _resource.EnsureLoadedForInstanceAsync(gameVersion, loader);
+            _resource.SyncFromInstance(CurrentGameDirectory, SelectedVersion?.FolderName ?? string.Empty);
+        }
+
+        /// <summary>下载中心的「Mod 管理」标签激活时调用。</summary>
+        public void ActivateModsTab()
+        {
+            RefreshModsInstance();
+        }
+        
 
         private void ApplyStartupPage(AppSettings settings)
         {

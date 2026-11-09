@@ -28,11 +28,12 @@ namespace NLMCL.App.ViewModels
     /// </summary>
     public sealed partial class NavigationItem : ObservableObject
     {
-        public NavigationItem(string title, string description, ShellSection section = ShellSection.Versions)
+        public NavigationItem(string title, string description, ShellSection section = ShellSection.Versions, bool topLevel = true)
         {
             Title = title ?? throw new ArgumentNullException(nameof(title));
             Description = description ?? string.Empty;
             Section = section;
+            IsTopLevel = topLevel;
         }
 
         public string Title { get; }
@@ -40,6 +41,9 @@ namespace NLMCL.App.ViewModels
         public string Description { get; }
 
         public ShellSection Section { get; }
+
+        /// <summary>是否出现在 F 顶部主导航；导入/Mod 合并进下载中心后不再单独占一项。</summary>
+        public bool IsTopLevel { get; }
 
         [ObservableProperty]
         private bool _isActive;
