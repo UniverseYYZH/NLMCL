@@ -1,4 +1,4 @@
-<UserControl x:Class="NLMCL.App.Views.LaunchConsolePage"
+﻿<UserControl x:Class="NLMCL.App.Views.LaunchConsolePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:NLMCL.App"
@@ -23,7 +23,7 @@
 
                     <Border Grid.Column="0" CornerRadius="4" Padding="6,1" Margin="0,0,8,0"
                             VerticalAlignment="Top" MinWidth="72"
-                            Background="#1B2A24"
+                            Background="#274237"
                             Visibility="{Binding ShowTag, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="{Binding TagLabel}" FontSize="9.5"
                                    Foreground="{Binding Color}" TextAlignment="Center" />
@@ -61,6 +61,10 @@
                            FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
             </StackPanel>
 
+            <Border Grid.Column="1" VerticalAlignment="Top"
+                    Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                    CornerRadius="9" Padding="5,4">
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                 <Button Content="▶  启动" Style="{StaticResource PrimaryButton}" Padding="16,8"
                         Command="{Binding StartCommand}"
@@ -78,6 +82,7 @@
                         ToolTip="读取崩溃报告 / latest.log，指出可疑原因"
                         Command="{Binding AnalyzeCrashCommand}" />
             </StackPanel>
+            </Border>
         </Grid>
 
         <!-- 版本 + 状态 -->
@@ -100,9 +105,14 @@
                              Foreground="{DynamicResource Text}" />
                 </Border>
 
-                <TextBlock Grid.Column="2" Text="{Binding StatusText}" FontSize="11"
-                           Foreground="{DynamicResource Muted}" VerticalAlignment="Center"
-                           Margin="6,0,0,0" TextTrimming="CharacterEllipsis" />
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                            Margin="6,0,0,0">
+                    <Ellipse Width="6" Height="6" Fill="{DynamicResource Primary}" Margin="0,0,6,0"
+                             Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding StatusText}" FontSize="11"
+                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
 
                 <Border Grid.Column="3" Style="{StaticResource Chip}"
                         Background="{DynamicResource Surface}"
