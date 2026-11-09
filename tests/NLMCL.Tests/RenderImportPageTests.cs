@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -41,8 +41,8 @@ namespace NLMCL.Tests
                     resource.SearchText = "sodium";
                     resource.SearchAsync().GetAwaiter().GetResult();
 
-                    vm.SelectSection(vm.NavigationGroups[1].Items[1]);
-                    Assert.True(vm.IsImportSection);
+                    vm.SelectSection(vm.NavigationGroups[1].Items[0]);
+                    Assert.True(vm.IsDownloadSection);
 
                     const int width = 1060;
                     const int height = 700;
@@ -52,6 +52,9 @@ namespace NLMCL.Tests
                         Width = width,
                         Height = height
                     };
+
+                    NLMCL.App.Views.DownloadHubPage hub = (NLMCL.App.Views.DownloadHubPage)window.FindName("DownloadHub");
+                    hub.OpenResourceTab();
 
                     FrameworkElement root = (FrameworkElement)window.Content;
                     root.Measure(new Size(width, height));

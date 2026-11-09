@@ -696,7 +696,7 @@
                                                           RelativeSource={RelativeSource AncestorType=Window},
                                                           Converter={StaticResource BoolToVisibility}}" />
             <!-- 下载页 -->
-            <views:DownloadHubPage Visibility="{Binding DataContext.IsDownloadSection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
+            <views:DownloadHubPage x:Name="DownloadHub" Visibility="{Binding DataContext.IsDownloadSection, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource BoolToVisibility}}" />
         </Grid>
         <!-- 版本详情 -->
         <Grid Grid.RowSpan="3" Grid.ColumnSpan="2" Panel.ZIndex="999" Background="#66000000"

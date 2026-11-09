@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using NLMCL.App.ViewModels;
 
@@ -16,6 +16,9 @@ namespace NLMCL.App.Views
         }
 
         private MainViewModel? Vm => DataContext as MainViewModel;
+
+        /// <summary>供截图/冒烟测试直接打开资源标签。</summary>
+        public void OpenResourceTab() => ShowTab("resource");
 
         private void DownloadTab_Click(object sender, RoutedEventArgs e) => ShowTab("download");
 
