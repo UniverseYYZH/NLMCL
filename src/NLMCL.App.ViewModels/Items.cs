@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NLMCL.Abstractions;
@@ -142,6 +142,25 @@ namespace NLMCL.App.ViewModels
 
         public bool HasWarning { get; }
 
+        /// <summary>F 世界卡片上的加载器短标签。</summary>
+        public string LoaderLabel => LoaderHint switch
+        {
+            "fabric" => "Fabric",
+            "forge" => "Forge",
+            "neoforge" => "NeoForge",
+            "quilt" => "Quilt",
+            _ => Kind == VersionKind.Snapshot ? "快照" : "原版"
+        };
+
+        /// <summary>F 世界卡片上的单字加载器徽标。</summary>
+        public string LoaderBadgeText => LoaderHint switch
+        {
+            "fabric" => "F",
+            "forge" => "F",
+            "neoforge" => "N",
+            "quilt" => "Q",
+            _ => Kind == VersionKind.Snapshot ? "S" : "V"
+        };
         /// <summary>从目录名推断加载器。</summary>
         private static string DetectLoader(string folder)
         {

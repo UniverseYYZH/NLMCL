@@ -1,39 +1,44 @@
-<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!-- ===== 颜色令牌：来源 legacy/ui_theme.py，唯一真源 ===== -->
-    <Color x:Key="BgColor">#F4F6F1</Color>
-    <Color x:Key="SidebarBgColor">#173B2B</Color>
-    <Color x:Key="SidebarActiveColor">#285A41</Color>
-    <Color x:Key="PrimaryColor">#2F6B4F</Color>
-    <Color x:Key="AmberColor">#966000</Color>
+    <Color x:Key="BgColor">#F3E7D2</Color>
+    <Color x:Key="SidebarBgColor">#600000</Color>
+    <Color x:Key="SidebarActiveColor">#500000</Color>
+    <Color x:Key="PrimaryColor">#3F6E4B</Color>
+    <Color x:Key="AmberColor">#B07A3E</Color>
 
     <SolidColorBrush x:Key="Bg" Color="{StaticResource BgColor}" />
     <SolidColorBrush x:Key="Card" Color="#FFFFFF" />
     <SolidColorBrush x:Key="Surface" Color="#F8FAF7" />
-    <SolidColorBrush x:Key="BorderColor" Color="#E4E9E2" />
-    <SolidColorBrush x:Key="Text" Color="#17231B" />
-    <SolidColorBrush x:Key="Muted" Color="#68776D" />
-    <SolidColorBrush x:Key="Faint" Color="#96A29A" />
+    <SolidColorBrush x:Key="BorderColor" Color="#DDCEB7" />
+    <SolidColorBrush x:Key="Text" Color="#28362D" />
+    <SolidColorBrush x:Key="Muted" Color="#777B6E" />
+    <SolidColorBrush x:Key="Faint" Color="#A39D8C" />
     <SolidColorBrush x:Key="Primary" Color="{StaticResource PrimaryColor}" />
-    <SolidColorBrush x:Key="PrimarySoft" Color="#E8F1EA" />
+    <SolidColorBrush x:Key="PrimarySoft" Color="#E7EFE2" />
     <SolidColorBrush x:Key="SidebarBg" Color="{StaticResource SidebarBgColor}" />
     <SolidColorBrush x:Key="SidebarActive" Color="{StaticResource SidebarActiveColor}" />
-    <SolidColorBrush x:Key="SidebarHover" Color="#1E3A2A" />
-    <SolidColorBrush x:Key="SidebarLogoBg" Color="#F4FAF6" />
-    <SolidColorBrush x:Key="SidebarAccountBg" Color="#101E16" />
-    <SolidColorBrush x:Key="SidebarText" Color="#F4FAF6" />
-    <SolidColorBrush x:Key="SidebarMuted" Color="#9DB5A6" />
-    <SolidColorBrush x:Key="SidebarFaint" Color="#5D6B61" />
+    <SolidColorBrush x:Key="SidebarHover" Color="#500000" />
+    <SolidColorBrush x:Key="SidebarLogoBg" Color="#FFFAF0" />
+    <SolidColorBrush x:Key="SidebarAccountBg" Color="#500000" />
+    <SolidColorBrush x:Key="SidebarText" Color="#FFFAF0" />
+    <SolidColorBrush x:Key="SidebarMuted" Color="#D8C9B3" />
+    <SolidColorBrush x:Key="SidebarFaint" Color="#8D8779" />
 
     <SolidColorBrush x:Key="Amber" Color="{StaticResource AmberColor}" />
-    <SolidColorBrush x:Key="AmberBg" Color="#FFF6E2" />
-    <SolidColorBrush x:Key="AmberBorder" Color="#EFDDB5" />
-    <SolidColorBrush x:Key="Snapshot" Color="#A85F00" />
-    <SolidColorBrush x:Key="SnapshotBg" Color="#FFF1DA" />
-    <SolidColorBrush x:Key="Old" Color="#5D6B61" />
-    <SolidColorBrush x:Key="OldBg" Color="#EFF2EE" />
+    <SolidColorBrush x:Key="AmberBg" Color="#FBF2D8" />
+    <SolidColorBrush x:Key="AmberBorder" Color="#E3CDA4" />
+    <SolidColorBrush x:Key="Snapshot" Color="#B07A3E" />
+    <SolidColorBrush x:Key="SnapshotBg" Color="#FBF2D8" />
+    <SolidColorBrush x:Key="Old" Color="#8D8779" />
+    <SolidColorBrush x:Key="OldBg" Color="#F0ECE0" />
     <SolidColorBrush x:Key="Error" Color="#B42318" />
+    <SolidColorBrush x:Key="FrameRed" Color="#600000" />
+    <SolidColorBrush x:Key="FrameRedDeep" Color="#500000" />
+    <SolidColorBrush x:Key="FrameYellow" Color="#F8D818" />
+    <SolidColorBrush x:Key="FrameText" Color="#FFF7F2" />
+    <SolidColorBrush x:Key="FrameMuted" Color="#E8C7C0" />
 
     <FontFamily x:Key="UiFont">Microsoft YaHei UI</FontFamily>
 
@@ -57,7 +62,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                            CornerRadius="18" Padding="{TemplateBinding Padding}">
+                            CornerRadius="8" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
@@ -88,7 +93,7 @@
                     <Border x:Name="Bd" Background="{TemplateBinding Background}"
                             BorderBrush="{TemplateBinding BorderBrush}"
                             BorderThickness="{TemplateBinding BorderThickness}"
-                            CornerRadius="16" Padding="{TemplateBinding Padding}">
+                            CornerRadius="8" Padding="{TemplateBinding Padding}">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>

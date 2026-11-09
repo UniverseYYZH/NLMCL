@@ -1,12 +1,12 @@
-<Window x:Class="NLMCL.App.MainWindow"
+﻿<Window x:Class="NLMCL.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         PreviewKeyDown="OnWindowPreviewKeyDown"
         xmlns:local="clr-namespace:NLMCL.App"
         xmlns:views="clr-namespace:NLMCL.App.Views"
         Title="{Binding ProductName}"
-        Height="700" Width="1060"
-        MinHeight="560" MinWidth="900"
+        Height="780" Width="1180"
+        MinHeight="620" MinWidth="980"
         WindowStartupLocation="CenterScreen"
         FontFamily="{DynamicResource UiFont}"
         Background="{DynamicResource Bg}"
@@ -64,11 +64,17 @@
                     </Grid.ColumnDefinitions>
 
                     <!-- 类型图标块 -->
-                    <Border Grid.Column="0" Width="38" Height="38" CornerRadius="8"
+                    <!-- 加载器徽标 -->
+                    <Border Grid.Column="0" Width="42" Height="42" CornerRadius="9"
                             Margin="0,0,12,0"
                             VerticalAlignment="Center">
-                        <TextBlock Text="▣" FontSize="16" Foreground="{DynamicResource Primary}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <TextBlock Text="{Binding LoaderBadgeText}" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource Primary}" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding LoaderLabel}" FontSize="7"
+                                       Foreground="{DynamicResource Muted}" Margin="0,1,0,0"
+                                       HorizontalAlignment="Center" />
+                        </StackPanel>
                         <Border.Style>
                             <Style TargetType="Border">
                                 <Setter Property="Background" Value="{DynamicResource PrimarySoft}" />
@@ -155,17 +161,192 @@
             </Border>
             </Button>
         </DataTemplate>
+        <!-- F 顶部导航按钮 -->
+        <Style x:Key="TopNavButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource FrameMuted}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                  TextElement.Foreground="{TemplateBinding Foreground}" />
+                            </Border>
+                            <Border x:Name="Line" Height="2" VerticalAlignment="Bottom" Background="Transparent" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#6B1010" />
+                                <Setter Property="Foreground" Value="{DynamicResource FrameText}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#6B1010" />
+                                <Setter TargetName="Line" Property="Background" Value="{DynamicResource FrameYellow}" />
+                                <Setter Property="Foreground" Value="{DynamicResource FrameYellow}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </DataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="HeroGhostButton" TargetType="Button">
+            <Setter Property="Background" Value="#3D6350" />
+            <Setter Property="Foreground" Value="#F8F3E4" />
+            <Setter Property="BorderBrush" Value="#6F8A73" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#4A6B56" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="TopNavItemTemplate">            <Button Style="{StaticResource TopNavButton}"
+                    Command="{Binding DataContext.SelectSectionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                    CommandParameter="{Binding}"
+                    ToolTip="{Binding Description}">
+                <TextBlock Text="{Binding Title}"
+                           Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" />
+            </Button>
+        </DataTemplate>
+
         </ResourceDictionary>
     </Window.Resources>
 
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64" />
+            <RowDefinition Height="46" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="256" />
+            <ColumnDefinition Width="0" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
-        <!-- ================= 侧栏 ================= -->
-        <Border Grid.Column="0" Background="{DynamicResource SidebarBg}">
+        <!-- ================= F 顶部品牌 / 账号 ================= -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2" Background="{DynamicResource Card}"
+                BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,0,0,1">
+            <Grid Margin="26,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="40" Height="40" CornerRadius="10" Background="#600000">
+                        <TextBlock Text="N" FontSize="20" FontWeight="Bold"
+                                   Foreground="#F8D818"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ProductName}" FontSize="17" FontWeight="Bold"
+                                   Foreground="{DynamicResource Text}" />
+                        <TextBlock Text="像素世界库 · 本地优先" FontSize="10"
+                                   Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
+                    </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                            VerticalAlignment="Center" Margin="0,0,18,0">
+                    <Ellipse Width="6" Height="6" Fill="{DynamicResource Primary}" Margin="0,0,6,0" />
+                    <TextBlock Text="本地服务在线 · 离线可用" FontSize="10"
+                               Foreground="{DynamicResource Muted}" />
+                </StackPanel>
+                <Border Grid.Column="2" Height="52" MinWidth="196" Background="{DynamicResource Card}"
+                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="9"
+                        Padding="7,0,13,0" Cursor="Hand" MouseLeftButtonUp="AccountCardClicked">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="0" Width="38" Height="38" CornerRadius="19"
+                                Background="{DynamicResource Primary}">
+                            <Border.Clip>
+                                <RectangleGeometry Rect="0,0,38,38" RadiusX="19" RadiusY="19" />
+                            </Border.Clip>
+                            <Grid>
+                                <TextBlock Text="?" FontSize="15" Foreground="White"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Image Source="{Binding AvatarPath}" Stretch="UniformToFill"
+                                       RenderOptions.BitmapScalingMode="NearestNeighbor"
+                                       Visibility="{Binding HasAvatar, Converter={StaticResource BoolToVisibility}}" />
+                            </Grid>
+                        </Border>
+                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding AccountName}" FontSize="12.5" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Text}" />
+                            <TextBlock Text="{Binding AccountType}" FontSize="9.5"
+                                       Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" Text="›" FontSize="16"
+                                   Foreground="{DynamicResource Faint}" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ================= F 顶部导航 ================= -->
+        <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource FrameRed}">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          Background="Transparent">
+                <ItemsControl ItemsSource="{Binding NavigationGroups}" VerticalAlignment="Stretch">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="1" Background="#7A2020" Margin="8,12" />
+                                <TextBlock Text="{Binding Caption}" FontSize="9"
+                                           Foreground="{DynamicResource FrameMuted}" VerticalAlignment="Center"
+                                           Margin="4,0,6,0" />
+                                <ItemsControl ItemsSource="{Binding Items}"
+                                              ItemTemplate="{StaticResource TopNavItemTemplate}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ================= 旧侧栏（保留代码，F 布局下隐藏） ================= -->
+        <Border Grid.Row="2" Grid.Column="0" Visibility="Collapsed" Background="{DynamicResource SidebarBg}">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -253,7 +434,7 @@
         </Border>
 
         <!-- ================= 主区域 ================= -->
-        <Grid Grid.Column="1">
+        <Grid Grid.Row="2" Grid.Column="1">
             <!-- 版本页 -->
             <Grid Margin="26,22,26,14"
                   Visibility="{Binding IsVersionsSection, Converter={StaticResource BoolToVisibility}}">
@@ -266,47 +447,63 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- 标题区 -->
-            <Grid Grid.Row="0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="本地版本库" FontSize="9.5"
-                               Foreground="{DynamicResource Faint}" />
-                    <TextBlock Text="游戏版本" FontSize="24" FontWeight="Bold"
-                               Foreground="{DynamicResource Text}" Margin="0,2,0,0" />
-                    <TextBlock Text="扫描本地 .minecraft，选择版本并启动游戏"
-                               FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                    <Border Style="{StaticResource Chip}" Background="{DynamicResource Surface}"
-                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" Margin="0,0,10,0"
-                            Cursor="Hand" ToolTip="点击重新扫描本地版本">
-                        <Border.InputBindings>
-                            <MouseBinding MouseAction="LeftClick" Command="{Binding RescanCommand}" />
-                        </Border.InputBindings>
-                        <TextBlock Text="● 重新扫描" Style="{StaticResource ChipText}"
-                                   Foreground="{DynamicResource Muted}" />
-                    </Border>
-                <Button Content="修复" Style="{StaticResource GhostButton}"
-                        Padding="14,9" Margin="0,0,8,0" ToolTip="检查并补全缺失的库与客户端 JAR"
-                        Command="{Binding RepairSelectedCommand}" />
-                    <Button Content="快照" Style="{StaticResource GhostButton}"
-                            Padding="14,9" Margin="0,0,8,0"
-                            Command="{Binding GoToSnapshotsCommand}" />
-                    <Button Content="▶  启动游戏" Style="{StaticResource PrimaryButton}"
-                            Padding="18,9"
-                            Command="{Binding LaunchSelectedCommand}"
-                            IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
-                <Button Content="⟳  重启游戏" Style="{StaticResource GhostButton}"
-                        Padding="14,9" Margin="8,0,0,0"
-                        ToolTip="停止当前游戏并用同样的版本与服务器再启动（AutoModpack 同步完会用到）"
-                        Command="{Binding RestartGameCommand}" />
-                </StackPanel>
-            </Grid>
-
+            <!-- F 当前世界 Hero -->
+            <Border Grid.Row="0" CornerRadius="12" Padding="22,18" Margin="0,0,0,2">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#355B45" Offset="0" />
+                        <GradientStop Color="#233D2E" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="CURRENT WORLD / 本地实例" FontSize="9"
+                                   Foreground="#CDE7C7" />
+                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <TextBlock Text="{Binding SelectedVersion.Name, TargetNullValue=未选择实例}"
+                                       FontSize="28" FontWeight="Bold" Foreground="White" />
+                            <Border Background="#F8D818" CornerRadius="4" Padding="7,3" Margin="10,5,0,0"
+                                    VerticalAlignment="Top">
+                                <TextBlock Text="{Binding SelectedVersion.KindLabel, TargetNullValue=本地}"
+                                           FontSize="9" FontWeight="SemiBold" Foreground="#503A00" />
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <TextBlock Text="{Binding SelectedVersion.ReleasedLabel, TargetNullValue=尚未选择版本}"
+                                       FontSize="10.5" Foreground="#C7D9C6" />
+                            <TextBlock Text="  ·  " FontSize="10.5" Foreground="#849C86" />
+                            <TextBlock Text="{Binding VersionCountLabel}" FontSize="10.5" Foreground="#C7D9C6" />
+                            <TextBlock Text="  ·  " FontSize="10.5" Foreground="#849C86" />
+                            <TextBlock Text="本地 · 离线可用" FontSize="10.5" Foreground="#C7D9C6" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding CurrentGameDirectory}" FontSize="9"
+                                   FontFamily="Cascadia Mono, Consolas" Foreground="#90AE97"
+                                   Margin="0,5,0,0" TextTrimming="CharacterEllipsis" MaxWidth="620" />
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                            <Button Content="▶  启动游戏" Style="{StaticResource PrimaryButton}"
+                                    Padding="18,9" Command="{Binding LaunchSelectedCommand}"
+                                    IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                            <Button Content="打开目录" Style="{StaticResource HeroGhostButton}"
+                                    Margin="7,0,0,0" Command="{Binding OpenGameDirectoryCommand}" />
+                            <Button Content="修复" Style="{StaticResource HeroGhostButton}"
+                                    Margin="7,0,0,0" Command="{Binding RepairSelectedCommand}" />
+                            <Button Content="快照" Style="{StaticResource HeroGhostButton}"
+                                    Margin="7,0,0,0" Command="{Binding GoToSnapshotsCommand}" />
+                            <Button Content="重新扫描" Style="{StaticResource HeroGhostButton}"
+                                    Margin="7,0,0,0" Command="{Binding RescanCommand}" />
+                            <Button Content="重启" Style="{StaticResource HeroGhostButton}"
+                                    Margin="7,0,0,0" Command="{Binding RestartGameCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding SelectedVersion.MinecraftVersion, TargetNullValue=LOCAL}"
+                               FontSize="64" FontWeight="Bold" Foreground="#1AFFFFFF"
+                               VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,4,-8" />
+                </Grid>
+            </Border>
             <!-- 游戏目录 -->
             <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,18,0,12">
                 <Grid>
