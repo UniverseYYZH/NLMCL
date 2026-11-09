@@ -44,7 +44,7 @@
                     Command="{Binding DataContext.SelectVersionCommand,
                                       RelativeSource={RelativeSource AncestorType=Window}}"
                     CommandParameter="{Binding}">
-            <Border Padding="14,12" Margin="0,0,0,8">
+            <Border Padding="11,9" Margin="0,0,0,6">
                 <Border.Style>
                     <Style TargetType="Border" BasedOn="{StaticResource CardStyle}">
                         <Style.Triggers>
@@ -435,326 +435,281 @@
 
         <!-- ================= 主区域 ================= -->
         <Grid Grid.Row="2" Grid.Column="1">
-            <!-- 版本页 -->
-            <Grid Margin="26,22,26,14"
+            <!-- F 世界库 -->
+            <Grid Margin="26,18,26,12"
                   Visibility="{Binding IsVersionsSection, Converter={StaticResource BoolToVisibility}}">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
 
-            <!-- F 当前世界 Hero -->
-            <Border Grid.Row="0" CornerRadius="12" Padding="22,18" Margin="0,0,0,2">
-                <Border.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#355B45" Offset="0" />
-                        <GradientStop Color="#233D2E" Offset="1" />
-                    </LinearGradientBrush>
-                </Border.Background>
-                <Grid>
+                <!-- 当前世界 Hero -->
+                <Border Grid.Row="0" CornerRadius="12" Padding="22,18" Margin="0,0,0,12">
+                    <Border.Background>
+                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                            <GradientStop Color="#355B45" Offset="0" />
+                            <GradientStop Color="#233D2E" Offset="1" />
+                        </LinearGradientBrush>
+                    </Border.Background>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="CURRENT WORLD / 本地实例" FontSize="9" Foreground="#E8F5E8" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                                <TextBlock Text="{Binding SelectedVersion.Name, TargetNullValue=未选择实例}"
+                                           FontSize="28" FontWeight="Bold" Foreground="White" />
+                                <Border Background="#F8D818" CornerRadius="4" Padding="7,3" Margin="10,5,0,0"
+                                        VerticalAlignment="Top">
+                                    <TextBlock Text="{Binding SelectedVersion.KindLabel, TargetNullValue=本地}"
+                                               FontSize="9" FontWeight="SemiBold" Foreground="#503A00" />
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <TextBlock Text="{Binding SelectedVersion.ReleasedLabel, TargetNullValue=尚未选择版本}"
+                                           FontSize="10.5" Foreground="#C7D9C6" />
+                                <TextBlock Text="  ·  " FontSize="10.5" Foreground="#849C86" />
+                                <TextBlock Text="{Binding VersionCountLabel}" FontSize="10.5" Foreground="#C7D9C6" />
+                                <TextBlock Text="  ·  " FontSize="10.5" Foreground="#849C86" />
+                                <TextBlock Text="本地 · 离线可用" FontSize="10.5" Foreground="#C7D9C6" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding CurrentGameDirectory}" FontSize="9"
+                                       FontFamily="Cascadia Mono, Consolas" Foreground="#E6F1E6"
+                                       Margin="0,5,0,0" TextTrimming="CharacterEllipsis" MaxWidth="620" />
+                            <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                <Button Content="▶  启动游戏" Style="{StaticResource PrimaryButton}"
+                                        Padding="18,9" Command="{Binding LaunchSelectedCommand}"
+                                        IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
+                                <Button Content="打开目录" Style="{StaticResource HeroGhostButton}"
+                                        Margin="7,0,0,0" Command="{Binding OpenGameDirectoryCommand}" />
+                                <Button Content="修复" Style="{StaticResource HeroGhostButton}"
+                                        Margin="7,0,0,0" Command="{Binding RepairSelectedCommand}" />
+                                <Button Content="快照" Style="{StaticResource HeroGhostButton}"
+                                        Margin="7,0,0,0" Command="{Binding GoToSnapshotsCommand}" />
+                                <Button Content="重新扫描" Style="{StaticResource HeroGhostButton}"
+                                        Margin="7,0,0,0" Command="{Binding RescanCommand}" />
+                                <Button Content="重启" Style="{StaticResource HeroGhostButton}"
+                                        Margin="7,0,0,0" Command="{Binding RestartGameCommand}" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="{Binding SelectedVersion.MinecraftVersion, TargetNullValue=LOCAL}"
+                                   FontSize="64" FontWeight="Bold" Foreground="#1AFFFFFF"
+                                   VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,4,-8" />
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="318" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0">
-                        <TextBlock Text="CURRENT WORLD / 本地实例" FontSize="9"
-                                   Foreground="#CDE7C7" />
-                        <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                            <TextBlock Text="{Binding SelectedVersion.Name, TargetNullValue=未选择实例}"
-                                       FontSize="28" FontWeight="Bold" Foreground="White" />
-                            <Border Background="#F8D818" CornerRadius="4" Padding="7,3" Margin="10,5,0,0"
-                                    VerticalAlignment="Top">
-                                <TextBlock Text="{Binding SelectedVersion.KindLabel, TargetNullValue=本地}"
-                                           FontSize="9" FontWeight="SemiBold" Foreground="#503A00" />
-                            </Border>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                            <TextBlock Text="{Binding SelectedVersion.ReleasedLabel, TargetNullValue=尚未选择版本}"
-                                       FontSize="10.5" Foreground="#C7D9C6" />
-                            <TextBlock Text="  ·  " FontSize="10.5" Foreground="#849C86" />
-                            <TextBlock Text="{Binding VersionCountLabel}" FontSize="10.5" Foreground="#C7D9C6" />
-                            <TextBlock Text="  ·  " FontSize="10.5" Foreground="#849C86" />
-                            <TextBlock Text="本地 · 离线可用" FontSize="10.5" Foreground="#C7D9C6" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding CurrentGameDirectory}" FontSize="9"
-                                   FontFamily="Cascadia Mono, Consolas" Foreground="#90AE97"
-                                   Margin="0,5,0,0" TextTrimming="CharacterEllipsis" MaxWidth="620" />
-                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                            <Button Content="▶  启动游戏" Style="{StaticResource PrimaryButton}"
-                                    Padding="18,9" Command="{Binding LaunchSelectedCommand}"
-                                    IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
-                            <Button Content="打开目录" Style="{StaticResource HeroGhostButton}"
-                                    Margin="7,0,0,0" Command="{Binding OpenGameDirectoryCommand}" />
-                            <Button Content="修复" Style="{StaticResource HeroGhostButton}"
-                                    Margin="7,0,0,0" Command="{Binding RepairSelectedCommand}" />
-                            <Button Content="快照" Style="{StaticResource HeroGhostButton}"
-                                    Margin="7,0,0,0" Command="{Binding GoToSnapshotsCommand}" />
-                            <Button Content="重新扫描" Style="{StaticResource HeroGhostButton}"
-                                    Margin="7,0,0,0" Command="{Binding RescanCommand}" />
-                            <Button Content="重启" Style="{StaticResource HeroGhostButton}"
-                                    Margin="7,0,0,0" Command="{Binding RestartGameCommand}" />
-                        </StackPanel>
-                    </StackPanel>
-                    <TextBlock Grid.Column="1" Text="{Binding SelectedVersion.MinecraftVersion, TargetNullValue=LOCAL}"
-                               FontSize="64" FontWeight="Bold" Foreground="#1AFFFFFF"
-                               VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="0,0,4,-8" />
-                </Grid>
-            </Border>
-            <!-- 游戏目录 -->
-            <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,18,0,12">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="0" Text="游戏目录" FontSize="11"
-                               Foreground="{DynamicResource Muted}" />
-                    <Grid Grid.Row="1" Margin="0,6,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Border Grid.Column="0" Background="{DynamicResource Surface}"
-                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                                CornerRadius="7" Padding="10,7">
-                            <TextBox Text="{Binding CurrentGameDirectory, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="Transparent" BorderThickness="0" FontSize="11.5"
-                                     Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
-                        </Border>
-                        <Button Grid.Column="1" Content="📁" Style="{StaticResource GhostButton}"
-                                Margin="8,0,0,0" Padding="10,7"
-                                ToolTip="选择 .minecraft 文件夹"
-                                Command="{Binding PickGameDirectoryCommand}" />
-                        <Button Grid.Column="2" Content="⟳  扫描版本" Style="{StaticResource GhostButton}"
-                                Margin="8,0,0,0" Padding="14,7"
-                                Command="{Binding RefreshCommand}"
-                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
-                    </Grid>
 
-                    <Grid Grid.Row="2" Margin="0,7,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-
-                        <ComboBox Grid.Column="0"
-                                  ItemsSource="{Binding GameDirectories}"
-                                  SelectedItem="{Binding SelectedGameDirectory, Mode=TwoWay}"
-                                  FontSize="10.5" Padding="8,5"
-                                  MaxDropDownHeight="260"
-                                  Background="{DynamicResource Surface}"
-                                  Foreground="{DynamicResource Text}"
-                                  ToolTip="已添加的游戏目录；扫描会遍历全部目录">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,2" MaxWidth="420">
-                                        <TextBlock Text="{Binding Converter={StaticResource DirectoryName}}"
-                                                   FontSize="10.5"
-                                                   Foreground="{DynamicResource Text}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding}" FontSize="8.5"
-                                                   Foreground="{DynamicResource Faint}"
-                                                   TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-
-                        <Button Grid.Column="1" Content="添加文件夹…" Style="{StaticResource GhostButton}"
-                                Margin="8,0,0,0" Padding="10,5" FontSize="10"
-                                ToolTip="打开文件夹选择器，把 .minecraft 目录加入列表"
-                                Command="{Binding AddGameDirectoryCommand}" />
-                        <Button Grid.Column="2" Content="扫描全盘" Style="{StaticResource GhostButton}"
-                                Margin="6,0,0,0" Padding="10,5" FontSize="10"
-                                ToolTip="扫描整台电脑，自动加入所有 .minecraft 目录"
-                                Command="{Binding ScanAllGameDirectoriesCommand}"
-                                IsEnabled="{Binding IsScanningDirectories, Converter={StaticResource InverseBool}}" />
-                        <Button Grid.Column="3" Content="移除" Style="{StaticResource GhostButton}"
-                                Margin="6,0,0,0" Padding="10,5" FontSize="10"
-                                ToolTip="从列表移除当前目录（至少保留一个）"
-                                Command="{Binding RemoveGameDirectoryCommand}" />
-                    </Grid>
-
-                    <StackPanel Grid.Row="3" Margin="0,8,0,0"
-                                Visibility="{Binding IsScanningDirectories, Converter={StaticResource BoolToVisibility}}">
-                        <ProgressBar Height="4" IsIndeterminate="True"
-                                     Foreground="{DynamicResource Primary}"
-                                     Background="{DynamicResource Surface}" />
-                        <Grid Margin="0,6,0,0">
+                    <!-- 左：我的世界库 -->
+                    <Grid Grid.Column="0" Margin="0,0,14,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid Grid.Row="0" Margin="2,0,0,8">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding ScanProgressText}"
-                                       FontSize="9.5" Foreground="{DynamicResource Muted}"
-                                       TextWrapping="Wrap" />
-                            <Button Grid.Column="1" Content="停止扫描"
-                                    Style="{StaticResource GhostButton}"
-                                    Margin="10,0,0,0" Padding="10,3" FontSize="9.5"
-                                    Command="{Binding StopScanAllGameDirectoriesCommand}" />
+                            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                <TextBlock Text="我的世界库" FontSize="16" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding VersionCountLabel}" FontSize="10.5"
+                                           Foreground="{DynamicResource Muted}" Margin="9,2,0,0"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                <Button Content="刷新" Style="{StaticResource GhostButton}" Padding="10,4"
+                                        FontSize="9.5" Command="{Binding RescanCommand}" />
+                            </StackPanel>
                         </Grid>
-                    </StackPanel>
+                        <Grid Grid.Row="1">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                          Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
+                                <ItemsControl ItemsSource="{Binding Versions}"
+                                              ItemTemplate="{StaticResource VersionRowTemplate}" />
+                            </ScrollViewer>
+                            <Border Style="{StaticResource CardStyle}" Padding="28"
+                                    Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="没有找到可用的游戏版本" FontSize="15" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Text}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="请确认 .minecraft 路径正确，或先安装一个版本。"
+                                               FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,8,0,0"
+                                               HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+
+                    <!-- 右：庭院侧栏 -->
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <Border Style="{StaticResource CardStyle}" Padding="14,12">
+                                <StackPanel>
+                                    <TextBlock Text="下一次冒险" FontSize="9"
+                                               Foreground="{DynamicResource Faint}" />
+                                    <TextBlock Text="{Binding SelectedVersion.Name, TargetNullValue=尚未选择实例}"
+                                               FontSize="20" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Primary}" Margin="0,4,0,0" />
+                                    <TextBlock Text="{Binding SelectedVersion.ReleasedLabel, TargetNullValue=选择左侧实例开始}"
+                                               FontSize="9.5" Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                        <Button Content="启动" Style="{StaticResource PrimaryButton}"
+                                                Padding="14,6" FontSize="10.5" Command="{Binding LaunchSelectedCommand}" />
+                                        <Button Content="详情" Style="{StaticResource GhostButton}"
+                                                Padding="12,6" FontSize="10" Margin="6,0,0,0"
+                                                Command="{Binding ShowVersionDetailsCommand}"
+                                                CommandParameter="{Binding SelectedVersion}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,9,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="世界动态" FontSize="9"
+                                               Foreground="{DynamicResource Faint}" />
+                                    <TextBlock Text="{Binding StatusText}" FontSize="10"
+                                               Foreground="{DynamicResource Text}" Margin="0,6,0,0"
+                                               TextWrapping="Wrap" />
+                                    <ProgressBar Height="4" Margin="0,8,0,0" IsIndeterminate="True"
+                                                 Foreground="{DynamicResource Primary}"
+                                                 Background="{DynamicResource Surface}"
+                                                 Visibility="{Binding IsScanningDirectories, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBlock Text="{Binding ScanProgressText}" FontSize="8.5"
+                                               Foreground="{DynamicResource Muted}" Margin="0,4,0,0"
+                                               TextWrapping="Wrap"
+                                               Visibility="{Binding IsScanningDirectories, Converter={StaticResource BoolToVisibility}}" />
+                                    <Button Content="停止扫描" Style="{StaticResource GhostButton}"
+                                            Padding="10,4" FontSize="9" Margin="0,6,0,0"
+                                            HorizontalAlignment="Left"
+                                            Command="{Binding StopScanAllGameDirectoriesCommand}"
+                                            Visibility="{Binding IsScanningDirectories, Converter={StaticResource BoolToVisibility}}" />
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,9,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="游戏目录" FontSize="9"
+                                               Foreground="{DynamicResource Faint}" />
+                                    <ComboBox ItemsSource="{Binding GameDirectories}"
+                                              SelectedItem="{Binding SelectedGameDirectory, Mode=TwoWay}"
+                                              FontSize="10" Padding="7,4" Margin="0,6,0,0"
+                                              Background="{DynamicResource Surface}"
+                                              Foreground="{DynamicResource Text}"
+                                              MaxDropDownHeight="240">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="0,2" MaxWidth="250">
+                                                    <TextBlock Text="{Binding Converter={StaticResource DirectoryName}}"
+                                                               FontSize="10" Foreground="{DynamicResource Text}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding}" FontSize="8"
+                                                               Foreground="{DynamicResource Faint}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                    <WrapPanel Margin="0,7,0,0">
+                                        <Button Content="添加" Style="{StaticResource GhostButton}"
+                                                Padding="8,4" FontSize="9" Command="{Binding AddGameDirectoryCommand}" />
+                                        <Button Content="扫描全盘" Style="{StaticResource GhostButton}"
+                                                Padding="8,4" FontSize="9" Margin="4,0,0,0"
+                                                Command="{Binding ScanAllGameDirectoriesCommand}" />
+                                        <Button Content="移除" Style="{StaticResource GhostButton}"
+                                                Padding="8,4" FontSize="9" Margin="4,0,0,0"
+                                                Command="{Binding RemoveGameDirectoryCommand}" />
+                                        <Button Content="打开" Style="{StaticResource GhostButton}"
+                                                Padding="8,4" FontSize="9" Margin="4,0,0,0"
+                                                Command="{Binding OpenGameDirectoryCommand}" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Expander Header="启动设置 / 当前实例" Margin="0,9,0,0"
+                                      Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}}">
+                                <Border Style="{StaticResource CardStyle}" Padding="12" Margin="0,5,0,0">
+                                    <StackPanel>
+                                        <Grid Margin="0,0,0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="62" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="内存 MB" FontSize="9.5" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="1" Text="{Binding MemoryMb, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontSize="10" Padding="6,4" Background="{DynamicResource Surface}"
+                                                     Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource BorderColor}" />
+                                        </Grid>
+                                        <Grid Margin="0,0,0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="62" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Java" FontSize="9.5" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="1" Text="{Binding JavaPath, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontSize="9" Padding="6,4" Background="{DynamicResource Surface}"
+                                                     Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource BorderColor}" />
+                                        </Grid>
+                                        <Grid Margin="0,0,0,5">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="62" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="额外参数" FontSize="9.5" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
+                                            <TextBox Grid.Column="1" Text="{Binding ExtraArguments, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontSize="9" Padding="6,4" Background="{DynamicResource Surface}"
+                                                     Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource BorderColor}" />
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Margin="62,0,0,6">
+                                            <TextBox Text="{Binding WindowWidth, UpdateSourceTrigger=PropertyChanged}" Width="54"
+                                                     FontSize="9" Padding="4,4" Background="{DynamicResource Surface}"
+                                                     Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource BorderColor}" />
+                                            <TextBlock Text="×" FontSize="9.5" Foreground="{DynamicResource Muted}" Margin="5,0" VerticalAlignment="Center" />
+                                            <TextBox Text="{Binding WindowHeight, UpdateSourceTrigger=PropertyChanged}" Width="54"
+                                                     FontSize="9" Padding="4,4" Background="{DynamicResource Surface}"
+                                                     Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource BorderColor}" />
+                                            <CheckBox Content="全屏" IsChecked="{Binding Fullscreen}" FontSize="9.5"
+                                                      Foreground="{DynamicResource Text}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <WrapPanel Margin="62,0,0,0">
+                                            <Button Content="保存" Style="{StaticResource GhostButton}" Padding="8,4" FontSize="9"
+                                                    Command="{Binding SaveSettingsCommand}" />
+                                            <Button Content="重命名" Style="{StaticResource GhostButton}" Padding="8,4" FontSize="9" Margin="4,0,0,0"
+                                                    Command="{Binding RenameVersionCommand}" />
+                                            <Button Content="复制" Style="{StaticResource GhostButton}" Padding="8,4" FontSize="9" Margin="4,0,0,0"
+                                                    Command="{Binding CopyVersionCommand}" />
+                                            <Button Content="删除" Style="{StaticResource GhostButton}" Padding="8,4" FontSize="9" Margin="4,0,0,0"
+                                                    Command="{Binding DeleteVersionCommand}" />
+                                        </WrapPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Expander>
+
+                            <Border Background="#F8F2E4" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                    CornerRadius="10" Padding="13,11" Margin="0,9,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="这里只属于你" FontSize="14" FontFamily="Georgia"
+                                               Foreground="{DynamicResource Primary}" />
+                                    <TextBlock Text="版本、模组、快照都保存在本机，不登录也能玩。"
+                                               FontSize="9.5" Foreground="{DynamicResource Muted}"
+                                               TextWrapping="Wrap" Margin="0,4,0,0" />
+                                    <TextBlock Text="LOCAL FIRST · NO ACCOUNT REQUIRED"
+                                               FontSize="7" FontFamily="Cascadia Mono, Consolas"
+                                               Foreground="{DynamicResource Faint}" Margin="0,7,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
-            </Border>
-
-            <!-- 汇总行 -->
-            <Grid Grid.Row="2" Margin="2,0,0,8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                    <TextBlock Text="{Binding VersionCountLabel}" FontSize="11.5" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Text}" VerticalAlignment="Center" />
-                    <Border Style="{StaticResource Chip}" Margin="10,0,0,0"
-                            Visibility="{Binding HasRelease, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="{Binding ReleaseCountLabel}" Style="{StaticResource ChipText}" />
-                    </Border>
-                    <Border Style="{StaticResource Chip}" Background="{DynamicResource SnapshotBg}" Margin="6,0,0,0"
-                            Visibility="{Binding HasSnapshot, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="{Binding SnapshotCountLabel}" Style="{StaticResource ChipText}"
-                                   Foreground="{DynamicResource Snapshot}" />
-                    </Border>
-                    <Border Style="{StaticResource Chip}" Background="{DynamicResource OldBg}" Margin="6,0,0,0"
-                            Visibility="{Binding HasOther, Converter={StaticResource BoolToVisibility}}">
-                        <TextBlock Text="{Binding OtherCountLabel}" Style="{StaticResource ChipText}"
-                                   Foreground="{DynamicResource Old}" />
-                    </Border>
-                </StackPanel>
-                <TextBlock Grid.Column="2" Text="时间倒序" FontSize="10"
-                           Foreground="{DynamicResource Faint}" VerticalAlignment="Center" />
             </Grid>
-
-            <!-- 列表 / 空状态 -->
-            <Grid Grid.Row="3">
-                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                              Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                    <ItemsControl ItemsSource="{Binding Versions}"
-                                  ItemTemplate="{StaticResource VersionRowTemplate}" />
-                </ScrollViewer>
-
-                <Border Style="{StaticResource CardStyle}" Padding="28"
-                        Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock Text="没有找到可用的游戏版本" FontSize="15" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Text}" HorizontalAlignment="Center" />
-                        <TextBlock Text="请确认 .minecraft 路径正确，或先安装一个版本。"
-                                   FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,8,0,0"
-                                   HorizontalAlignment="Center" />
-                        <TextBlock Text="这个目录下没有已安装的版本。"
-                                   FontSize="10.5" Foreground="{DynamicResource Faint}" Margin="0,6,0,0"
-                                   HorizontalAlignment="Center" />
-                    </StackPanel>
-                </Border>
-            </Grid>
-
-            <!-- 选中实例的启动设置 -->
-            <Border Grid.Row="4" Style="{StaticResource CardStyle}" Padding="14,10" Margin="0,0,0,6"
-                    Visibility="{Binding HasSelection, Converter={StaticResource BoolToVisibility}}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="88" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBlock Grid.Column="0" Text="内存 (MB)" FontSize="10.5"
-                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
-                    <Border Grid.Column="1" Background="{DynamicResource Surface}" Margin="8,0,0,0"
-                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                            CornerRadius="6" Padding="8,4">
-                        <TextBox Text="{Binding MemoryMb, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="Transparent" BorderThickness="0" FontSize="11"
-                                 Foreground="{DynamicResource Text}" />
-                    </Border>
-
-                    <TextBlock Grid.Column="2" Text="Java" FontSize="10.5" Margin="14,0,0,0"
-                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
-                    <Border Grid.Column="3" Background="{DynamicResource Surface}" Margin="8,0,0,0"
-                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                            CornerRadius="6" Padding="8,4">
-                        <TextBox Text="{Binding JavaPath, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="Transparent" BorderThickness="0" FontSize="11"
-                                 Foreground="{DynamicResource Text}" />
-                    </Border>
-
-                    <TextBlock Grid.Column="4" Text="额外参数" FontSize="10.5" Margin="14,0,0,0"
-                               Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
-                    <Border Grid.Column="5" Background="{DynamicResource Surface}" Margin="8,0,0,0"
-                            BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                            CornerRadius="6" Padding="8,4">
-                        <TextBox Text="{Binding ExtraArguments, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="Transparent" BorderThickness="0" FontSize="11"
-                                 Foreground="{DynamicResource Text}" />
-                    </Border>
-
-                <StackPanel Grid.Column="6" Orientation="Horizontal" Margin="8,0,0,0" VerticalAlignment="Center">
-                    <Button Content="重命名" Style="{StaticResource GhostButton}" Padding="10,4"
-                            ToolTip="改实例目录名与 JSON id"
-                            Command="{Binding RenameVersionCommand}" />
-                    <Button Content="复制" Style="{StaticResource GhostButton}" Padding="10,4" Margin="6,0,0,0"
-                            ToolTip="复制出一个新实例"
-                            Command="{Binding CopyVersionCommand}" />
-                    <Button Content="删除" Style="{StaticResource GhostButton}" Padding="10,4" Margin="6,0,0,0"
-                            ToolTip="删除整个实例目录（带确认）"
-                            Command="{Binding DeleteVersionCommand}" />
-                </StackPanel>
-                    <Button Grid.Column="7" Content="保存" Style="{StaticResource GhostButton}"
-                            Margin="8,0,0,0" Padding="12,4"
-                            Command="{Binding SaveSettingsCommand}" />
-
-                    <StackPanel Grid.Row="1" Grid.ColumnSpan="8" Orientation="Horizontal" Margin="0,10,0,0">
-                        <TextBlock Text="窗口" FontSize="10.5" Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
-
-                        <Border Background="{DynamicResource Surface}" Margin="8,0,0,0" Width="70"
-                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                                CornerRadius="6" Padding="8,4">
-                            <TextBox Text="{Binding WindowWidth, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="Transparent" BorderThickness="0" FontSize="11"
-                                     Foreground="{DynamicResource Text}"
-                                     ToolTip="窗口宽度（0 = 游戏默认）" />
-                        </Border>
-
-                        <TextBlock Text="×" FontSize="10.5" Foreground="{DynamicResource Muted}"
-                                   VerticalAlignment="Center" Margin="6,0" />
-
-                        <Border Background="{DynamicResource Surface}" Width="70"
-                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                                CornerRadius="6" Padding="8,4">
-                            <TextBox Text="{Binding WindowHeight, UpdateSourceTrigger=PropertyChanged}"
-                                     Background="Transparent" BorderThickness="0" FontSize="11"
-                                     Foreground="{DynamicResource Text}"
-                                     ToolTip="窗口高度（0 = 游戏默认）" />
-                        </Border>
-
-                        <CheckBox Content="全屏启动" IsChecked="{Binding Fullscreen}"
-                                  Margin="14,0,0,0" VerticalAlignment="Center"
-                                  Foreground="{DynamicResource Text}" FontSize="11" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            </Grid>
-
             <!-- 设置页 -->
             <Grid Margin="26,22,26,14"
                   Visibility="{Binding IsSettingsSection, Converter={StaticResource BoolToVisibility}}">
