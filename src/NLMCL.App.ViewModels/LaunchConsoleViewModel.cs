@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -319,7 +319,7 @@ namespace NLMCL.App.ViewModels
         /// 接管一个已经在运行的会话。
         ///
         /// 主界面「启动游戏」与这里原本是两条独立路径：主界面走 IGameLauncher（发射后不管，
-        /// 不捕获输出），所以从「本地版本」启动的游戏在控制台里看不到任何日志。
+        /// 不捕获输出），所以从「世界库」启动的游戏在控制台里看不到任何日志。
         /// 统一成会话模式后，两个入口共用一个控制台，也都能用「停止」。
         /// </summary>
         public void Attach(IGameSession session)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Threading;
@@ -264,8 +264,8 @@ namespace NLMCL.App.ViewModels
 
             if (!Directory.Exists(versions))
             {
-                // 空目录是合法起点：之后可以用「版本下载」装原版
-                StatusText = "注意：目录里还没有 versions，可以在「版本下载」里安装游戏。";
+                // 空目录是合法起点：之后可以用「下载中心」装原版
+                StatusText = "注意：目录里还没有 versions，可以在「下载中心」里安装游戏。";
             }
 
             return true;

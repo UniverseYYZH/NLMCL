@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -365,7 +365,7 @@ namespace NLMCL.App.ViewModels
 
             if (string.IsNullOrWhiteSpace(MinecraftDirectory) || string.IsNullOrWhiteSpace(VersionFolder))
             {
-                StatusText = "请先在「本地版本」里选一个实例";
+                StatusText = "请先在「世界库」里选一个实例";
                 return;
             }
 
@@ -460,7 +460,7 @@ namespace NLMCL.App.ViewModels
 
             if (string.IsNullOrWhiteSpace(MinecraftDirectory) || string.IsNullOrWhiteSpace(VersionFolder))
             {
-                StatusText = "请先在「本地版本」里选一个实例，再安装本地 jar";
+                StatusText = "请先在「世界库」里选一个实例，再安装本地 jar";
                 return;
             }
 
@@ -506,7 +506,7 @@ namespace NLMCL.App.ViewModels
 
             if (string.IsNullOrWhiteSpace(MinecraftDirectory))
             {
-                StatusText = "请先选择一个本地版本（决定装到哪个实例）";
+                StatusText = "请先选择一个世界库（决定装到哪个实例）";
                 return;
             }
 
@@ -685,7 +685,7 @@ namespace NLMCL.App.ViewModels
 
             if (string.IsNullOrWhiteSpace(MinecraftDirectory))
             {
-                StatusText = "请先在「本地版本」选一个实例，再导入整合包（决定装到哪个 .minecraft）。";
+                StatusText = "请先在「世界库」选一个实例，再导入整合包（决定装到哪个 .minecraft）。";
                 return;
             }
 
@@ -717,7 +717,7 @@ namespace NLMCL.App.ViewModels
                     .ConfigureAwait(true);
 
                 Progress = 100;
-                StatusText = "已创建实例「" + versionId + "」，去「本地版本」里启动它。";
+                StatusText = "已创建实例「" + versionId + "」，去「世界库」里启动它。";
             }
             catch (Exception ex)
             {

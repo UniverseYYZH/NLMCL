@@ -239,13 +239,13 @@ namespace NLMCL.App.ViewModels
 
             CurrentGameDirectory = paths.DefaultMinecraftDirectory;
 
-            NavigationItem versions = new NavigationItem("本地版本", "扫描本地 .minecraft", ShellSection.Versions);
+            NavigationItem versions = new NavigationItem("世界库", "扫描本地 .minecraft", ShellSection.Versions);
             NavigationItem consoleNav = new NavigationItem("启动与日志", "多实例控制台", ShellSection.Launch);
             NavigationItem multiplayer = new NavigationItem("联机房间", "局域网与直连", ShellSection.Multiplayer);
             NavigationItem snapshot = new NavigationItem("实例快照", "备份存档与配置", ShellSection.Snapshot);
             NavigationItem lanScanNav = new NavigationItem("局域网扫描", "发现附近的房间", ShellSection.LanScan);
             NavigationItem settings = new NavigationItem("设置", "外观 / Java / 下载", ShellSection.Settings);
-            NavigationItem downloadNav = new NavigationItem("版本下载", "原版与加载器", ShellSection.Download);
+            NavigationItem downloadNav = new NavigationItem("下载中心", "原版与加载器", ShellSection.Download);
             NavigationItem import = new NavigationItem("导入资源", "mod 与整合包", ShellSection.Import, topLevel: false);
             NavigationItem modsNav = new NavigationItem("Mod 管理", "启用 / 删除 / 更新", ShellSection.Mods, topLevel: false);
             NavigationItem skinNav = new NavigationItem("皮肤", "预览与保存", ShellSection.Skin);
@@ -293,9 +293,9 @@ namespace NLMCL.App.ViewModels
         public SettingsTransferViewModel Transfer { get; }
 
         /// <summary>
-        /// 游戏目录是"一个"状态：本地版本、启动控制台、下载页必须看到同一个。
+        /// 游戏目录是"一个"状态：世界库、启动控制台、下载页必须看到同一个。
         ///
-        /// 之前三个页面各自记一份：本地版本扫的是 D 盘，控制台却去 %APPDATA%\.minecraft 找版本、
+        /// 之前三个页面各自记一份：世界库扫的是 D 盘，控制台却去 %APPDATA%\.minecraft 找版本、
         /// 下载页也往默认目录装——表现就是"启动失败：未找到版本目录"和"装完列表里没有"。
         /// </summary>
         partial void OnCurrentGameDirectoryChanged(string value)
@@ -697,7 +697,7 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _hasOther;
 
-        /// <summary>当前显示「本地版本」页。</summary>
+        /// <summary>当前显示「世界库」页。</summary>
         [ObservableProperty]
         private bool _isVersionsSection = true;
 
@@ -709,7 +709,7 @@ namespace NLMCL.App.ViewModels
         /// <summary>快照总占用（「N 个 · X MB」）。</summary>
         [ObservableProperty]
         private string _snapshotTotalText = "0 个";
-        /// <summary>当前显示「版本下载」页。</summary>
+        /// <summary>当前显示「下载中心」页。</summary>
         [ObservableProperty]
         private bool _isDownloadSection;
 
@@ -888,11 +888,11 @@ namespace NLMCL.App.ViewModels
         }
 
         public IReadOnlyList<string> DefaultPageOptions { get; }
-            = new[] { "上次页面", "本地版本", "联机房间", "版本下载" };
+            = new[] { "上次页面", "世界库", "联机房间", "下载中心" };
 
         public string SelectedDefaultPage
         {
-            get => Settings?.SelectedDefaultPage ?? "本地版本";
+            get => Settings?.SelectedDefaultPage ?? "世界库";
             set
             {
                 if (Settings != null && !string.Equals(Settings.SelectedDefaultPage, value, StringComparison.Ordinal))
@@ -1008,7 +1008,7 @@ namespace NLMCL.App.ViewModels
                     return "last";
                 case "联机房间":
                     return "multiplayer";
-                case "版本下载":
+                case "下载中心":
                     return "download";
                 default:
                     return "versions";
@@ -1024,9 +1024,9 @@ namespace NLMCL.App.ViewModels
                 case "multiplayer":
                     return "联机房间";
                 case "download":
-                    return "版本下载";
+                    return "下载中心";
                 default:
-                    return "本地版本";
+                    return "世界库";
             }
         }
 
@@ -1901,7 +1901,7 @@ namespace NLMCL.App.ViewModels
 
             if (SelectedVersion == null)
             {
-                StatusText = "请先在「本地版本」里选一个版本";
+                StatusText = "请先在「世界库」里选一个版本";
                 return;
             }
 
@@ -1930,7 +1930,7 @@ namespace NLMCL.App.ViewModels
 
             if (SelectedVersion == null)
             {
-                StatusText = "请先在「本地版本」里选一个版本，再进大厅";
+                StatusText = "请先在「世界库」里选一个版本，再进大厅";
                 return;
             }
 
@@ -2104,7 +2104,7 @@ namespace NLMCL.App.ViewModels
 
                 if (instance == null)
                 {
-                    StatusText = "安装完成，但没找到对应实例；请到「本地版本」手动选一个后重试";
+                    StatusText = "安装完成，但没找到对应实例；请到「世界库」手动选一个后重试";
                     return;
                 }
 
@@ -2736,7 +2736,7 @@ namespace NLMCL.App.ViewModels
 
             if (SelectedVersion == null)
             {
-                StatusText = "请先在「本地版本」里选一个版本，再点快捷入口";
+                StatusText = "请先在「世界库」里选一个版本，再点快捷入口";
                 return;
             }
 
@@ -2760,7 +2760,7 @@ namespace NLMCL.App.ViewModels
 
             if (SelectedVersion == null)
             {
-                StatusText = "请先在「本地版本」里选一个版本";
+                StatusText = "请先在「世界库」里选一个版本";
                 return;
             }
 
@@ -4097,7 +4097,7 @@ namespace NLMCL.App.ViewModels
             // 对用户毫无信息量。这里提前拦住，并告诉他去哪儿修。
             if (SelectedVersion.HasWarning)
             {
-                StatusText = "该实例缺少客户端 JAR，无法启动。请到「版本下载」安装对应原版，"
+                StatusText = "该实例缺少客户端 JAR，无法启动。请到「下载中心」安装对应原版，"
                     + "或重新安装这个实例。";
                 return;
             }
@@ -4231,7 +4231,7 @@ namespace NLMCL.App.ViewModels
 
                 if (_sessionLauncher != null)
                 {
-                    // 统一走会话式启动：捕获输出并交给控制台，这样从「本地版本」启动
+                    // 统一走会话式启动：捕获输出并交给控制台，这样从「世界库」启动
                     // 也能在「启动与日志」里看到日志、也能停止（以前两条路径互不相干）。
                     IGameSession session = await _sessionLauncher
                         .StartAsync(request, CancellationToken.None)
@@ -4489,11 +4489,11 @@ namespace NLMCL.App.ViewModels
                 SelectVersion(match);
             }
         }
-        /// <summary>手动重新扫描本地版本（点顶部「重新扫描」徽标触发）。</summary>
+        /// <summary>手动重新扫描世界库（点顶部「重新扫描」徽标触发）。</summary>
         [RelayCommand]
         private async Task RescanAsync()
         {
-            StatusText = "正在重新扫描本地版本…";
+            StatusText = "正在重新扫描世界库…";
 
             try
             {
@@ -4514,7 +4514,7 @@ namespace NLMCL.App.ViewModels
             }
 
             IsBusy = true;
-            StatusText = "正在读取本地版本…";
+            StatusText = "正在读取世界库…";
 
             _scanCts?.Cancel();
             _scanCts?.Dispose();

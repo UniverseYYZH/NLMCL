@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -11,7 +11,7 @@ using NLMCL.Abstractions;
 namespace NLMCL.App.ViewModels
 {
     /// <summary>
-    /// 版本下载页的展示逻辑：拉取可下载版本、选择目标目录、执行安装并上报进度。
+    /// 下载中心页的展示逻辑：拉取可下载版本、选择目标目录、执行安装并上报进度。
     /// 与主窗口的 ViewModel 一样，**不引用任何 WPF 类型**，因此可单测。
     /// </summary>
     public sealed partial class DownloadViewModel : ObservableObject
@@ -419,7 +419,7 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        /// <summary>进入「版本下载」页时自动拉一次列表（已有数据就不重复请求）。</summary>
+        /// <summary>进入「下载中心」页时自动拉一次列表（已有数据就不重复请求）。</summary>
         public async Task EnsureLoadedAsync()
         {
             if (Versions.Count > 0 || IsLoading)

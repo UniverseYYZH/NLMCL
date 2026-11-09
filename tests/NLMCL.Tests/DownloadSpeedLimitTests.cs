@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using NLMCL.Abstractions;
 using NLMCL.App.ViewModels;
 using Xunit;
@@ -107,13 +107,13 @@ namespace NLMCL.Tests
                 new TestSupport.EmptyCatalog(),
                 new NLMCL.Core.AppPaths(@"C:\Temp\roaming"));
 
-            vm.Settings.SelectedDefaultPage = "版本下载";
+            vm.Settings.SelectedDefaultPage = "下载中心";
             vm.Settings.AutoSnapshotBeforeLaunch = true;
             vm.Settings.SnapshotRetention = 10;
             vm.Settings.SelectedCloseBehavior = "最小化到托盘";
             vm.Settings.ReduceMotion = true;
 
-            Assert.Equal("版本下载", vm.SelectedDefaultPage);
+            Assert.Equal("下载中心", vm.SelectedDefaultPage);
             Assert.True(vm.AutoSnapshotBeforeLaunch);
             Assert.Equal(10, vm.SnapshotRetention);
             Assert.Equal("最小化到托盘", vm.SelectedCloseBehavior);

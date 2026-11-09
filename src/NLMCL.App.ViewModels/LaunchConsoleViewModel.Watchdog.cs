@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NLMCL.Abstractions;
@@ -76,7 +76,7 @@ namespace NLMCL.App.ViewModels
                 Lines.Add(new ConsoleLine(
                     "【提示】启动后 " + SilenceWarningSeconds
                     + " 秒没有任何输出。可能卡在 JVM 初始化 / 类路径 / 显卡驱动；"
-                    + "可以先「停止」再检查：Java 版本是否匹配、实例是否缺文件（本地版本 → 修复）。",
+                    + "可以先「停止」再检查：Java 版本是否匹配、实例是否缺文件（世界库 → 修复）。",
                     LogTag.JavaIncompatible));
 
                 StatusText = "可能卡在启动阶段（" + SilenceWarningSeconds + " 秒无输出）";

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -400,7 +400,7 @@ namespace NLMCL.App.ViewModels
         }
 
         [ObservableProperty]
-        private string _selectedDefaultPage = "本地版本";
+        private string _selectedDefaultPage = "世界库";
 
         [ObservableProperty]
         private bool _autoSnapshotBeforeLaunch;

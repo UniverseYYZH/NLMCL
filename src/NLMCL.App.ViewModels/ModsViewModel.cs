@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -32,7 +32,7 @@ namespace NLMCL.App.ViewModels
         public ObservableCollection<ModEntry> Mods { get; } = new ObservableCollection<ModEntry>();
 
         [ObservableProperty]
-        private string _statusText = "先在「本地版本」选一个实例。";
+        private string _statusText = "先在「世界库」选一个实例。";
 
         [ObservableProperty]
         private bool _isBusy;
@@ -89,7 +89,7 @@ namespace NLMCL.App.ViewModels
 
             if (string.IsNullOrEmpty(_modsDirectory))
             {
-                StatusText = "先在「本地版本」选一个实例。";
+                StatusText = "先在「世界库」选一个实例。";
                 return;
             }
 

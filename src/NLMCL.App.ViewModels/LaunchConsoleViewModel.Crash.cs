@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,7 +40,7 @@ namespace NLMCL.App.ViewModels
 
             if (string.IsNullOrWhiteSpace(VersionId) || string.IsNullOrWhiteSpace(GameDirectory))
             {
-                AnalysisText = "先在「本地版本」选一个实例，再点崩溃分析。";
+                AnalysisText = "先在「世界库」选一个实例，再点崩溃分析。";
                 HasAnalysis = true;
                 return;
             }
