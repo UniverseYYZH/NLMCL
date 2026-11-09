@@ -57,14 +57,10 @@
             </Border>
 
             <!-- ===== 服务器档案 ===== -->
-            <Grid Margin="0,14,0,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <UniformGrid Columns="{Binding VisibleServerProfileCount}" Margin="0,14,0,0">
 
             <!-- ===== 宝可梦服（模组端） ===== -->
-            <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,7,0"
+            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,7,0"
                     Visibility="{Binding HasPrimaryProfile, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel>
                     <TextBlock Text="{Binding PrimaryProfile.Name}" FontSize="13" FontWeight="SemiBold"
@@ -105,7 +101,7 @@
             </Border>
 
             <!-- ===== 还原服（纯净端） ===== -->
-            <Border Grid.Column="1" Style="{StaticResource CardStyle}" Padding="16,12" Margin="7,0,0,0"
+            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="7,0,0,0"
                     Visibility="{Binding HasVanillaProfile, Converter={StaticResource BoolToVisibility}}">
                 <StackPanel>
                     <TextBlock Text="{Binding VanillaProfile.Name}" FontSize="13" FontWeight="SemiBold"
@@ -124,7 +120,7 @@
                 </StackPanel>
             </Border>
 
-            </Grid>
+            </UniformGrid>
 
             <!-- ===== 常用线路 ===== -->
             <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,10,0,0">

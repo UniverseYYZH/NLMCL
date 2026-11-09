@@ -768,6 +768,19 @@ namespace NLMCL.App.ViewModels
         /// <summary>是否有可显示的服务器档案（卡片绑定它，避免异步加载后不刷新）。</summary>
         [ObservableProperty]
         private bool _hasPrimaryProfile;
+        /// <summary>联机页当前会显示几个服档案；用于 1 栏 / 2 栏自适应。</summary>
+        public int VisibleServerProfileCount =>
+            (HasPrimaryProfile ? 1 : 0) + (HasVanillaProfile ? 1 : 0);
+
+        partial void OnHasPrimaryProfileChanged(bool value)
+        {
+            OnPropertyChanged(nameof(VisibleServerProfileCount));
+        }
+
+        partial void OnHasVanillaProfileChanged(bool value)
+        {
+            OnPropertyChanged(nameof(VisibleServerProfileCount));
+        }
 
 
         /// <summary>已保存的账号（当前账号在第一位）。</summary>

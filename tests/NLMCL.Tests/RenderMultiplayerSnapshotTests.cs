@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Windows;
@@ -35,6 +35,7 @@ namespace NLMCL.Tests
 
                     vm.LoadServerProfilesAsync().GetAwaiter().GetResult();
                     vm.RefreshJoinChecks();
+                    Assert.Equal(2, vm.VisibleServerProfileCount);
 
                     vm.SelectSection(vm.NavigationGroups[0].Items[2]);
                     Assert.True(vm.IsMultiplayerSection);
