@@ -1639,6 +1639,7 @@ namespace NLMCL.App.ViewModels
             if (IsSkinSection)
             {
                 _skin?.SetAccount(Account);
+                _skin?.RefreshLocalSkins();
                 _skin?.ActivateLibrary();
             }
             if (IsImportSection && _resource != null)
