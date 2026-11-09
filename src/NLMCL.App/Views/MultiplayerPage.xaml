@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="NLMCL.App.Views.MultiplayerPage"
+<UserControl x:Class="NLMCL.App.Views.MultiplayerPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:NLMCL.App"
@@ -160,11 +160,21 @@
                     </ItemsControl>
 
                     <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                        <TextBox Width="170" Text="{Binding NewServerName, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="8,6" FontSize="11" ToolTip="显示名称" />
-                        <TextBox Width="210" Margin="8,0,0,0"
-                                 Text="{Binding NewServerAddress, UpdateSourceTrigger=PropertyChanged}"
-                                 Padding="8,6" FontSize="11" ToolTip="host 或 host:port" />
+                        <Grid Width="170">
+                            <TextBox Text="{Binding NewServerName, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8,6" FontSize="11" ToolTip="显示名称" />
+                            <TextBlock Text="显示名称" FontSize="10" Foreground="{DynamicResource Faint}"
+                                       Margin="9,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
+                                       Visibility="{Binding NewServerName, Converter={StaticResource EmptyToVisibility}}" />
+                        </Grid>
+                        <Grid Width="210" Margin="8,0,0,0">
+                            <TextBox Text="{Binding NewServerAddress, UpdateSourceTrigger=PropertyChanged}"
+                                     Padding="8,6" FontSize="11" ToolTip="host 或 host:port" />
+                            <TextBlock Text="地址 host 或 host:port" FontSize="10"
+                                       Foreground="{DynamicResource Faint}" Margin="9,0,0,0"
+                                       VerticalAlignment="Center" IsHitTestVisible="False"
+                                       Visibility="{Binding NewServerAddress, Converter={StaticResource EmptyToVisibility}}" />
+                        </Grid>
                         <Button Content="添加" Style="{StaticResource PrimaryButton}" Padding="14,6" Margin="8,0,0,0"
                                 Command="{Binding AddServerCommand}" />
                     </StackPanel>

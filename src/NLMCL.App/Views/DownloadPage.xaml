@@ -74,7 +74,7 @@
         <!-- 标题 -->
         <StackPanel Grid.Row="0">
             <TextBlock Text="DOWNLOAD / VANILLA + LOADERS" FontSize="9" Foreground="{DynamicResource Faint}" Margin="0,0,0,1" />
-            <TextBlock Text="版本下载" FontSize="26" FontWeight="Bold"
+            <TextBlock Text="游戏版本" FontSize="26" FontWeight="Bold"
                        Foreground="{DynamicResource Text}" />
             <TextBlock Text="从 Mojang 官方源下载原版；点一个版本即可选择加载器并安装"
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
