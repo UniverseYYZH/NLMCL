@@ -764,6 +764,11 @@
                                       Visibility="{Binding IsMultiplayerSection,
                                                            Converter={StaticResource BoolToVisibility}}" />
 
+            <!-- 方块宁理服务器 -->
+            <views:NingliPage Margin="26,18,26,12"
+                              Visibility="{Binding IsNingliSection,
+                                                   Converter={StaticResource BoolToVisibility}}" />
+
             <!-- 启动与日志页 -->
             <!-- 实例快照页 -->
             <views:SnapshotPage Margin="26,18,26,12"

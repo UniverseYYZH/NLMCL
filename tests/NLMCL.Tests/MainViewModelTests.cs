@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -53,6 +53,23 @@ namespace NLMCL.Tests
 
             Assert.True(vm.IsMultiplayerSection);
             Assert.False(vm.IsLanScanSection);
+        }
+
+        [Fact]
+        public void Ningli_is_a_top_level_page_after_multiplayer()
+        {
+            MainViewModel vm = Create();
+
+            Assert.Equal(8, vm.TopNavigation.Count);
+            NavigationItem ningli = vm.TopNavigation[3];
+            Assert.Equal(ShellSection.Ningli, ningli.Section);
+            Assert.Equal("方块宁理", ningli.Title);
+
+            vm.SelectSection(ningli);
+
+            Assert.True(vm.IsNingliSection);
+            Assert.False(vm.IsMultiplayerSection);
+            Assert.Same(ningli, vm.SelectedNavigation);
         }
 
         [Fact]
@@ -130,7 +147,7 @@ namespace NLMCL.Tests
 
             Assert.Equal(2, vm.NavigationGroups.Count);
             Assert.Equal("工作区", vm.NavigationGroups[0].Caption);
-            Assert.Equal(6, vm.NavigationGroups[0].Items.Count);
+            Assert.Equal(7, vm.NavigationGroups[0].Items.Count);
             Assert.Equal("工具", vm.NavigationGroups[1].Caption);
             Assert.Equal(4, vm.NavigationGroups[1].Items.Count); // 版本下载 / 导入资源 / Mod 管理 / 皮肤
 

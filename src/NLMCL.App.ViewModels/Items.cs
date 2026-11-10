@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NLMCL.Abstractions;
@@ -19,7 +19,9 @@ namespace NLMCL.App.ViewModels
 
         Skin = 8,
 
-        Mods = 9
+        Mods = 9,
+
+        Ningli = 10
     }
 
     /// <summary>

@@ -242,6 +242,7 @@ namespace NLMCL.App.ViewModels
             NavigationItem versions = new NavigationItem("世界库", "扫描本地 .minecraft", ShellSection.Versions);
             NavigationItem consoleNav = new NavigationItem("日志", "多实例控制台", ShellSection.Launch);
             NavigationItem multiplayer = new NavigationItem("联机", "局域网与直连", ShellSection.Multiplayer);
+            NavigationItem ningli = new NavigationItem("方块宁理", "宝可梦与还原服", ShellSection.Ningli);
             NavigationItem snapshot = new NavigationItem("快照", "备份存档与配置", ShellSection.Snapshot);
             NavigationItem lanScanNav = new NavigationItem("局域网", "发现附近的房间", ShellSection.LanScan);
             NavigationItem settings = new NavigationItem("设置", "外观 / Java / 下载", ShellSection.Settings);
@@ -252,14 +253,14 @@ namespace NLMCL.App.ViewModels
 
             NavigationGroups = new ReadOnlyCollection<NavigationGroup>(new List<NavigationGroup>
             {
-                new NavigationGroup("工作区", new[] { versions, consoleNav, multiplayer, snapshot, lanScanNav, settings }),
+                new NavigationGroup("工作区", new[] { versions, consoleNav, multiplayer, ningli, snapshot, lanScanNav, settings }),
                 new NavigationGroup("工具", new[] { downloadNav, import, modsNav, skinNav })
             });
 
             // F 顶部导航顺序与逻辑分组解耦：分组保留给内部逻辑/测试，顶部按 F 排列。
             TopNavigation = new ReadOnlyCollection<NavigationItem>(new[]
             {
-                versions, downloadNav, multiplayer, snapshot, skinNav, consoleNav, settings
+                versions, downloadNav, multiplayer, ningli, snapshot, skinNav, consoleNav, settings
             });
             SelectSection(versions);
 
@@ -741,6 +742,10 @@ namespace NLMCL.App.ViewModels
         /// <summary>当前显示「联机房间」页。</summary>
         [ObservableProperty]
         private bool _isMultiplayerSection;
+
+        /// <summary>当前显示方块宁理服务器页。</summary>
+        [ObservableProperty]
+        private bool _isNingliSection;
 
         /// <summary>在线资源页的视图模型（可能为 null，例如单测未注入）。</summary>
         public ResourceViewModel? Resource => _resource;
@@ -1637,6 +1642,7 @@ namespace NLMCL.App.ViewModels
 
             IsLaunchSection = item.Section == ShellSection.Launch;
             IsMultiplayerSection = item.Section == ShellSection.Multiplayer;
+            IsNingliSection = item.Section == ShellSection.Ningli;
             IsSettingsSection = item.Section == ShellSection.Settings;
             IsImportSection = item.Section == ShellSection.Import;
             IsSkinSection = item.Section == ShellSection.Skin;

@@ -33,92 +33,16 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="0" HorizontalAlignment="Stretch">
 
-            <!-- 版本范围：这是玩家最常问的第一个问题 -->
-            <Border Background="{DynamicResource Surface}" CornerRadius="7" Padding="12,9" Margin="0,10,0,0"
+            <!-- 服务器档案已独立成页，这里只保留直连/LAN 入口 -->
+            <Border Background="{DynamicResource Surface}" CornerRadius="9" Padding="14,11" Margin="0,0,0,10"
                     BorderBrush="{DynamicResource BorderColor}" BorderThickness="1">
                 <StackPanel>
-                    <TextBlock FontSize="11" Foreground="{DynamicResource Text}" TextWrapping="Wrap">
-                        <Run Text="方块宁理 支持 Minecraft " FontWeight="SemiBold" />
-                        <Run Text="1.7.2 – 1.21.11" FontWeight="Bold" Foreground="{DynamicResource Primary}" />
-                        <Run Text="（全版本互通，1.8 及以上都能直接进大厅）" />
-                    </TextBlock>
-                    <TextBlock FontSize="10" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0">
-                        <Run Text="宝可梦子服：必须 " /><Run Text="1.21.1 + Fabric + AutoModpack" /><Run Text="（点「进入宝可梦服」会自动装）" />
-                        <LineBreak />
-                        <Run Text="还原服等纯净子服：任意受支持版本的原版客户端" />
-                    </TextBlock>
+                    <TextBlock Text="服务器档案在「方块宁理」页" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="宝可梦服、还原服的进入按钮与客户端要求都已移到顶部「方块宁理」；这里保留直连、局域网开房和常用线路。"
+                               FontSize="10.5" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
-
-            <!-- ===== 服务器档案 ===== -->
-            <UniformGrid Columns="{Binding VisibleServerProfileCount}" Margin="0,14,0,0">
-
-            <!-- ===== 宝可梦服（模组端） ===== -->
-            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,7,0"
-                    Visibility="{Binding HasPrimaryProfile, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel>
-                    <TextBlock Text="MODDED / AUTO PREPARE" FontSize="9" FontFamily="Consolas"
-                               Foreground="{DynamicResource Primary}" />
-                    <TextBlock Text="{Binding PrimaryProfile.Name}" FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Text}" Margin="0,2,0,0" />
-                    <TextBlock Text="{Binding PrimaryProfile.AddressText}" FontSize="10.5"
-                               Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
-
-                    <ItemsControl ItemsSource="{Binding JoinChecks}" Margin="0,10,0,0">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <StackPanel Orientation="Horizontal" Margin="0,1">
-                                    <TextBlock Text="✓" Foreground="{DynamicResource Primary}" FontSize="11" Width="16"
-                                               Visibility="{Binding IsOkGlyph, Converter={StaticResource BoolToVisibility}}" />
-                                    <TextBlock Text="!" Foreground="{DynamicResource Error}" FontSize="11" FontWeight="Bold" Width="16"
-                                               Visibility="{Binding IsWarnGlyph, Converter={StaticResource BoolToVisibility}}" />
-                                    <TextBlock Text="{Binding Text}" FontSize="10.5"
-                                               Foreground="{DynamicResource Muted}" TextWrapping="Wrap" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <Button Content="▶  进入宝可梦服（自动准备）"
-                            Style="{StaticResource PrimaryButton}" Padding="18,10" Margin="0,12,0,0"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            ToolTip="自动检查并安装 1.21.1 + Fabric + AutoModpack，然后进宝可梦子服"
-                            Command="{Binding DataContext.JoinProfileModdedCommand,
-                                      RelativeSource={RelativeSource AncestorType=Window}}"
-                            CommandParameter="{Binding PrimaryProfile}" />
-
-                    <Button Content="只进大厅（不需要模组，任意版本可进）"
-                            Style="{StaticResource GhostButton}" Padding="10,4" Margin="0,8,0,0"
-                            FontSize="10.5" HorizontalAlignment="Left"
-                            Command="{Binding DataContext.JoinProfileLobbyCommand,
-                                      RelativeSource={RelativeSource AncestorType=Window}}"
-                            CommandParameter="{Binding PrimaryProfile}" />
-                </StackPanel>
-            </Border>
-
-            <!-- ===== 还原服（纯净端） ===== -->
-            <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="7,0,0,0"
-                    Visibility="{Binding HasVanillaProfile, Converter={StaticResource BoolToVisibility}}">
-                <StackPanel>
-                    <TextBlock Text="VANILLA / NO MODS" FontSize="9" FontFamily="Consolas"
-                               Foreground="{DynamicResource Primary}" />
-                    <TextBlock Text="{Binding VanillaProfile.Name}" FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource Text}" Margin="0,2,0,0" />
-                    <TextBlock Text="{Binding VanillaProfile.AddressText}" FontSize="10.5"
-                               Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
-                    <TextBlock Text="纯净子服：只装原版，不加载任何模组（带 AutoModpack 的客户端会被拒绝）"
-                               FontSize="10" Foreground="{DynamicResource Faint}" Margin="0,4,0,0" TextWrapping="Wrap" />
-
-                    <Button Content="▶  进入还原服（纯原版）"
-                            Style="{StaticResource GhostButton}" Padding="16,9" Margin="0,10,0,0"
-                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                            Command="{Binding DataContext.JoinProfileModdedCommand,
-                                      RelativeSource={RelativeSource AncestorType=Window}}"
-                            CommandParameter="{Binding VanillaProfile}" />
-                </StackPanel>
-            </Border>
-
-            </UniformGrid>
 
             <!-- ===== 常用线路 ===== -->
             <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,10,0,0">
