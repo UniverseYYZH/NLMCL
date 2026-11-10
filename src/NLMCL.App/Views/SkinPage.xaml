@@ -31,19 +31,18 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0">
-                <TextBlock Text="SKIN / LOCAL + MUA" FontSize="9"
+                <TextBlock Text="SKIN  /  LOCAL + MUA" FontSize="9.5"
+                           FontFamily="Cascadia Mono, Consolas"
                            Foreground="{DynamicResource Faint}" Margin="0,0,0,1" />
-                <TextBlock Text="皮肤" FontSize="26" FontWeight="Bold"
+                <TextBlock Text="皮肤库" FontSize="28" FontWeight="Bold"
                            Foreground="{DynamicResource Text}" />
-                <TextBlock Text="本地导入与已下载皮肤统一成小卡片；MUA 皮肤在右侧单独做 3D 预览。"
-                           FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="本地导入与已下载皮肤收进小卡片；选中即可在右侧旋转查看 3D 效果。"
+                           FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" TextWrapping="Wrap" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                 <Button Content="刷新" Style="{StaticResource GhostButton}" Padding="12,7"
                         Command="{Binding RefreshCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
-                <Button Content="打开本地皮肤" Style="{StaticResource GhostButton}" Padding="12,7"
-                        Margin="6,0,0,0" Command="{Binding PickLocalCommand}" />
                 <Button Content="保存皮肤" Style="{StaticResource PrimaryButton}" Padding="12,7"
                         Margin="6,0,0,0" Command="{Binding SaveCommand}" />
             </StackPanel>
@@ -52,7 +51,7 @@
         <Grid Grid.Row="1" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="340" />
+                <ColumnDefinition Width="360" />
             </Grid.ColumnDefinitions>
 
             <!-- 左侧：本地 + MUA 小卡片 -->
@@ -67,22 +66,22 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="我的皮肤库" FontSize="14" FontWeight="SemiBold"
+                                    <TextBlock Text="我的皮肤库" FontSize="15" FontWeight="SemiBold"
                                                Foreground="{DynamicResource Text}" />
-                                    <TextBlock Text="本地导入 · 已下载 · 第一个卡片标记当前已装配皮肤"
-                                               FontSize="9" Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
+                                    <TextBlock Text="本地导入 · 已下载 · 第一张标记当前装配"
+                                               FontSize="9.5" Foreground="{DynamicResource Faint}" Margin="0,3,0,0" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                    <Button Content="导入本地 PNG" Style="{StaticResource GhostButton}"
-                                            Padding="9,4" FontSize="9" Command="{Binding PickLocalCommand}" />
+                                    <Button Content="导入本地" Style="{StaticResource GhostButton}"
+                                            Padding="10,5" FontSize="10" Command="{Binding PickLocalCommand}" />
                                     <Button Content="刷新" Style="{StaticResource GhostButton}"
-                                            Padding="9,4" FontSize="9" Margin="4,0,0,0"
+                                            Padding="10,5" FontSize="10" Margin="4,0,0,0"
                                             Command="{Binding RefreshLocalSkinsCommand}" />
                                 </StackPanel>
                             </Grid>
-                            <TextBlock Text="{Binding LocalSkinStatusText}" FontSize="9"
+                            <TextBlock Text="{Binding LocalSkinStatusText}" FontSize="9.5"
                                        Foreground="{DynamicResource Muted}" Margin="0,7,0,0" TextWrapping="Wrap" />
-                            <ScrollViewer MaxHeight="210" Margin="0,8,0,0"
+                            <ScrollViewer MaxHeight="182" Margin="0,8,0,0"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl ItemsSource="{Binding LocalSkins}">
@@ -93,28 +92,28 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Button Style="{StaticResource GhostButton}" Width="118"
-                                                    Margin="0,0,7,7" Padding="6"
+                                            <Button Style="{StaticResource GhostButton}" Width="104"
+                                                    Margin="0,0,6,6" Padding="5"
                                                     ToolTip="点击预览并使用这张本地皮肤"
                                                     Command="{Binding DataContext.UseLocalSkinCommand,
                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
                                                 <StackPanel>
-                                                    <Grid Height="62">
+                                                    <Grid Height="54">
                                                         <Image Source="{Binding Path}" Stretch="Uniform"
                                                                RenderOptions.BitmapScalingMode="HighQuality" />
                                                         <Border Background="{DynamicResource Primary}"
-                                                                CornerRadius="3" Padding="4,1"
+                                                                CornerRadius="4" Padding="4,1"
                                                                 HorizontalAlignment="Right" VerticalAlignment="Top"
                                                                 Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}">
-                                                            <TextBlock Text="已装配" FontSize="6.5"
+                                                            <TextBlock Text="已装配" FontSize="8"
                                                                        Foreground="{DynamicResource OnPrimary}" />
                                                         </Border>
                                                     </Grid>
-                                                    <TextBlock Text="{Binding Name}" FontSize="9"
+                                                    <TextBlock Text="{Binding Name}" FontSize="9.5"
                                                                Foreground="{DynamicResource Text}"
                                                                TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
-                                                    <TextBlock Text="本地 PNG" FontSize="7.5"
+                                                    <TextBlock Text="本地 PNG" FontSize="8"
                                                                Foreground="{DynamicResource Faint}" />
                                                 </StackPanel>
                                             </Button>
@@ -133,9 +132,9 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0">
-                                    <TextBlock Text="MUA 皮肤站" FontSize="14" FontWeight="SemiBold"
+                                    <TextBlock Text="MUA 皮肤站" FontSize="15" FontWeight="SemiBold"
                                                Foreground="{DynamicResource Text}" />
-                                    <TextBlock Text="{Binding LibraryStatusText}" FontSize="9"
+                                    <TextBlock Text="{Binding LibraryStatusText}" FontSize="9.5"
                                                Foreground="{DynamicResource Faint}" Margin="0,3,0,0"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
@@ -147,7 +146,7 @@
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
                                         Visibility="{Binding HasLibrarySkins, Converter={StaticResource BoolToVisibility}}">
                                 <Button Content="‹ 上一页" Style="{StaticResource GhostButton}"
-                                        Padding="9,4" FontSize="9"
+                                        Padding="10,5" FontSize="10"
                                         Command="{Binding PrevLibraryPageCommand}"
                                         IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
                                 <TextBlock VerticalAlignment="Center" Margin="9,0,0,0"
@@ -157,11 +156,27 @@
                                     <Run Text=" 页" />
                                 </TextBlock>
                                 <Button Content="下一页 ›" Style="{StaticResource GhostButton}"
-                                        Margin="9,0,0,0" Padding="9,4" FontSize="9"
+                                        Margin="9,0,0,0" Padding="10,5" FontSize="10"
                                         Command="{Binding NextLibraryPageCommand}"
                                         IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
                             </StackPanel>
-                            <ScrollViewer MaxHeight="320" Margin="0,8,0,0"
+                            <Border Background="{DynamicResource Surface}"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                    CornerRadius="9" Padding="16,14" Margin="0,8,0,0" MinHeight="138"
+                                    Visibility="{Binding HasLibrarySkins, Converter={StaticResource InverseBoolToVisibility}}">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="&#xE8B9;" FontFamily="Segoe MDL2 Assets" FontSize="30"
+                                               Foreground="{DynamicResource Primary}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="MUA 皮肤站暂时没有内容" FontSize="11.5" Margin="0,6,0,0"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource Text}"
+                                               HorizontalAlignment="Center" />
+                                    <TextBlock Text="检查网络后点“刷新”；也可以先把本地 PNG 导进来。"
+                                               FontSize="9.5" Foreground="{DynamicResource Muted}"
+                                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,3,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <ScrollViewer MaxHeight="238" Margin="0,8,0,0"
+                                          Visibility="{Binding HasLibrarySkins, Converter={StaticResource BoolToVisibility}}"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
                                 <ItemsControl ItemsSource="{Binding LibrarySkins}">
@@ -174,24 +189,24 @@
                                         <DataTemplate>
                                             <Border Background="{DynamicResource Surface}"
                                                     BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                                                    CornerRadius="7" Padding="6" Margin="0,0,7,7" Width="124">
+                                                    CornerRadius="8" Padding="5" Margin="0,0,6,6" Width="112">
                                                 <StackPanel>
                                                     <Button Style="{StaticResource GhostButton}" Padding="3"
                                                             Command="{Binding DataContext.PreviewLibrarySkinCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                             CommandParameter="{Binding}">
-                                                        <Image Source="{Binding PreviewUrl}" Height="64" Width="64"
+                                                        <Image Source="{Binding PreviewUrl}" Height="56" Width="56"
                                                                Stretch="Uniform"
                                                                RenderOptions.BitmapScalingMode="HighQuality" />
                                                     </Button>
-                                                    <TextBlock Text="{Binding Name}" FontSize="9"
+                                                    <TextBlock Text="{Binding Name}" FontSize="9.5"
                                                                Foreground="{DynamicResource Text}"
                                                                TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
-                                                    <TextBlock Text="{Binding UploaderText}" FontSize="7.5"
+                                                    <TextBlock Text="{Binding UploaderText}" FontSize="8"
                                                                Foreground="{DynamicResource Faint}"
                                                                TextTrimming="CharacterEllipsis" />
                                                     <Button Content="装配" Style="{StaticResource GhostButton}"
-                                                            Padding="6,2" FontSize="8" Margin="0,4,0,0"
+                                                            Padding="6,3" FontSize="9" Margin="0,4,0,0"
                                                             HorizontalAlignment="Stretch"
                                                             Command="{Binding DataContext.ApplyLibrarySkinCommand,
                                                                       RelativeSource={RelativeSource AncestorType=UserControl}}"
@@ -209,37 +224,20 @@
                 </StackPanel>
             </ScrollViewer>
 
-            <!-- 右侧：账号 + MUA 3D 预览 -->
+            <!-- 右侧：3D 预览优先 + 紧凑账号条 -->
             <StackPanel Grid.Column="1" Margin="14,0,0,0">
-                <Border Style="{StaticResource CardStyle}" Padding="14,12">
-                    <StackPanel>
-                        <TextBlock Text="{Binding AccountText}" FontSize="17" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource Text}" />
-                        <TextBlock Text="{Binding ModelText}" FontSize="10"
-                                   Foreground="{DynamicResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <Button Content="保存皮肤" Style="{StaticResource GhostButton}" Padding="10,4" FontSize="9"
-                                    Command="{Binding SaveCommand}" />
-                            <Button Content="打开本地" Style="{StaticResource GhostButton}" Padding="10,4" FontSize="9"
-                                    Margin="5,0,0,0" Command="{Binding PickLocalCommand}" />
-                            <Button Content="查同名正版" Style="{StaticResource GhostButton}" Padding="10,4" FontSize="9"
-                                    Margin="5,0,0,0" Command="{Binding QueryByNameCommand}"
-                                    Visibility="{Binding IsOfflineAccount, Converter={StaticResource BoolToVisibility}}" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding StatusText}" FontSize="9.5"
-                                   Foreground="{DynamicResource Muted}" Margin="0,8,0,0" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
-
-                <Border Style="{StaticResource CardStyle}" Padding="12,10" Margin="0,10,0,0">
+                <Border Style="{StaticResource CardStyle}" Padding="12,10">
                     <StackPanel>
                         <Grid>
-                            <TextBlock Text="3D 预览 / MUA 皮肤站" FontSize="13" FontWeight="SemiBold"
+                            <TextBlock Text="3D 预览" FontSize="14" FontWeight="SemiBold"
                                        Foreground="{DynamicResource Text}" />
-                            <TextBlock Text="当前皮肤" FontSize="8" Foreground="{DynamicResource Faint}"
-                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            <Border Background="{DynamicResource PrimarySoft}" CornerRadius="6" Padding="7,2"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock Text="实时 3D" FontSize="8.5"
+                                           Foreground="{DynamicResource Primary}" />
+                            </Border>
                         </Grid>
-                        <Border Height="300" Margin="0,9,0,0" CornerRadius="9"
+                        <Border Height="265" Margin="0,9,0,0" CornerRadius="10"
                                 Background="{DynamicResource Surface}"
                                 BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                 ClipToBounds="True">
@@ -251,26 +249,58 @@
                                        MouseMove="OnPreviewMouseMove"
                                        Cursor="SizeWE"
                                        Visibility="{Binding HasPreview, Converter={StaticResource BoolToVisibility}}" />
-                                <TextBlock Text="选择 MUA 卡片或本地皮肤后显示 3D 预览"
-                                           FontSize="9" Foreground="{DynamicResource Faint}"
-                                           TextWrapping="Wrap" TextAlignment="Center"
-                                           HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Visibility="{Binding HasPreview, Converter={StaticResource InverseBoolToVisibility}}" />
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                                            Visibility="{Binding HasPreview, Converter={StaticResource InverseBoolToVisibility}}">
+                                    <TextBlock Text="还没有选中皮肤" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" />
+                                    <TextBlock Text="选择左侧本地皮肤或 MUA 卡片查看 3D 预览"
+                                               FontSize="9.5" Foreground="{DynamicResource Faint}"
+                                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,5,0,0" />
+                                </StackPanel>
                             </Grid>
                         </Border>
-                        <WrapPanel Margin="0,8,0,0">
-                            <Button Content="◀ 左转" Style="{StaticResource GhostButton}" Padding="9,5" FontSize="9"
-                                    Command="{Binding RotateLeftCommand}" />
-                            <Button Content="右转 ▶" Style="{StaticResource GhostButton}" Padding="9,5" FontSize="9"
-                                    Margin="4,0,0,0" Command="{Binding RotateRightCommand}" />
-                            <Button Content="复位" Style="{StaticResource GhostButton}" Padding="9,5" FontSize="9"
-                                    Margin="4,0,0,0" Command="{Binding ResetViewCommand}" />
-                            <Button Content="自动旋转" Style="{StaticResource GhostButton}" Padding="9,5" FontSize="9"
-                                    Margin="4,0,0,0" Command="{Binding ToggleAutoRotateCommand}" />
-                        </WrapPanel>
+                        <UniformGrid Columns="4" Margin="0,9,0,0">
+                            <Button Content="◀ 左转" Style="{StaticResource GhostButton}" Padding="0,7"
+                                    FontSize="10" Margin="0,0,4,0" Command="{Binding RotateLeftCommand}" />
+                            <Button Content="右转 ▶" Style="{StaticResource GhostButton}" Padding="0,7"
+                                    FontSize="10" Margin="0,0,4,0" Command="{Binding RotateRightCommand}" />
+                            <Button Content="复位" Style="{StaticResource GhostButton}" Padding="0,7"
+                                    FontSize="10" Margin="0,0,4,0" Command="{Binding ResetViewCommand}" />
+                            <Button Content="自动旋转" Style="{StaticResource GhostButton}" Padding="0,7"
+                                    FontSize="10" Command="{Binding ToggleAutoRotateCommand}" />
+                        </UniformGrid>
                     </StackPanel>
                 </Border>
+
+                <Border Style="{StaticResource CardStyle}" Padding="13,10" Margin="0,8,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="{Binding AccountText}" FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Text}" />
+                            <TextBlock Text="{Binding ModelText}" FontSize="9.5"
+                                       Foreground="{DynamicResource Muted}" Margin="0,2,0,0"
+                                       TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding StatusText}" FontSize="9.5"
+                                       Foreground="{DynamicResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="查同名正版" Style="{StaticResource GhostButton}"
+                                Padding="10,5" FontSize="9.5" VerticalAlignment="Center"
+                                Command="{Binding QueryByNameCommand}"
+                                Visibility="{Binding IsOfflineAccount, Converter={StaticResource BoolToVisibility}}" />
+                    </Grid>
+                </Border>
             </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,9,0,0">
+            <TextBlock Text="本地 PNG 建议 64×64 · 点卡片即可预览" FontSize="9.5"
+                       Foreground="{DynamicResource Faint}" HorizontalAlignment="Left" />
+            <TextBlock Text="MUA 装配前会先下载到皮肤目录" FontSize="9.5"
+                       Foreground="{DynamicResource Faint}" HorizontalAlignment="Right" />
         </Grid>
 
     </Grid>

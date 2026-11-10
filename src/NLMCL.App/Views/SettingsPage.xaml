@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="NLMCL.App.Views.SettingsPage"
+<UserControl x:Class="NLMCL.App.Views.SettingsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:NLMCL.App"
@@ -17,29 +17,31 @@
             <local:SettingsSearchVisibilityConverter x:Key="SettingsSearchVisibility" />
             <Style x:Key="SettingsFilterToggle" TargetType="ToggleButton">
                 <Setter Property="Background" Value="{DynamicResource Card}" />
-                <Setter Property="Foreground" Value="{DynamicResource Primary}" />
+                <Setter Property="Foreground" Value="{DynamicResource Muted}" />
                 <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Padding" Value="10,4" />
-                <Setter Property="Margin" Value="0,0,6,6" />
+                <Setter Property="Padding" Value="10,7" />
+                <Setter Property="Margin" Value="0,0,0,3" />
                 <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="FontSize" Value="12" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ToggleButton">
                             <Border x:Name="Bd" Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                    CornerRadius="9" Padding="{TemplateBinding Padding}">
                                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimarySoft}" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface}" />
                                 </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimarySoft}" />
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Primary}" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AmberBg}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AmberBorder}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource FrameRed}" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -55,19 +57,20 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="154" />
+            <ColumnDefinition Width="166" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- F 页头：齿轮只出现在设置页 -->
         <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,12">
-            <TextBlock Text="PREFERENCES / LOCAL" FontSize="9"
+            <TextBlock Text="PREFERENCES  /  LOCAL ONLY" FontSize="9.5"
+                       FontFamily="Cascadia Mono, Consolas"
                        Foreground="{DynamicResource Faint}" />
             <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
                 <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="22"
                            Foreground="{DynamicResource Primary}" VerticalAlignment="Center"
                            Margin="0,0,9,0" />
-                <TextBlock Text="设置" FontSize="26" FontWeight="Bold"
+                <TextBlock Text="设置" FontSize="28" FontWeight="Bold"
                            Foreground="{DynamicResource Text}" />
             </StackPanel>
             <TextBlock Text="启动器行为、Java、外观与数据都在本机；修改后自动写入。"
@@ -79,7 +82,7 @@
         <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource CardStyle}" Padding="10,10"
                 Margin="0,0,12,0" VerticalAlignment="Top">
             <StackPanel>
-                <TextBlock Text="设置分组" FontSize="9" Foreground="{DynamicResource Faint}"
+                <TextBlock Text="设置分组" FontSize="9.5" Foreground="{DynamicResource Muted}"
                            Margin="4,0,0,8" />
                 <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
@@ -154,7 +157,9 @@
             </StackPanel>
         </Border>
 
-        <StackPanel Grid.Row="1" Grid.Column="1">
+        <ScrollViewer Grid.Row="1" Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
+        <StackPanel>
 
         <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,0,10"
                 BorderBrush="{DynamicResource Amber}"
@@ -181,57 +186,57 @@
                         <TextBlock Text="便携模式" FontSize="9" Foreground="{DynamicResource Primary}" />
                     </Border>
                     <TextBlock Text="实际会使用的默认值；下面才是具体设置项。"
-                               FontSize="9.5" Foreground="{DynamicResource Faint}"
+                               FontSize="10" Foreground="{DynamicResource Muted}"
                                Margin="10,2,0,0" VerticalAlignment="Center" />
                 </StackPanel>
 
-                <UniformGrid Columns="5" Margin="0,12,0,0">
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="游戏目录" FontSize="8.5" Foreground="{DynamicResource Faint}" />
-                        <TextBlock Text="{Binding CurrentGameDirectory}" FontSize="10" FontWeight="SemiBold"
+                <UniformGrid Columns="3" Margin="0,12,0,0">
+                    <StackPanel Margin="0,0,12,12">
+                        <TextBlock Text="游戏目录" FontSize="9.5" Foreground="{DynamicResource Faint}" />
+                        <TextBlock Text="{Binding CurrentGameDirectory}" FontSize="11" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Text}" Margin="0,4,0,0"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding CurrentGameDirectory}" />
-                        <TextBlock Text="{Binding GameDirectoryDiskText}" FontSize="8.5"
+                        <TextBlock Text="{Binding GameDirectoryDiskText}" FontSize="9.5"
                                    Foreground="{DynamicResource Muted}" Margin="0,3,0,0"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="默认 Java" FontSize="8.5" Foreground="{DynamicResource Faint}" />
-                        <TextBlock Text="{Binding EffectiveJavaText}" FontSize="10" FontWeight="SemiBold"
+                    <StackPanel Margin="0,0,12,12">
+                        <TextBlock Text="默认 Java" FontSize="9.5" Foreground="{DynamicResource Faint}" />
+                        <TextBlock Text="{Binding EffectiveJavaText}" FontSize="11" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Text}" Margin="0,4,0,0"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding EffectiveJavaText}" />
-                        <TextBlock Text="{Binding EffectiveJavaDetailText}" FontSize="8.5"
+                        <TextBlock Text="{Binding EffectiveJavaDetailText}" FontSize="9.5"
                                    Foreground="{DynamicResource Muted}" Margin="0,3,0,0"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="实例内存" FontSize="8.5" Foreground="{DynamicResource Faint}" />
+                    <StackPanel Margin="0,0,12,12">
+                        <TextBlock Text="实例内存" FontSize="9.5" Foreground="{DynamicResource Faint}" />
                         <TextBlock Text="{Binding DefaultMemoryMb, StringFormat={}{0} MB}"
-                                   FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
+                                   FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
                                    Margin="0,4,0,0" />
-                        <TextBlock Text="新实例默认" FontSize="8.5" Foreground="{DynamicResource Muted}"
+                        <TextBlock Text="新实例默认" FontSize="9.5" Foreground="{DynamicResource Muted}"
                                    Margin="0,3,0,0" />
                     </StackPanel>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="下载" FontSize="8.5" Foreground="{DynamicResource Faint}" />
-                        <TextBlock FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
+                    <StackPanel Margin="0,0,12,12">
+                        <TextBlock Text="下载" FontSize="9.5" Foreground="{DynamicResource Faint}" />
+                        <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Text}"
                                    Margin="0,4,0,0" TextTrimming="CharacterEllipsis">
                             <Run Text="{Binding DownloadSourceText, Mode=OneWay}" />
                         </TextBlock>
-                        <TextBlock FontSize="8.5" Foreground="{DynamicResource Muted}" Margin="0,3,0,0"
+                        <TextBlock FontSize="9.5" Foreground="{DynamicResource Muted}" Margin="0,3,0,0"
                                    TextTrimming="CharacterEllipsis">
                             <Run Text="{Binding SelectedThreads, Mode=OneWay}" /><Run Text=" 线程 · " /><Run Text="{Binding SelectedSpeedLimit, Mode=OneWay}" />
                         </TextBlock>
                     </StackPanel>
-                    <StackPanel>
-                        <TextBlock Text="日志目录" FontSize="8.5" Foreground="{DynamicResource Faint}" />
-                        <TextBlock Text="{Binding LogDirectory}" FontSize="10" FontWeight="SemiBold"
+                    <StackPanel Margin="0,0,12,12">
+                        <TextBlock Text="日志目录" FontSize="9.5" Foreground="{DynamicResource Faint}" />
+                        <TextBlock Text="{Binding LogDirectory}" FontSize="11" FontWeight="SemiBold"
                                    Foreground="{DynamicResource Text}" Margin="0,4,0,0"
                                    TextTrimming="CharacterEllipsis"
                                    ToolTip="{Binding LogDirectory}" />
-                        <TextBlock Text="logs · last-launch" FontSize="8.5"
+                        <TextBlock Text="logs · last-launch" FontSize="9.5"
                                    Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
                     </StackPanel>
                 </UniformGrid>
@@ -252,14 +257,14 @@
                             CornerRadius="6" Padding="8,5">
                         <Grid>
                             <TextBlock Text="搜索设置（例如 Java / 内存 / 下载 / 日志）"
-                                       FontSize="10.5" Foreground="{DynamicResource Faint}"
+                                       FontSize="11" Foreground="{DynamicResource Muted}"
                                        IsHitTestVisible="False"
                                        Visibility="{Binding SearchInput, Converter={StaticResource EmptyToVisibility}}" />
                             <TextBox x:Name="SettingsSearchBox"
                                      Text="{Binding SearchInput, UpdateSourceTrigger=PropertyChanged}"
                                      GotKeyboardFocus="OnSearchGotKeyboardFocus"
                                      LostKeyboardFocus="OnSearchLostKeyboardFocus"
-                                     Background="Transparent" BorderThickness="0" FontSize="10.5"
+                                     Background="Transparent" BorderThickness="0" FontSize="11"
                                      Foreground="{DynamicResource Text}" />
                         </Grid>
                     </Border>
@@ -899,5 +904,6 @@
         </StackPanel>
 
         </StackPanel>
+        </ScrollViewer>
     </Grid>
 </UserControl>

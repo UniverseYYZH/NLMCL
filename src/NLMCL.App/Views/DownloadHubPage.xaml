@@ -13,9 +13,9 @@
                 <Setter Property="Foreground" Value="{DynamicResource Muted}" />
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="BorderThickness" Value="1" />
-                <Setter Property="Padding" Value="15,7" />
+                <Setter Property="Padding" Value="18,8" />
                 <Setter Property="Margin" Value="0,0,5,0" />
-                <Setter Property="FontSize" Value="11.5" />
+                <Setter Property="FontSize" Value="12.5" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -28,13 +28,13 @@
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface}" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Card}" />
                                     <Setter Property="Foreground" Value="{DynamicResource Primary}" />
                                 </Trigger>
                                 <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="active">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimarySoft}" />
-                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BorderColor}" />
-                                    <Setter Property="Foreground" Value="{DynamicResource Primary}" />
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AmberBg}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AmberBorder}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource FrameRed}" />
                                     <Setter Property="FontWeight" Value="SemiBold" />
                                 </DataTrigger>
                             </ControlTemplate.Triggers>
@@ -45,25 +45,38 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Grid Margin="26,16,26,12">
+    <Grid Margin="26,18,26,12">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-            <Button x:Name="DownloadTab" Content="游戏版本" Style="{StaticResource HubTab}"
-                    Tag="active" Click="DownloadTab_Click" />
-            <Button x:Name="ResourceTab" Content="导入资源" Style="{StaticResource HubTab}"
-                    Click="ResourceTab_Click" />
-            <Button x:Name="ModsTab" Content="Mod 管理" Style="{StaticResource HubTab}"
-                    Click="ModsTab_Click" />
-            <TextBlock Text="下载中心 · 资源与 Mod 已合并到这里"
-                       FontSize="9.5" Foreground="{DynamicResource Faint}"
-                       VerticalAlignment="Center" Margin="12,1,0,0" />
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="DOWNLOAD CENTER  /  ONE PLACE" FontSize="9.5"
+                       FontFamily="Cascadia Mono, Consolas"
+                       Foreground="{DynamicResource Faint}" />
+            <TextBlock Text="下载中心" FontSize="28" FontWeight="Bold"
+                       Foreground="{DynamicResource Text}" Margin="0,3,0,0" />
+            <TextBlock Text="游戏版本、资源与 Mod 都在这里；选好目标后直接装进当前实例。"
+                       FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,6,0,0" />
         </StackPanel>
 
-        <Grid Grid.Row="1">
+        <Border Grid.Row="1" Background="{DynamicResource Surface}"
+                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                CornerRadius="10" Padding="5" Margin="0,0,0,12"
+                HorizontalAlignment="Left">
+            <StackPanel Orientation="Horizontal">
+                <Button x:Name="DownloadTab" Content="游戏版本" Style="{StaticResource HubTab}"
+                        Tag="active" Click="DownloadTab_Click" />
+                <Button x:Name="ResourceTab" Content="导入资源" Style="{StaticResource HubTab}"
+                        Click="ResourceTab_Click" />
+                <Button x:Name="ModsTab" Content="Mod 管理" Style="{StaticResource HubTab}"
+                        Click="ModsTab_Click" />
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2">
             <views:DownloadPage x:Name="DownloadView" DataContext="{Binding Download}" />
             <views:ResourcePage x:Name="ResourceView" DataContext="{Binding Resource}" Visibility="Collapsed" />
             <views:ModPage x:Name="ModView" DataContext="{Binding Mods}" Visibility="Collapsed" />
