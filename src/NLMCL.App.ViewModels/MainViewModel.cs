@@ -240,10 +240,10 @@ namespace NLMCL.App.ViewModels
             CurrentGameDirectory = paths.DefaultMinecraftDirectory;
 
             NavigationItem versions = new NavigationItem("世界库", "扫描本地 .minecraft", ShellSection.Versions);
-            NavigationItem consoleNav = new NavigationItem("启动与日志", "多实例控制台", ShellSection.Launch);
-            NavigationItem multiplayer = new NavigationItem("联机房间", "局域网与直连", ShellSection.Multiplayer);
-            NavigationItem snapshot = new NavigationItem("实例快照", "备份存档与配置", ShellSection.Snapshot);
-            NavigationItem lanScanNav = new NavigationItem("局域网扫描", "发现附近的房间", ShellSection.LanScan);
+            NavigationItem consoleNav = new NavigationItem("日志", "多实例控制台", ShellSection.Launch);
+            NavigationItem multiplayer = new NavigationItem("联机", "局域网与直连", ShellSection.Multiplayer);
+            NavigationItem snapshot = new NavigationItem("快照", "备份存档与配置", ShellSection.Snapshot);
+            NavigationItem lanScanNav = new NavigationItem("局域网", "发现附近的房间", ShellSection.LanScan);
             NavigationItem settings = new NavigationItem("设置", "外观 / Java / 下载", ShellSection.Settings);
             NavigationItem downloadNav = new NavigationItem("下载中心", "原版与加载器", ShellSection.Download);
             NavigationItem import = new NavigationItem("导入资源", "mod 与整合包", ShellSection.Import, topLevel: false);
@@ -256,6 +256,11 @@ namespace NLMCL.App.ViewModels
                 new NavigationGroup("工具", new[] { downloadNav, import, modsNav, skinNav })
             });
 
+            // F 顶部导航顺序与逻辑分组解耦：分组保留给内部逻辑/测试，顶部按 F 排列。
+            TopNavigation = new ReadOnlyCollection<NavigationItem>(new[]
+            {
+                versions, downloadNav, multiplayer, snapshot, skinNav, consoleNav, lanScanNav, settings
+            });
             SelectSection(versions);
 
             // 装完一个版本后自动重扫本地列表，省掉"回版本页再点扫描"这一步。
@@ -389,6 +394,9 @@ namespace NLMCL.App.ViewModels
         public string StageHint => "版本 · 下载 · 启动 · 联机 · 快照 · 导入";
 
         public IReadOnlyList<NavigationGroup> NavigationGroups { get; }
+
+        /// <summary>F 顶部导航的扁平顺序。</summary>
+        public IReadOnlyList<NavigationItem> TopNavigation { get; }
 
         public ObservableCollection<VersionItem> Versions { get; } = new ObservableCollection<VersionItem>();
 
@@ -888,7 +896,7 @@ namespace NLMCL.App.ViewModels
         }
 
         public IReadOnlyList<string> DefaultPageOptions { get; }
-            = new[] { "上次页面", "世界库", "联机房间", "下载中心" };
+            = new[] { "上次页面", "世界库", "联机", "下载中心" };
 
         public string SelectedDefaultPage
         {
@@ -1006,6 +1014,7 @@ namespace NLMCL.App.ViewModels
             {
                 case "上次页面":
                     return "last";
+                case "联机":
                 case "联机房间":
                     return "multiplayer";
                 case "下载中心":
@@ -1022,7 +1031,7 @@ namespace NLMCL.App.ViewModels
                 case "last":
                     return "上次页面";
                 case "multiplayer":
-                    return "联机房间";
+                    return "联机";
                 case "download":
                     return "下载中心";
                 default:

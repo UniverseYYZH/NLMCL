@@ -329,24 +329,13 @@
         <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource FrameRed}">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                           Background="Transparent">
-                <ItemsControl ItemsSource="{Binding NavigationGroups}" VerticalAlignment="Stretch">
+                <ItemsControl ItemsSource="{Binding TopNavigation}" VerticalAlignment="Stretch"
+                              ItemTemplate="{StaticResource TopNavItemTemplate}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" />
                         </ItemsPanelTemplate>
                     </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <ItemsControl ItemsSource="{Binding Items}"
-                                          ItemTemplate="{StaticResource TopNavItemTemplate}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                            </ItemsControl>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
         </Border>
@@ -755,22 +744,6 @@
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding VersionDetailsLines}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,0,0,8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="96" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Label}" FontSize="10"
-                                                   Foreground="{DynamicResource Muted}"
-                                                   VerticalAlignment="Top" />
-                                        <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="10.5"
-                                                   Foreground="{DynamicResource Text}"
-                                                   TextWrapping="Wrap" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
                 </DockPanel>
@@ -890,69 +863,6 @@
                         <StackPanel Margin="0,0,4,0">
                             <!-- 已保存账号：一键切换 / 移除 -->
                             <ItemsControl ItemsSource="{Binding SavedAccounts}" Margin="0,0,0,4">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource Surface}"
-                                                BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                                                CornerRadius="7" Padding="8,7" Margin="0,0,0,6">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="Auto" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <!-- 账号头像：正版拉官方皮肤头，离线用本地保存的皮肤头 -->
-                                                <Border Grid.Column="0" Width="32" Height="32"
-                                                        CornerRadius="16"
-                                                        Background="{DynamicResource Primary}">
-                                                    <Border.Clip>
-                                                        <RectangleGeometry Rect="0,0,32,32" RadiusX="16" RadiusY="16" />
-                                                    </Border.Clip>
-                                                    <Grid>
-                                                        <TextBlock Text="?" FontSize="13" Foreground="{DynamicResource OnPrimary}"
-                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                        <Image Source="{Binding AvatarPath}" Stretch="UniformToFill"
-                                                               RenderOptions.BitmapScalingMode="NearestNeighbor"
-                                                               Visibility="{Binding HasAvatar, Converter={StaticResource BoolToVisibility}}" />
-                                                    </Grid>
-                                                </Border>
-
-                                                <StackPanel Grid.Column="1" Margin="9,0,0,0" VerticalAlignment="Center">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding Name}" FontSize="11.5"
-                                                                   Foreground="{DynamicResource Text}"
-                                                                   TextTrimming="CharacterEllipsis" />
-                                                        <Border Background="{DynamicResource PrimarySoft}" CornerRadius="4"
-                                                                Padding="5,1" Margin="6,0,0,0"
-                                                                Visibility="{Binding IsCurrent, Converter={StaticResource BoolToVisibility}}">
-                                                            <TextBlock Text="当前" FontSize="8.5"
-                                                                       Foreground="{DynamicResource Primary}" />
-                                                        </Border>
-                                                    </StackPanel>
-                                                    <TextBlock Text="{Binding TypeLabel}" FontSize="9.5"
-                                                               Foreground="{DynamicResource Faint}" Margin="0,1,0,0" />
-                                                    <TextBlock Text="{Binding LastUsedLabel}" FontSize="9"
-                                                               Foreground="{DynamicResource Faint}" Margin="0,1,0,0" />
-                                                </StackPanel>
-
-                                                <Button Grid.Column="2" Content="切换"
-                                                        Style="{StaticResource GhostButton}" Padding="10,3" FontSize="10.5"
-                                                        IsEnabled="{Binding IsCurrent, Converter={StaticResource InverseBool}}"
-                                                        Command="{Binding DataContext.SwitchAccountCommand,
-                                                                          RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding Account}" />
-                                                <Button Grid.Column="3" Content="×"
-                                                        Style="{StaticResource GhostButton}" Padding="8,3" FontSize="10.5"
-                                                        Margin="6,0,0,0" ToolTip="移除这个账号"
-                                                        Command="{Binding DataContext.RemoveAccountCommand,
-                                                                          RelativeSource={RelativeSource AncestorType=Window}}"
-                                                        CommandParameter="{Binding Account}" />
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
                             </ItemsControl>
 
                             <TextBlock Text="离线登录" FontSize="11.5" FontWeight="SemiBold"
