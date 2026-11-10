@@ -86,6 +86,34 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Save_leaves_no_temporary_file_and_cleans_stale_temps()
+        {
+            string root = NewRoot();
+            AppPaths paths = new AppPaths(root);
+
+            try
+            {
+                Directory.CreateDirectory(paths.DataRoot);
+                string stale = paths.AccountsFile + ".tmp-deadbeef";
+                File.WriteAllText(stale, "{}");
+
+                JsonAccountStore store = new JsonAccountStore(paths);
+                Assert.False(File.Exists(stale));
+
+                await store.SaveAsync(OfflineAccountFactory.Create("Steve"), CancellationToken.None);
+
+                Assert.True(File.Exists(paths.AccountsFile));
+                Assert.Empty(Directory.GetFiles(
+                    paths.DataRoot,
+                    Path.GetFileName(paths.AccountsFile) + ".tmp*"));
+            }
+            finally
+            {
+                TryDelete(root);
+            }
+        }
+
+        [Fact]
         public async Task Corrupt_file_is_treated_as_signed_out()
         {
             string root = NewRoot();

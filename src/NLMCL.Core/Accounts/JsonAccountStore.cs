@@ -32,6 +32,7 @@ namespace NLMCL.Core.Accounts
         public JsonAccountStore(IAppPaths paths)
         {
             _paths = paths ?? throw new ArgumentNullException(nameof(paths));
+            CleanupTemporaryFiles();
         }
 
         public async Task<Account?> LoadAsync(CancellationToken cancellationToken)
@@ -245,11 +246,72 @@ namespace NLMCL.Core.Accounts
                 ["accounts"] = new JArray(entries.Select(entry => entry.DeepClone()))
             };
 
-            string temporary = _paths.AccountsFile + ".tmp";
+            string temporary = _paths.AccountsFile + ".tmp-" + Guid.NewGuid().ToString("N").Substring(0, 8);
 
-            File.WriteAllText(temporary, root.ToString(Formatting.Indented), Encoding.UTF8);
-            File.Copy(temporary, _paths.AccountsFile, overwrite: true);
-            File.Delete(temporary);
+            try
+            {
+                File.WriteAllText(temporary, root.ToString(Formatting.Indented), Encoding.UTF8);
+
+                // 杀毒软件/另一个实例短暂占用时，直接覆盖可能失败；重试几次再放弃。
+                for (int attempt = 0; ; attempt++)
+                {
+                    try
+                    {
+                        File.Copy(temporary, _paths.AccountsFile, overwrite: true);
+                        break;
+                    }
+                    catch (IOException) when (attempt < 2)
+                    {
+                        Thread.Sleep(40 * (attempt + 1));
+                    }
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(temporary))
+                    {
+                        File.Delete(temporary);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+        }
+
+        /// <summary>删除历史版本留下的 .tmp 文件；失败不影响账号读取。</summary>
+        private void CleanupTemporaryFiles()
+        {
+            try
+            {
+                string directory = Path.GetDirectoryName(_paths.AccountsFile) ?? _paths.DataRoot;
+                string pattern = Path.GetFileName(_paths.AccountsFile) + ".tmp*";
+
+                foreach (string file in Directory.EnumerateFiles(directory, pattern))
+                {
+                    try
+                    {
+                        File.Delete(file);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
         private static DateTimeOffset? ParseLastUsed(JObject item)
         {
