@@ -930,7 +930,7 @@ namespace NLMCL.App.ViewModels
         }
 
         public IReadOnlyList<string> DefaultPageOptions { get; }
-            = new[] { "上次页面", "世界库", "联机", "下载中心" };
+            = new[] { "上次页面", "世界库", "下载中心", "联机", "方块宁理", "快照", "皮肤", "日志", "设置" };
 
         public string SelectedDefaultPage
         {
@@ -1048,11 +1048,21 @@ namespace NLMCL.App.ViewModels
             {
                 case "上次页面":
                     return "last";
+                case "下载中心":
+                    return "download";
                 case "联机":
                 case "联机房间":
                     return "multiplayer";
-                case "下载中心":
-                    return "download";
+                case "方块宁理":
+                    return "ningli";
+                case "快照":
+                    return "snapshot";
+                case "皮肤":
+                    return "skin";
+                case "日志":
+                    return "console";
+                case "设置":
+                    return "settings";
                 default:
                     return "versions";
             }
@@ -1064,12 +1074,56 @@ namespace NLMCL.App.ViewModels
             {
                 case "last":
                     return "上次页面";
-                case "multiplayer":
-                    return "联机";
                 case "download":
                     return "下载中心";
+                case "multiplayer":
+                    return "联机";
+                case "ningli":
+                    return "方块宁理";
+                case "snapshot":
+                    return "快照";
+                case "skin":
+                    return "皮肤";
+                case "console":
+                    return "日志";
+                case "settings":
+                    return "设置";
                 default:
                     return "世界库";
+            }
+        }
+
+        private static bool TrySectionToKey(ShellSection section, out string key)
+        {
+            switch (section)
+            {
+                case ShellSection.Versions:
+                    key = "versions";
+                    return true;
+                case ShellSection.Download:
+                    key = "download";
+                    return true;
+                case ShellSection.Multiplayer:
+                    key = "multiplayer";
+                    return true;
+                case ShellSection.Ningli:
+                    key = "ningli";
+                    return true;
+                case ShellSection.Snapshot:
+                    key = "snapshot";
+                    return true;
+                case ShellSection.Skin:
+                    key = "skin";
+                    return true;
+                case ShellSection.Launch:
+                    key = "console";
+                    return true;
+                case ShellSection.Settings:
+                    key = "settings";
+                    return true;
+                default:
+                    key = string.Empty;
+                    return false;
             }
         }
 
@@ -1750,11 +1804,26 @@ namespace NLMCL.App.ViewModels
             ShellSection target;
             switch (key)
             {
+                case "download":
+                    target = ShellSection.Download;
+                    break;
                 case "multiplayer":
                     target = ShellSection.Multiplayer;
                     break;
-                case "download":
-                    target = ShellSection.Download;
+                case "ningli":
+                    target = ShellSection.Ningli;
+                    break;
+                case "snapshot":
+                    target = ShellSection.Snapshot;
+                    break;
+                case "skin":
+                    target = ShellSection.Skin;
+                    break;
+                case "console":
+                    target = ShellSection.Launch;
+                    break;
+                case "settings":
+                    target = ShellSection.Settings;
                     break;
                 default:
                     target = ShellSection.Versions;
@@ -1778,20 +1847,9 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            string key;
-            switch (section)
+            if (!TrySectionToKey(section, out string key))
             {
-                case ShellSection.Multiplayer:
-                    key = "multiplayer";
-                    break;
-                case ShellSection.Download:
-                    key = "download";
-                    break;
-                case ShellSection.Versions:
-                    key = "versions";
-                    break;
-                default:
-                    return;
+                return;
             }
 
             try
