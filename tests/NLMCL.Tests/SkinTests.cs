@@ -397,9 +397,6 @@ namespace NLMCL.Tests
                 Account account, CancellationToken cancellationToken)
                 => Task.FromResult<string?>(null);
 
-            public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
-                => Task.FromResult(skinPngPath);
-
             public Task<byte[]> Create3DPreviewAsync(
                 string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
                 CancellationToken cancellationToken)
@@ -600,9 +597,6 @@ namespace NLMCL.Tests
             public Task<string?> GetLocalSkinPathAsync(
                 Account account, CancellationToken cancellationToken)
                 => Task.FromResult<string?>(null);
-
-            public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
-                => Task.FromResult(@"C:\skins\doll.png");
 
             public Task<byte[]> Create3DPreviewAsync(
                 string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,

@@ -462,17 +462,6 @@ namespace NLMCL.Core.Resources
             }
         }
 
-        public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
-        {
-            string output = Path.Combine(
-                Path.GetTempPath(),
-                "nlmcl-skin-doll-" + DateTime.Now.Ticks + ".png");
-
-            SkinPreviewRenderer.RenderPaperDoll(skinPngPath, output, 8);
-
-            return Task.FromResult(output);
-        }
-
         public Task<byte[]> Create3DPreviewAsync(
             string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
             CancellationToken cancellationToken)

@@ -112,6 +112,76 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Skin_temp_files_are_grouped_and_cleaned_safely()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-cache-" + Guid.NewGuid().ToString("N"));
+            AppPaths paths = new AppPaths(Path.Combine(root, "roaming"));
+            string game = Path.Combine(root, ".minecraft");
+            string temp = Path.Combine(root, "temp");
+
+            try
+            {
+                Directory.CreateDirectory(paths.DataRoot);
+                Directory.CreateDirectory(game);
+                Directory.CreateDirectory(temp);
+
+                string[] skinFiles =
+                {
+                    Path.Combine(temp, "nlmcl-skin-src-aaa.png"),
+                    Path.Combine(temp, "nlmcl-skin-doll-bbb.png"),
+                    Path.Combine(temp, "nlmcl-mua-ccc.png"),
+                    Path.Combine(temp, "nlmcl-avatar-ddd.png"),
+                    Path.Combine(temp, "nlmcl-default-skin-eee.png")
+                };
+
+                foreach (string file in skinFiles)
+                {
+                    File.WriteAllBytes(file, new byte[16]);
+                }
+
+                string keep = Path.Combine(temp, "nlmcl-other.png");
+                File.WriteAllBytes(keep, new byte[16]);
+
+                string stable = Path.Combine(paths.SkinDirectory, "cache", "account-test.png");
+                Directory.CreateDirectory(Path.GetDirectoryName(stable)!);
+                File.WriteAllBytes(stable, new byte[16]);
+
+                CacheCleaner cleaner = new CacheCleaner(paths, temp);
+                IReadOnlyList<CacheCategory> categories = await cleaner.ScanAsync(game, CancellationToken.None);
+
+                CacheCategory skin = Assert.Single(
+                    categories, item => item.Id == CacheCleaner.SkinTempId);
+                Assert.Equal(5, skin.ItemCount);
+                Assert.Equal(5 * 16, skin.SizeBytes);
+
+                CacheCleanupResult result = await cleaner.CleanAsync(
+                    game, new[] { CacheCleaner.SkinTempId }, CancellationToken.None);
+
+                Assert.Equal(5, result.DeletedCount);
+                Assert.Equal(5 * 16, result.FreedBytes);
+                Assert.Empty(result.Errors);
+
+                foreach (string file in skinFiles)
+                {
+                    Assert.False(File.Exists(file), file);
+                }
+
+                Assert.True(File.Exists(keep));
+                Assert.True(File.Exists(stable));
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
         public async Task Missing_game_directory_is_safe()
         {
             string root = Path.Combine(Path.GetTempPath(), "nlmcl-cache-" + Guid.NewGuid().ToString("N"));

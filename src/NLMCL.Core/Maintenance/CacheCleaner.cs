@@ -12,6 +12,7 @@ namespace NLMCL.Core.Maintenance
     /// 清理启动器自己的缓存。只处理：
     ///   - 当前游戏目录下超过 6 小时的 *.parts 下载分块目录
     ///   - %TEMP%\nlmcl-diag-* 诊断临时目录
+    ///   - %TEMP%\nlmcl-skin-*.png / nlmcl-mua-*.png / nlmcl-avatar-*.png 等旧皮肤临时图
     ///   - %TEMP%\nlmcl-download.log / nlmcl-startup.log
     ///   - %APPDATA%\NLMCL\logs 下 14 天前的日志
     ///   - settings.json.broken
@@ -24,6 +25,7 @@ namespace NLMCL.Core.Maintenance
         public const string DownloadPartsId = "download-parts";
         public const string TempDiagnosticsId = "temp-diagnostics";
         public const string TempLogsId = "temp-logs";
+        public const string SkinTempId = "skin-temp";
         public const string OldLogsId = "old-logs";
         public const string BrokenSettingsId = "broken-settings";
 
@@ -89,6 +91,40 @@ namespace NLMCL.Core.Maintenance
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
+                    if (entry.IsPattern)
+                    {
+                        foreach (string file in EnumerateFilesSafe(entry.Root, entry.Path))
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+
+                            if (!IsUnder(file, entry.Root))
+                            {
+                                errors.Add("拒绝删除根目录之外的路径：" + file);
+                                continue;
+                            }
+
+                            try
+                            {
+                                if (!File.Exists(file))
+                                {
+                                    continue;
+                                }
+
+                                long size = FileSize(file);
+                                File.Delete(file);
+                                freed += size;
+                                deleted++;
+                            }
+                            catch (Exception ex) when (
+                                ex is IOException || ex is UnauthorizedAccessException || ex is DirectoryNotFoundException)
+                            {
+                                errors.Add(Path.GetFileName(file) + "：" + ex.Message);
+                            }
+                        }
+
+                        continue;
+                    }
+
                     if (!IsUnder(entry.Path, entry.Root))
                     {
                         errors.Add("拒绝删除根目录之外的路径：" + entry.Path);
@@ -130,6 +166,7 @@ namespace NLMCL.Core.Maintenance
 
             result.Add(ScanDownloadParts(gameDirectory, cancellationToken));
             result.Add(ScanTempDiagnostics(cancellationToken));
+            result.Add(ScanSkinTemp(cancellationToken));
             result.Add(ScanTempLogs(cancellationToken));
             result.Add(ScanOldLogs(cancellationToken));
             result.Add(ScanBrokenSettings(cancellationToken));
@@ -196,6 +233,48 @@ namespace NLMCL.Core.Maintenance
                 catch (Exception ex) when (
                     ex is IOException || ex is UnauthorizedAccessException)
                 {
+                }
+            }
+
+            return category;
+        }
+
+        private CategoryScan ScanSkinTemp(CancellationToken cancellationToken)
+        {
+            CategoryScan category = new CategoryScan(
+                SkinTempId,
+                "皮肤临时文件",
+                "旧版本留下的皮肤预览、头像、查询与默认皮肤 PNG；删除后会自动重新生成。");
+
+            string[] patterns =
+            {
+                "nlmcl-skin-*.png",
+                "nlmcl-mua-*.png",
+                "nlmcl-avatar-*.png",
+                "nlmcl-lookup-*.png",
+                "nlmcl-default-skin*.png"
+            };
+
+            foreach (string pattern in patterns)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                long size = 0;
+                int count = 0;
+
+                foreach (string file in EnumerateFilesSafe(_tempRoot, pattern))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    size += FileSize(file);
+                    count++;
+                }
+
+                if (count > 0)
+                {
+                    // 用通配符作为一条聚合记录：历史遗留可能有几十万张，
+                    // 不能为每个文件建一条 CacheEntry，否则设置页会先被内存拖垮。
+                    category.Entries.Add(new CacheEntry(
+                        pattern, false, size, _tempRoot, count, isPattern: true));
                 }
             }
 
@@ -385,18 +464,26 @@ namespace NLMCL.Core.Maintenance
                 return new CacheCategory(
                     Id, Title, Description,
                     Entries.Sum(item => item.SizeBytes),
-                    Entries.Count);
+                    Entries.Sum(item => item.FileCount));
             }
         }
 
         private sealed class CacheEntry
         {
-            public CacheEntry(string path, bool isDirectory, long sizeBytes, string root)
+            public CacheEntry(
+                string path,
+                bool isDirectory,
+                long sizeBytes,
+                string root,
+                int fileCount = 1,
+                bool isPattern = false)
             {
                 Path = path;
                 IsDirectory = isDirectory;
                 SizeBytes = sizeBytes;
                 Root = root;
+                FileCount = Math.Max(1, fileCount);
+                IsPattern = isPattern;
             }
 
             public string Path { get; }
@@ -406,6 +493,10 @@ namespace NLMCL.Core.Maintenance
             public long SizeBytes { get; }
 
             public string Root { get; }
+
+            public int FileCount { get; }
+
+            public bool IsPattern { get; }
         }
     }
 }

@@ -92,9 +92,6 @@ namespace NLMCL.Abstractions
         /// <summary>读取某个账号上次保存的本地皮肤；没有则返回 null。</summary>
         Task<string?> GetLocalSkinPathAsync(Account account, CancellationToken cancellationToken);
 
-        /// <summary>把皮肤 PNG 渲染成纸娃娃立绘（供界面预览），返回渲染后的文件路径。</summary>
-        Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken);
-
         /// <summary>3D 预览：把皮肤渲染成带朝向的立体立绘，返回内存中的 PNG 字节。</summary>
         Task<byte[]> Create3DPreviewAsync(
             string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
