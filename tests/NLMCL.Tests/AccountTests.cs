@@ -329,6 +329,40 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Switching_applies_even_when_persisting_fails()
+        {
+            TestSupport.MemoryAccountStore store = new TestSupport.MemoryAccountStore
+            {
+                FailSwitch = true
+            };
+
+            NLMCL.Abstractions.Account alpha = new NLMCL.Abstractions.Account(
+                "Alpha", "uuid-a", NLMCL.Abstractions.AccountType.Offline);
+            NLMCL.Abstractions.Account beta = new NLMCL.Abstractions.Account(
+                "Beta", "uuid-b", NLMCL.Abstractions.AccountType.Offline);
+
+            store.Current = alpha;
+            store.All.Add(alpha);
+            store.All.Add(beta);
+
+            NLMCL.App.ViewModels.MainViewModel vm = TestSupport.CreateMain(
+                new TestSupport.EmptyCatalog(),
+                new NLMCL.Core.AppPaths(System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "nlmcl-acct-" + System.Guid.NewGuid().ToString("N"))),
+                accounts: store);
+
+            vm.Account = alpha;
+            vm.IsAccountPopupOpen = true;
+
+            // 账号文件写入失败不能让用户卡在旧账号：内存里也要完成切换，并明确提示没有保存。
+            await vm.SwitchAccountAsync(beta);
+
+            Assert.Equal("Beta", vm.Account!.Name);
+            Assert.False(vm.IsAccountPopupOpen);
+            Assert.Contains("未能写入", vm.StatusText);
+        }
+
+        [Fact]
         public async Task Loading_current_account_also_fills_switch_list()
         {
             TestSupport.MemoryAccountStore store = new TestSupport.MemoryAccountStore();

@@ -2660,20 +2660,30 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            bool saved = true;
+            string? saveError = null;
+
             try
             {
                 await _accounts.SwitchAsync(account, CancellationToken.None).ConfigureAwait(true);
-
-                Account = account;
-                Console.Account = account;
-
-                await ReloadSavedAccountsAsync().ConfigureAwait(true);
-                StatusText = "已切换到 " + account.Name;
             }
             catch (Exception ex)
             {
-                StatusText = "切换账号失败：" + ex.Message;
+                // 账号文件可能被只读目录、杀毒软件或另一个实例占用。
+                // 切换本身不应被持久化失败挡住：先在内存里切过去，再明确提示未能保存。
+                saved = false;
+                saveError = ex.Message;
             }
+
+            Account = account;
+            Console.Account = account;
+            IsAccountPopupOpen = false;
+
+            await ReloadSavedAccountsAsync().ConfigureAwait(true);
+
+            StatusText = saved
+                ? "已切换到 " + account.Name
+                : "已切换到 " + account.Name + "，但未能写入账号文件：" + saveError;
         }
 
         /// <summary>删除已保存的账号（当前账号被删时自动切到剩下的一个）。</summary>

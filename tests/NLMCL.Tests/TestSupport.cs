@@ -218,8 +218,16 @@ namespace NLMCL.Tests
                 return Task.FromResult<System.Collections.Generic.IReadOnlyList<Account>>(list);
             }
 
+            /// <summary>模拟账号文件被只读目录/安全软件占用，切换无法持久化。</summary>
+            public bool FailSwitch { get; set; }
+
             public Task SwitchAsync(Account account, CancellationToken cancellationToken)
             {
+                if (FailSwitch)
+                {
+                    throw new UnauthorizedAccessException("accounts.json.tmp 写入被拒绝");
+                }
+
                 Current = account;
                 return Task.CompletedTask;
             }
