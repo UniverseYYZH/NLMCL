@@ -945,7 +945,7 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public void ToggleAutoRotate() => IsAutoRotating = !IsAutoRotating;
 
-        /// <summary>自动旋转的一小步（由页面计时器驱动，约 6°/秒）。</summary>
+        /// <summary>自动旋转的一小步（由页面 150ms 计时器驱动，约 6.4°/秒）。</summary>
         public void AutoRotateStep()
         {
             if (!IsAutoRotating)
@@ -953,7 +953,7 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            Yaw = Normalize(Yaw + 0.8);
+            Yaw = Normalize(Yaw + 0.96);
             _ = RenderAsync();
         }
 

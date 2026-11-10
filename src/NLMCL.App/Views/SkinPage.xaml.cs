@@ -28,7 +28,8 @@ namespace NLMCL.App.Views
 
             _timer = new DispatcherTimer(DispatcherPriority.Background)
             {
-                Interval = TimeSpan.FromMilliseconds(125)
+                // 6.4°/s：比旧版少约 20% 的 CPU 渲染帧，视觉速度不变。
+                Interval = TimeSpan.FromMilliseconds(150)
             };
 
             _timer.Tick += (sender, args) =>
