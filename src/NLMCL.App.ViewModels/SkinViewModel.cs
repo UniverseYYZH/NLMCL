@@ -375,8 +375,7 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
-                string source = cache ?? Path.Combine(
-                    Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
+                string source = cache ?? GetLookupCachePath(account);
 
                 try
                 {
@@ -488,6 +487,44 @@ namespace NLMCL.App.ViewModels
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// MUA 预览/装配共用一个稳定缓存：同一张皮肤只占一个文件，
+        /// 不再每次点击生成带 GUID 的临时 PNG。
+        /// </summary>
+        private string GetMuaCachePath(MuaSkin skin)
+        {
+            string root = _paths != null
+                ? Path.Combine(_paths.SkinDirectory, "cache")
+                : Path.Combine(Path.GetTempPath(), "NLMCL", "mua");
+
+            Directory.CreateDirectory(root);
+            return Path.Combine(root, "mua-" + skin.Tid + ".png");
+        }
+
+        /// <summary>
+        /// 按名字查询到的皮肤也复用稳定缓存，避免每次查询都留下
+        /// nlmcl-skin-src-{Ticks}.png。
+        /// </summary>
+        private string GetLookupCachePath(Account account)
+        {
+            string root = _paths != null
+                ? Path.Combine(_paths.SkinDirectory, "cache")
+                : Path.Combine(Path.GetTempPath(), "NLMCL", "lookup");
+
+            Directory.CreateDirectory(root);
+            return Path.Combine(root, "lookup-" + SafeCacheKey(account) + ".png");
+        }
+
+        private static string SafeCacheKey(Account account)
+        {
+            string value = string.IsNullOrWhiteSpace(account.Uuid) ? account.Name : account.Uuid;
+            string safe = new string(value
+                .Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '-')
+                .ToArray());
+
+            return safe.Length == 0 ? "account" : safe.ToLowerInvariant();
         }
 
         private async Task ShowDefaultPreviewAsync(int generation, string status)
@@ -636,10 +673,7 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                string path = Path.Combine(
-                    Path.GetTempPath(),
-                    "nlmcl-mua-preview-" + item.Skin.Tid + "-" +
-                    Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
+                string path = GetMuaCachePath(item.Skin);
 
                 await _library
                     .DownloadAsync(item.Skin, path, CancellationToken.None)
@@ -706,9 +740,7 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                string path = Path.Combine(
-                    Path.GetTempPath(),
-                    "nlmcl-mua-" + item.Skin.Tid + "-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
+                string path = GetMuaCachePath(item.Skin);
 
                 await _library
                     .DownloadAsync(item.Skin, path, CancellationToken.None)
@@ -787,8 +819,7 @@ namespace NLMCL.App.ViewModels
                 _current = skin;
                 ModelText = DescribeSkin(skin);
 
-                string source = Path.Combine(
-                    Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
+                string source = GetLookupCachePath(_account);
 
                 await _skins.SavePreviewAsync(skin.SkinUrl, source, CancellationToken.None)
                     .ConfigureAwait(true);
