@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -20,6 +22,11 @@ namespace NLMCL.Core.Resources
     {
         public const string DefaultSiteRoot = "https://skin.mualliance.ltd";
 
+        private static readonly HttpClient DirectHttp = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(12)
+        };
+
         private readonly IDownloadService _download;
 
         public MuaSkinLibraryService(IDownloadService download)
@@ -33,9 +40,25 @@ namespace NLMCL.Core.Resources
             string root = ResolveSiteRoot(siteRoot);
             int safePage = Math.Max(1, page);
 
-            string json = await _download
-                .GetStringAsync(root + "/skinlib/list?page=" + safePage, cancellationToken)
-                .ConfigureAwait(false);
+            string url = root + "/skinlib/list?page=" + safePage;
+            string json;
+
+            try
+            {
+                json = await _download
+                    .GetStringAsync(url, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 启动器自带的下载栈在部分网络环境下会被代理/线程检查卡住；
+                // 列表是公开 JSON，直接请求一次作为兜底。
+                json = await GetStringDirectAsync(url, cancellationToken).ConfigureAwait(false);
+            }
 
             JObject document;
 
@@ -93,11 +116,55 @@ namespace NLMCL.Core.Resources
                 throw new ArgumentNullException(nameof(skin));
             }
 
-            await _download
-                .DownloadFileAsync(skin.DownloadUrl, targetPath, cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                await _download
+                    .DownloadFileAsync(skin.DownloadUrl, targetPath, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                byte[] bytes = await GetBytesDirectAsync(skin.DownloadUrl, cancellationToken)
+                    .ConfigureAwait(false);
+                string? directory = Path.GetDirectoryName(targetPath);
+
+                if (!string.IsNullOrWhiteSpace(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                File.WriteAllBytes(targetPath, bytes);
+            }
 
             return targetPath;
+        }
+
+        private static async Task<string> GetStringDirectAsync(
+            string url, CancellationToken cancellationToken)
+        {
+            using (HttpResponseMessage response = await DirectHttp
+                .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false))
+            {
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+            }
+        }
+
+        private static async Task<byte[]> GetBytesDirectAsync(
+            string url, CancellationToken cancellationToken)
+        {
+            using (HttpResponseMessage response = await DirectHttp
+                .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false))
+            {
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            }
         }
 
         /// <summary>把 AuthServer（.../api/yggdrasil）还原为站点根地址。</summary>

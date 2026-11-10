@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NLMCL.Abstractions;
+using NLMCL.Core.Skins;
 
 namespace NLMCL.App.ViewModels
 {
@@ -106,7 +107,8 @@ namespace NLMCL.App.ViewModels
                     LocalSkins.Add(new LocalSkinItem(
                         file,
                         !string.IsNullOrEmpty(_skinPng)
-                        && string.Equals(Path.GetFullPath(file), Path.GetFullPath(_skinPng), StringComparison.OrdinalIgnoreCase)));
+                        && string.Equals(Path.GetFullPath(file), Path.GetFullPath(_skinPng), StringComparison.OrdinalIgnoreCase),
+                        RenderLocalThumbnail(file)));
                 }
 
                 LocalSkinStatusText = LocalSkins.Count == 0
@@ -490,17 +492,42 @@ namespace NLMCL.App.ViewModels
         }
 
         /// <summary>
+        private static byte[]? RenderLocalThumbnail(string file)
+        {
+            try
+            {
+                return SkinRender3D.RenderPng(file, 72, 28, 8, slim: false);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
         /// MUA 预览/装配共用一个稳定缓存：同一张皮肤只占一个文件，
         /// 不再每次点击生成带 GUID 的临时 PNG。
         /// </summary>
         private string GetMuaCachePath(MuaSkin skin)
         {
-            string root = _paths != null
-                ? Path.Combine(_paths.SkinDirectory, "cache")
-                : Path.Combine(Path.GetTempPath(), "NLMCL", "mua");
+            string file = "nlmcl-mua-" + skin.Tid + ".png";
 
-            Directory.CreateDirectory(root);
-            return Path.Combine(root, "mua-" + skin.Tid + ".png");
+            if (_paths != null)
+            {
+                try
+                {
+                    string root = Path.Combine(_paths.SkinDirectory, "cache");
+                    Directory.CreateDirectory(root);
+                    return Path.Combine(root, file);
+                }
+                catch (Exception)
+                {
+                    // 某些受限运行环境不能创建 AppData 子目录；退回临时根目录，
+                    // 文件名仍然稳定，不会按点击次数增长。
+                }
+            }
+
+            return Path.Combine(Path.GetTempPath(), file);
         }
 
         /// <summary>
@@ -509,12 +536,23 @@ namespace NLMCL.App.ViewModels
         /// </summary>
         private string GetLookupCachePath(Account account)
         {
-            string root = _paths != null
-                ? Path.Combine(_paths.SkinDirectory, "cache")
-                : Path.Combine(Path.GetTempPath(), "NLMCL", "lookup");
+            string file = "nlmcl-lookup-" + SafeCacheKey(account) + ".png";
 
-            Directory.CreateDirectory(root);
-            return Path.Combine(root, "lookup-" + SafeCacheKey(account) + ".png");
+            if (_paths != null)
+            {
+                try
+                {
+                    string root = Path.Combine(_paths.SkinDirectory, "cache");
+                    Directory.CreateDirectory(root);
+                    return Path.Combine(root, file);
+                }
+                catch (Exception)
+                {
+                    // 同 MUA：受限环境退回临时根目录。
+                }
+            }
+
+            return Path.Combine(Path.GetTempPath(), file);
         }
 
         private static string SafeCacheKey(Account account)
@@ -1015,11 +1053,12 @@ namespace NLMCL.App.ViewModels
 /// <summary>本地皮肤库中的一张 PNG。</summary>
     public sealed class LocalSkinItem
     {
-        public LocalSkinItem(string path, bool isCurrent = false)
+        public LocalSkinItem(string path, bool isCurrent = false, byte[]? previewPng = null)
         {
             Path = path;
             Name = System.IO.Path.GetFileNameWithoutExtension(path);
             IsCurrent = isCurrent;
+            PreviewPng = previewPng;
         }
 
         public string Path { get; }
@@ -1027,4 +1066,11 @@ namespace NLMCL.App.ViewModels
         public string Name { get; }
 
         public bool IsCurrent { get; }
+
+        /// <summary>本地卡直接展示 3D 方块人，而不是原始皮肤贴图。</summary>
+        public byte[]? PreviewPng { get; }
+
+        public bool HasPreview => PreviewPng != null && PreviewPng.Length > 0;
+
+        public string PreviewLabel => HasPreview ? "3D 预览" : "本地 PNG";
     }}

@@ -151,6 +151,20 @@ namespace NLMCL.App
             _viewModel.IsAccountPopupOpen = false;
         }
 
+        /// <summary>
+        /// 账号列表里的整行/「切换」都走这里。用 Click 而不是只靠 Command 绑定，
+        /// 避免弹层内 RelativeSource 绑定失效时按钮看起来能点、实际没有反应。
+        /// </summary>
+        private void SwitchAccountButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element
+                && element.DataContext is AccountItemViewModel item
+                && !item.IsCurrent)
+            {
+                _viewModel.SwitchAccountCommand.Execute(item.Account);
+            }
+        }
+
         /// <summary>点遮罩空白处关闭快照面板。</summary>
         private void SnapshotOverlayClicked(object sender, MouseButtonEventArgs e)
         {

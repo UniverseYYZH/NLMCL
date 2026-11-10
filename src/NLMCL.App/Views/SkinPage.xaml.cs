@@ -125,5 +125,19 @@ namespace NLMCL.App.Views
 
             vm.RotateBy(delta * 0.8);
         }
+
+        /// <summary>
+        /// 卡片里的预览按钮用 Click 兜底一次：ItemsControl 里的
+        /// RelativeSource 命令偶发解析不到时，仍然能下载并切到 3D。
+        /// </summary>
+        private void PreviewLibrarySkin_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement element
+                && element.DataContext is MuaSkinItemViewModel item
+                && DataContext is SkinViewModel vm)
+            {
+                vm.PreviewLibrarySkinCommand.Execute(item);
+            }
+        }
     }
 }

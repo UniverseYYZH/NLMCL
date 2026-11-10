@@ -101,7 +101,12 @@
                                                 <StackPanel>
                                                     <Grid Height="54">
                                                         <Image Source="{Binding Path}" Stretch="Uniform"
-                                                               RenderOptions.BitmapScalingMode="HighQuality" />
+                                                               RenderOptions.BitmapScalingMode="HighQuality"
+                                                               Visibility="{Binding HasPreview, Converter={StaticResource InverseBoolToVisibility}}" />
+                                                        <Image Source="{Binding PreviewPng, Converter={StaticResource PngBytesToImage}}"
+                                                               Stretch="Uniform"
+                                                               RenderOptions.BitmapScalingMode="HighQuality"
+                                                               Visibility="{Binding HasPreview, Converter={StaticResource BoolToVisibility}}" />
                                                         <Border Background="{DynamicResource Primary}"
                                                                 CornerRadius="4" Padding="4,1"
                                                                 HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -113,7 +118,7 @@
                                                     <TextBlock Text="{Binding Name}" FontSize="9.5"
                                                                Foreground="{DynamicResource Text}"
                                                                TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
-                                                    <TextBlock Text="本地 PNG" FontSize="8"
+                                                    <TextBlock Text="{Binding PreviewLabel}" FontSize="8"
                                                                Foreground="{DynamicResource Faint}" />
                                                 </StackPanel>
                                             </Button>
@@ -192,9 +197,8 @@
                                                     CornerRadius="8" Padding="5" Margin="0,0,6,6" Width="112">
                                                 <StackPanel>
                                                     <Button Style="{StaticResource GhostButton}" Padding="3"
-                                                            Command="{Binding DataContext.PreviewLibrarySkinCommand,
-                                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                            CommandParameter="{Binding}">
+                                                            Click="PreviewLibrarySkin_Click"
+                                                            ToolTip="下载并 3D 预览这张 MUA 皮肤">
                                                         <Image Source="{Binding PreviewUrl}" Height="56" Width="56"
                                                                Stretch="Uniform"
                                                                RenderOptions.BitmapScalingMode="HighQuality" />

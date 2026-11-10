@@ -41,6 +41,45 @@
                     </Setter.Value>
                 </Setter>
             </Style>
+            <Style x:Key="HubModeCard" TargetType="Button">
+                <Setter Property="Background" Value="#F7ECD9" />
+                <Setter Property="Foreground" Value="{DynamicResource Text}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}" />
+                <Setter Property="BorderThickness" Value="1.5" />
+                <Setter Property="Padding" Value="10,8" />
+                <Setter Property="Margin" Value="2" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="9" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background"
+                                            Value="{DynamicResource Card}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}"
+                                             Value="active">
+                                    <Setter TargetName="Bd" Property="Background"
+                                            Value="{DynamicResource Card}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush"
+                                            Value="{DynamicResource FrameRed}" />
+                                    <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                                    <Setter Property="Foreground" Value="{DynamicResource FrameRed}" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                </DataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -62,26 +101,80 @@
                                Foreground="{DynamicResource Faint}"
                                VerticalAlignment="Bottom" Margin="8,0,0,4" />
                 </StackPanel>
-                <Button Content="扫描局域网" Style="{StaticResource GhostButton}"
-                        Padding="12,5" FontSize="10.5" HorizontalAlignment="Right"
-                        VerticalAlignment="Center" Click="ScanLan_Click"
-                        ToolTip="切到局域网扫描并开始发现房间" />
+                <Border HorizontalAlignment="Right" VerticalAlignment="Center"
+                        Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource BorderColor}"
+                        BorderThickness="1" CornerRadius="10" Padding="10,5">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE8AB;" FontFamily="Segoe MDL2 Assets"
+                                   FontSize="11" Foreground="{DynamicResource FrameRed}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Text="点击卡片切换模式" FontSize="10"
+                                   Foreground="{DynamicResource Muted}"
+                                   VerticalAlignment="Center" Margin="6,0,0,0" />
+                    </StackPanel>
+                </Border>
             </Grid>
             <TextBlock Text="服务器档案、局域网开房与扫描、地址二维码都在这里。连不上时先看检查项。"
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0"
                        TextWrapping="Wrap" />
 
-            <Grid Margin="0,12,0,0">
-                <StackPanel Orientation="Horizontal">
-                    <Button x:Name="ServersTab" Content="服务器房间" Style="{StaticResource ModeTab}"
-                            Tag="active" Click="ServersTab_Click" />
-                    <Button x:Name="LanTab" Content="局域网扫描" Style="{StaticResource ModeTab}"
-                            Click="LanTab_Click" />
-                </StackPanel>
-                <TextBlock Text="服务器档案 · 局域网发现 · 地址二维码"
-                           FontSize="9" Foreground="{DynamicResource Faint}"
-                           HorizontalAlignment="Right" VerticalAlignment="Center" />
-            </Grid>
+            <Border Margin="0,12,0,0" Padding="4"
+                    Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource BorderColor}"
+                    BorderThickness="1" CornerRadius="12">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="ServersTab" Grid.Column="0"
+                            Style="{StaticResource HubModeCard}" Tag="active"
+                            Click="ServersTab_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="38" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="30" Height="30" CornerRadius="8"
+                                    Background="{DynamicResource PrimarySoft}"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="&#xE968;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="15" Foreground="{DynamicResource Primary}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
+                                <TextBlock Text="服务器房间" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Text="收藏的服务器、开房与直连" FontSize="9.5"
+                                           Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                    <Button x:Name="LanTab" Grid.Column="1"
+                            Style="{StaticResource HubModeCard}" Click="LanTab_Click">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="38" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border Width="30" Height="30" CornerRadius="8"
+                                    Background="{DynamicResource AmberBg}"
+                                    VerticalAlignment="Center">
+                                <TextBlock Text="&#xE701;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="15" Foreground="{DynamicResource Amber}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
+                                <TextBlock Text="局域网扫描" FontSize="13.5" FontWeight="SemiBold"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                <TextBlock Text="发现同一网段的房间" FontSize="9.5"
+                                           Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Button>
+                </Grid>
+            </Border>
         </StackPanel>
 
         <Grid Grid.Row="1">
