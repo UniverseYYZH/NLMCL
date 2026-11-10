@@ -168,6 +168,9 @@ namespace NLMCL.Tests
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => Task.FromResult(_avatar);
 
+            public Task<byte[]?> GetAvatarPngAsync(Account account, CancellationToken cancellationToken)
+                => Task.FromResult<byte[]?>(TestSupport.OnePixelPng);
+
             public string GetDefaultSkinPath() => _avatar ?? string.Empty;
 
             public Task<string> GetDefaultSkinAsync(CancellationToken cancellationToken)

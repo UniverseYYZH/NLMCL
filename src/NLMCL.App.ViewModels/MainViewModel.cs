@@ -534,7 +534,15 @@ namespace NLMCL.App.ViewModels
             AccountType = value == null ? "点击登录账号" : value.TypeLabel;
 
             RefreshSavedAccountSelection();
-            _skin?.SetAccount(value);
+
+            try
+            {
+                _skin?.SetAccount(value);
+            }
+            catch (Exception)
+            {
+                // 皮肤页初始化失败不能阻断账号切换与头像加载。
+            }
 
             if (IsSkinSection)
             {
@@ -553,36 +561,36 @@ namespace NLMCL.App.ViewModels
                 if (generation == _avatarGeneration)
                 {
                     AvatarPath = null;
+                    AvatarPng = null;
                 }
 
                 return;
             }
 
-            // 切账号先清掉上一个账号的头像；有缓存就立刻顶上，别让右上角一直挂 “?”。
+            // 切账号先清掉上一个账号的头像，避免短暂显示别人的头像。
             if (generation == _avatarGeneration)
             {
-                AvatarPath = account.Type == NLMCL.Abstractions.AccountType.Offline
-                    ? null
-                    : NLMCL.Core.Resources.SkinService.GetCachedAvatarPath(_paths, account);
+                AvatarPath = null;
+                AvatarPng = null;
             }
 
             try
             {
-                string? path = await _skins
-                    .GetAvatarAsync(account, CancellationToken.None)
+                byte[]? png = await _skins
+                    .GetAvatarPngAsync(account, CancellationToken.None)
                     .ConfigureAwait(true);
 
                 // 切换账号后旧请求可能晚回来：只接受当前代次的结果。
                 if (generation == _avatarGeneration)
                 {
-                    AvatarPath = path;
+                    AvatarPng = png;
                 }
             }
             catch (Exception)
             {
                 if (generation == _avatarGeneration)
                 {
-                    AvatarPath = null;
+                    AvatarPng = null;
                 }
             }
         }
@@ -823,9 +831,18 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string? _avatarPath;
 
-        public bool HasAvatar => !string.IsNullOrEmpty(AvatarPath);
+        /// <summary>账号头像（内存 PNG 字节），优先级高于 AvatarPath。</summary>
+        [ObservableProperty]
+        private byte[]? _avatarPng;
+
+        public bool HasAvatar => (AvatarPng != null && AvatarPng.Length > 0) || !string.IsNullOrEmpty(AvatarPath);
 
         partial void OnAvatarPathChanged(string? value)
+        {
+            OnPropertyChanged(nameof(HasAvatar));
+        }
+
+        partial void OnAvatarPngChanged(byte[]? value)
         {
             OnPropertyChanged(nameof(HasAvatar));
         }

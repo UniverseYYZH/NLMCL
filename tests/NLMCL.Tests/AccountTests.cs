@@ -402,10 +402,10 @@ namespace NLMCL.Tests
 
             TestSupport.NoopSkinService skins = new TestSupport.NoopSkinService
             {
-                AvatarHandler = async account =>
+                AvatarPngHandler = async account =>
                 {
                     await Task.Delay(account.Name == "Alpha" ? 250 : 10);
-                    return account.Name + ".png";
+                    return System.Text.Encoding.UTF8.GetBytes(account.Name);
                 }
             };
 
@@ -421,7 +421,8 @@ namespace NLMCL.Tests
 
             await Task.Delay(600);
 
-            Assert.Equal("Beta.png", vm.AvatarPath);
+            Assert.NotNull(vm.AvatarPng);
+            Assert.Equal("Beta", System.Text.Encoding.UTF8.GetString(vm.AvatarPng!));
         }
     }
 }

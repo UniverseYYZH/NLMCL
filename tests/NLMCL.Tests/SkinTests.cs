@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -260,6 +261,42 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Avatar_png_renders_a_local_skin_without_writing_a_file()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-avatar-png-" + Guid.NewGuid().ToString("N"));
+            string skins = Path.Combine(root, "skins");
+            Directory.CreateDirectory(skins);
+            string local = Path.Combine(skins, "UniverseYYZH-local-test.png");
+            File.Copy(
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png"),
+                local);
+
+            try
+            {
+                SkinService service = new SkinService(
+                    new SessionSkinDownload(Base64Textures("https://cdn/skin.png", "default"))
+                    {
+                        SkinPath = local
+                    },
+                    new AppPaths(root));
+                Account account = new Account(
+                    "UniverseYYZH", "0ae3d697-22ae-4fe0-8eef-80acdcc18fd6",
+                    AccountType.Microsoft, "token");
+
+                byte[]? png = await service.GetAvatarPngAsync(account, CancellationToken.None);
+
+                Assert.NotNull(png);
+                Assert.True(png!.Length > 100);
+                Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, png.Take(4).ToArray());
+                Assert.False(Directory.Exists(Path.Combine(skins, "cache")));
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
         public async Task Skin_service_failure_still_leaves_a_default_preview()
         {
             FakeSkinService skins = new FakeSkinService
@@ -370,6 +407,9 @@ namespace NLMCL.Tests
 
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => Task.FromResult<string?>(null);
+
+            public Task<byte[]?> GetAvatarPngAsync(Account account, CancellationToken cancellationToken)
+                => Task.FromResult<byte[]?>(null);
 
             public string GetDefaultSkinPath()
                 => System.IO.Path.Combine(System.IO.Path.GetTempPath(), "nlmcl-default-skin.png");
@@ -571,6 +611,9 @@ namespace NLMCL.Tests
 
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => Task.FromResult<string?>(@"C:\skins\avatar.png");
+
+            public Task<byte[]?> GetAvatarPngAsync(Account account, CancellationToken cancellationToken)
+                => Task.FromResult<byte[]?>(TestSupport.OnePixelPng);
 
             public string GetDefaultSkinPath()
                 => @"C:\skins\default.png";

@@ -420,6 +420,8 @@ namespace NLMCL.Tests
         {
             public Func<Account, Task<string?>>? AvatarHandler { get; set; }
 
+            public Func<Account, Task<byte[]?>>? AvatarPngHandler { get; set; }
+
             private static string DefaultSkinPath =>
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
 
@@ -456,6 +458,11 @@ namespace NLMCL.Tests
                 => AvatarHandler == null
                     ? Task.FromResult<string?>(null)
                     : AvatarHandler(account);
+
+            public Task<byte[]?> GetAvatarPngAsync(Account account, CancellationToken cancellationToken)
+                => AvatarPngHandler == null
+                    ? Task.FromResult<byte[]?>(null)
+                    : AvatarPngHandler(account);
 
             public string GetDefaultSkinPath() => DefaultSkinPath;
 

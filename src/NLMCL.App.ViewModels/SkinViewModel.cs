@@ -249,6 +249,19 @@ namespace NLMCL.App.ViewModels
 
             IsBusy = true;
 
+            string? localSkin = null;
+
+            try
+            {
+                localSkin = await _skins
+                    .GetLocalSkinPathAsync(account, CancellationToken.None)
+                    .ConfigureAwait(true);
+            }
+            catch (Exception)
+            {
+                // 本地皮肤清单损坏不影响服务端皮肤。
+            }
+
             string? cache = account.Type == AccountType.Offline || _paths == null
                 ? null
                 : NLMCL.Core.Resources.SkinService.GetAccountSkinCachePath(_paths, account);
@@ -270,6 +283,23 @@ namespace NLMCL.App.ViewModels
 
                 StatusText = "正在刷新账号皮肤…（当前显示上次缓存）";
             }
+            else if (IsUsablePng(localSkin))
+            {
+                // 缓存还没建立，但本地保存过账号皮肤：先显示它，
+                // 网络失败时也至少能正常预览 3D。
+                _current = null;
+                _skinPng = localSkin;
+                _slim = false;
+                ModelText = "本地保存的账号皮肤";
+                await RenderAsync().ConfigureAwait(true);
+
+                if (generation != _refreshGeneration)
+                {
+                    return;
+                }
+
+                StatusText = "正在从 Mojang 刷新账号皮肤…（当前显示本地保存的皮肤）";
+            }
             else
             {
                 await ShowDefaultPreviewAsync(
@@ -283,33 +313,32 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                // 离线账号先看本地保存的皮肤；正版/外置账号仍以服务端皮肤为准。
-                string? localSkin = account.Type == AccountType.Offline
-                    ? await _skins
-                        .GetLocalSkinPathAsync(account, CancellationToken.None)
-                        .ConfigureAwait(true)
-                    : null;
-
-                if (generation != _refreshGeneration)
+                // 离线账号直接用本地保存的皮肤；正版/外置账号仍尝试服务端，
+                // 但网络失败时保留上面的本地预览。
+                if (account.Type == AccountType.Offline)
                 {
-                    return;
-                }
-
-                if (localSkin != null)
-                {
-                    _current = null;
-                    _skinPng = localSkin;
-                    _slim = false;
-
-                    await RenderAsync().ConfigureAwait(true);
-
-                    if (generation != _refreshGeneration)
+                    if (localSkin != null)
                     {
-                        return;
+                        _current = null;
+                        _skinPng = localSkin;
+                        _slim = false;
+
+                        await RenderAsync().ConfigureAwait(true);
+
+                        if (generation != _refreshGeneration)
+                        {
+                            return;
+                        }
+
+                        ModelText = "本地皮肤";
+                        StatusText = "本地皮肤：" + localSkin + " · 拖动图片可旋转";
+                    }
+                    else
+                    {
+                        await ShowDefaultPreviewAsync(
+                            generation, "离线账号 · 显示的是默认皮肤（经典 Steve）").ConfigureAwait(true);
                     }
 
-                    ModelText = "本地皮肤";
-                    StatusText = "本地皮肤：" + localSkin + " · 拖动图片可旋转";
                     return;
                 }
 
@@ -322,13 +351,27 @@ namespace NLMCL.App.ViewModels
 
                 if (skin?.SkinUrl == null)
                 {
-                    // 服务端明确说“没有自定义皮肤”：显示默认 Steve，而不是旧缓存。
-                    await ShowDefaultPreviewAsync(
-                        generation,
-                        account.Type == AccountType.Offline
-                            ? "离线账号 · 显示的是默认皮肤（经典 Steve）"
-                            : "该账号没有自定义皮肤 · 显示的是默认皮肤（经典 Steve）")
-                        .ConfigureAwait(true);
+                    if (IsUsablePng(localSkin))
+                    {
+                        _current = null;
+                        _skinPng = localSkin;
+                        _slim = false;
+                        ModelText = "本地保存的账号皮肤";
+                        await RenderAsync().ConfigureAwait(true);
+
+                        if (generation == _refreshGeneration)
+                        {
+                            StatusText = "Mojang 没有返回自定义皮肤，继续显示本地保存的皮肤";
+                        }
+                    }
+                    else
+                    {
+                        // 服务端明确说“没有自定义皮肤”：显示默认 Steve。
+                        await ShowDefaultPreviewAsync(
+                            generation, "该账号没有自定义皮肤 · 显示的是默认皮肤（经典 Steve）")
+                            .ConfigureAwait(true);
+                    }
+
                     return;
                 }
 
@@ -408,7 +451,20 @@ namespace NLMCL.App.ViewModels
 
                     if (generation == _refreshGeneration)
                     {
-                        StatusText = "读取账号皮肤失败，继续显示上次缓存；点「刷新」重试：" + ex.Message;
+                        StatusText = "网络刷新失败，继续显示上次缓存；点「刷新」重试：" + ex.Message;
+                    }
+                }
+                else if (IsUsablePng(localSkin))
+                {
+                    _current = null;
+                    _skinPng = localSkin;
+                    _slim = false;
+                    ModelText = "本地保存的账号皮肤";
+                    await RenderAsync().ConfigureAwait(true);
+
+                    if (generation == _refreshGeneration)
+                    {
+                        StatusText = "网络暂不可用，继续显示本地保存的皮肤；点「刷新」重试";
                     }
                 }
                 else

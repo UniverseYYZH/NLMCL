@@ -103,6 +103,9 @@ namespace NLMCL.Abstractions
         /// <summary>账号头像（头部正面 + 帽子层），没有皮肤时返回 null。</summary>
         Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken);
 
+        /// <summary>直接返回头像 PNG 字节，不落盘；界面用转换器解码。</summary>
+        Task<byte[]?> GetAvatarPngAsync(Account account, CancellationToken cancellationToken);
+
         /// <summary>内置默认皮肤 PNG 的本地路径（账号没有自定义皮肤时兜底预览）。</summary>
         string GetDefaultSkinPath();
 

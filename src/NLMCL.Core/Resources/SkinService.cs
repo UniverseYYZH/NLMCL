@@ -606,7 +606,6 @@ namespace NLMCL.Core.Resources
             {
                 source = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
             }
-
             string? avatar = TryRenderAvatar(account, source, _paths);
 
             if (avatar != null)
@@ -620,6 +619,84 @@ namespace NLMCL.Core.Resources
             {
                 string fallback = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
                 return TryRenderAvatar(account, fallback, _paths);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 内存头像：取本地皮肤/缓存/网络皮肤后，直接渲染成 PNG 字节。
+        /// 不写头像文件，避免临时目录、权限和 GDI+ 文件锁问题。
+        /// </summary>
+        public async Task<byte[]?> GetAvatarPngAsync(Account account, CancellationToken cancellationToken)
+        {
+            if (account == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                string? localSkin = await GetLocalSkinPathAsync(account, cancellationToken)
+                    .ConfigureAwait(false);
+                string cache = GetAccountSkinCachePath(_paths, account);
+                string? source = null;
+
+                if (File.Exists(cache) && new FileInfo(cache).Length > 1024)
+                {
+                    source = cache;
+                }
+                else if (localSkin != null && File.Exists(localSkin))
+                {
+                    source = localSkin;
+                }
+                else
+                {
+                    try
+                    {
+                        SkinInfo? skin = await GetAsync(account, cancellationToken).ConfigureAwait(false);
+
+                        if (skin?.SkinUrl != null)
+                        {
+                            await SavePreviewAsync(skin.SkinUrl, cache, cancellationToken)
+                                .ConfigureAwait(false);
+                            source = cache;
+                        }
+                    }
+                    catch (Exception)
+                    {
+                        // 网络失败就继续走本地/默认皮肤。
+                    }
+                }
+
+                if (source == null)
+                {
+                    source = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                byte[]? png = TryRenderAvatarPng(source);
+
+                if (png != null)
+                {
+                    return png;
+                }
+
+                string fallback = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
+                return TryRenderAvatarPng(fallback);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        private static byte[]? TryRenderAvatarPng(string source)
+        {
+            try
+            {
+                return SkinAvatarRenderer.RenderHeadPng(source, 8);
             }
             catch (Exception)
             {
@@ -679,6 +756,12 @@ namespace NLMCL.Core.Resources
                 }
 
                 string avatar = GetAvatarCachePath(account, source, paths);
+                string? directory = Path.GetDirectoryName(avatar);
+
+                if (!string.IsNullOrEmpty(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
 
                 lock (AvatarGate)
                 {
@@ -687,11 +770,11 @@ namespace NLMCL.Core.Resources
                         return avatar;
                     }
 
-                    string temp = avatar + ".tmp-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+                    string temp = avatar + ".tmp-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png";
 
                     try
                     {
-                        SkinAvatarRenderer.RenderHead(source, temp, 8);
+                        File.WriteAllBytes(temp, SkinAvatarRenderer.RenderHeadPng(source, 8));
 
                         if (File.Exists(avatar))
                         {

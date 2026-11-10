@@ -23,6 +23,7 @@
         <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
         <local:EmptyToVisibilityConverter x:Key="EmptyToVisibility" />
         <local:DirectoryNameConverter x:Key="DirectoryName" />
+        <local:PngBytesToImageSourceConverter x:Key="PngBytesToImage" />
 
         <!-- 侧栏导航项 -->
         <DataTemplate x:Key="NavItemTemplate">
@@ -333,7 +334,7 @@
                             <Grid>
                                 <TextBlock Text="?" FontSize="15" Foreground="{DynamicResource OnPrimary}"
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                <Image Source="{Binding AvatarPath}" Stretch="UniformToFill"
+                                <Image Source="{Binding AvatarPng, Converter={StaticResource PngBytesToImage}}" Stretch="UniformToFill"
                                        RenderOptions.BitmapScalingMode="NearestNeighbor"
                                        Visibility="{Binding HasAvatar, Converter={StaticResource BoolToVisibility}}" />
                             </Grid>

@@ -15,6 +15,21 @@ namespace NLMCL.Core.Skins
         /// <summary>输出 8 倍放大（64×64），最近邻保持像素感。</summary>
         public static void RenderHead(string skinPath, string outputPath, int scale = 8)
         {
+            byte[] png = RenderHeadPng(skinPath, scale);
+
+            string? directory = Path.GetDirectoryName(outputPath);
+
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllBytes(outputPath, png);
+        }
+
+        /// <summary>渲染头像并直接返回 PNG 字节，避免 GDI+ 直接写文件时的路径/锁问题。</summary>
+        public static byte[] RenderHeadPng(string skinPath, int scale = 8)
+        {
             if (!File.Exists(skinPath))
             {
                 throw new FileNotFoundException("找不到皮肤文件。", skinPath);
@@ -51,14 +66,11 @@ namespace NLMCL.Core.Skins
                         GraphicsUnit.Pixel);
                 }
 
-                string? directory = Path.GetDirectoryName(outputPath);
-
-                if (!string.IsNullOrEmpty(directory))
+                using (MemoryStream stream = new MemoryStream())
                 {
-                    Directory.CreateDirectory(directory);
+                    avatar.Save(stream, ImageFormat.Png);
+                    return stream.ToArray();
                 }
-
-                avatar.Save(outputPath, ImageFormat.Png);
             }
         }
     }
