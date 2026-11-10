@@ -113,7 +113,43 @@ namespace NLMCL.Tests
 
         static TestSupport()
         {
+            CleanupStaleTemporaryDirectories();
             AppDomain.CurrentDomain.ProcessExit += (_, __) => CleanupTemporaryDirectories();
+        }
+
+        /// <summary>清掉上次/崩溃测试留下的旧夹具，避免 %TEMP% 越积越多。</summary>
+        private static void CleanupStaleTemporaryDirectories()
+        {
+            string temp = Path.GetTempPath();
+            DateTime cutoff = DateTime.UtcNow.AddHours(-12);
+
+            try
+            {
+                foreach (string path in Directory.EnumerateDirectories(temp, "nlmcl-*"))
+                {
+                    try
+                    {
+                        if (Directory.GetLastWriteTimeUtc(path) >= cutoff)
+                        {
+                            continue;
+                        }
+
+                        Directory.Delete(path, true);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         internal static string CreateTemporaryDirectory(string prefix)
