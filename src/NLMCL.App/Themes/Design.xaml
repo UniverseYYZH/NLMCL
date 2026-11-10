@@ -14,9 +14,9 @@
     <SolidColorBrush x:Key="BorderColor" Color="#E3D3BB" />
     <SolidColorBrush x:Key="Text" Color="#25332A" />
     <SolidColorBrush x:Key="Muted" Color="#687062" />
-    <SolidColorBrush x:Key="Faint" Color="#8D8777" />
+    <SolidColorBrush x:Key="Faint" Color="#7F7869" />
     <SolidColorBrush x:Key="Primary" Color="{StaticResource PrimaryColor}" />
-    <SolidColorBrush x:Key="PrimarySoft" Color="#E7EFDF" />
+    <SolidColorBrush x:Key="PrimarySoft" Color="#DDE9D3" />
     <SolidColorBrush x:Key="SidebarBg" Color="{StaticResource SidebarBgColor}" />
     <SolidColorBrush x:Key="SidebarActive" Color="{StaticResource SidebarActiveColor}" />
     <SolidColorBrush x:Key="SidebarHover" Color="#500000" />
@@ -29,16 +29,16 @@
     <SolidColorBrush x:Key="Amber" Color="{StaticResource AmberColor}" />
     <SolidColorBrush x:Key="AmberBg" Color="#FAEFD6" />
     <SolidColorBrush x:Key="AmberBorder" Color="#E5CFA3" />
-    <SolidColorBrush x:Key="Snapshot" Color="#B07A3E" />
-    <SolidColorBrush x:Key="SnapshotBg" Color="#FBF2D8" />
-    <SolidColorBrush x:Key="Old" Color="#8D8779" />
-    <SolidColorBrush x:Key="OldBg" Color="#F0ECE0" />
+    <SolidColorBrush x:Key="Snapshot" Color="#8A5A21" />
+    <SolidColorBrush x:Key="SnapshotBg" Color="#F7E8C4" />
+    <SolidColorBrush x:Key="Old" Color="#5E5A4C" />
+    <SolidColorBrush x:Key="OldBg" Color="#E9E3D4" />
     <SolidColorBrush x:Key="Error" Color="#B42318" />
     <SolidColorBrush x:Key="FrameRed" Color="#600000" />
     <SolidColorBrush x:Key="FrameRedDeep" Color="#500000" />
     <SolidColorBrush x:Key="FrameYellow" Color="#F8D818" />
     <SolidColorBrush x:Key="FrameText" Color="#FFF7F2" />
-    <SolidColorBrush x:Key="FrameMuted" Color="#E8C7C0" />
+    <SolidColorBrush x:Key="FrameMuted" Color="#F2D7D1" />
     <SolidColorBrush x:Key="OnPrimary" Color="#FFFFFF" />
 
     <FontFamily x:Key="UiFont">Microsoft YaHei UI</FontFamily>
@@ -144,12 +144,15 @@
         <Setter Property="CornerRadius" Value="8" />
         <Setter Property="Padding" Value="8,2" />
         <Setter Property="Background" Value="{DynamicResource PrimarySoft}" />
+        <Setter Property="BorderBrush" Value="#BCD2AC" />
+        <Setter Property="BorderThickness" Value="1" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 
     <Style x:Key="ChipText" TargetType="TextBlock">
         <Setter Property="FontSize" Value="10.5" />
-        <Setter Property="Foreground" Value="{DynamicResource Primary}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="#2E5538" />
         <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
 

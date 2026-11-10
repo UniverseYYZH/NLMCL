@@ -135,12 +135,15 @@
                                 <Style.Triggers>
                                     <DataTrigger Binding="{Binding Kind}" Value="Snapshot">
                                         <Setter Property="Background" Value="{DynamicResource SnapshotBg}" />
+                                        <Setter Property="BorderBrush" Value="#DEC58C" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="OldBeta">
                                         <Setter Property="Background" Value="{DynamicResource OldBg}" />
+                                        <Setter Property="BorderBrush" Value="#CFC7B5" />
                                     </DataTrigger>
                                     <DataTrigger Binding="{Binding Kind}" Value="OldAlpha">
                                         <Setter Property="Background" Value="{DynamicResource OldBg}" />
+                                        <Setter Property="BorderBrush" Value="#CFC7B5" />
                                     </DataTrigger>
                                 </Style.Triggers>
                             </Style>
@@ -183,6 +186,7 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="12,0" />
             <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Focusable" Value="False" />
             <Setter Property="Template">
@@ -439,9 +443,9 @@
                                  Stretch="UniformToFill" IsHitTestVisible="False">
                             <Canvas Width="470" Height="226">
                                 <Path Data="M0,178 L0,142 C64,108 126,102 184,132 C238,160 280,130 338,108 C390,88 438,108 470,132 L470,226 L0,226 Z"
-                                      Fill="#AFCFA4" />
+                                      Fill="#9DC894" />
                                 <Path Data="M0,198 L0,176 C78,150 158,160 224,182 C300,206 374,174 470,154 L470,226 L0,226 Z"
-                                      Fill="#78A96C" />
+                                      Fill="#639B58" />
                                 <Rectangle Canvas.Left="0" Canvas.Top="202" Width="470" Height="24" Fill="#9A7856" />
                                 <Rectangle Canvas.Left="0" Canvas.Top="202" Width="470" Height="7" Fill="#5F9454" />
                                 <!-- 树 -->
