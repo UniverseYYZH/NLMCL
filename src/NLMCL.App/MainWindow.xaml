@@ -361,11 +361,20 @@
                   Visibility="{Binding IsVersionsSection, Converter={StaticResource BoolToVisibility}}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- 当前世界 Hero -->
-                <Border Grid.Row="0" CornerRadius="12" Padding="20,14" Margin="0,0,0,10">
+                                <!-- F 页头 -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,10">
+                    <TextBlock Text="WORLD LIBRARY / 本地优先" FontSize="9" Foreground="{DynamicResource Faint}" />
+                    <TextBlock Text="今天去哪个世界？" FontSize="26" FontWeight="Bold"
+                               Foreground="{DynamicResource Text}" Margin="0,1,0,0" />
+                    <TextBlock Text="选择一个本地实例继续；版本、模组、快照都只保存在这台电脑。"
+                               FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
+                </StackPanel>
+<!-- 当前世界 Hero -->
+                <Border Grid.Row="1" CornerRadius="12" Padding="20,14" Margin="0,0,0,10">
                     <Border.Background>
                         <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                             <GradientStop Color="#355B45" Offset="0" />
@@ -396,9 +405,11 @@
                                 <TextBlock Text="  ·  " FontSize="10.5" Foreground="#849C86" />
                                 <TextBlock Text="本地 · 离线可用" FontSize="10.5" Foreground="#C7D9C6" />
                             </StackPanel>
-                            <TextBlock Text="{Binding CurrentGameDirectory}" FontSize="9"
-                                       FontFamily="Cascadia Mono, Consolas" Foreground="#FFFFFF" FontWeight="SemiBold"
-                                       Margin="0,5,0,0" TextTrimming="CharacterEllipsis" MaxWidth="620" ToolTip="{Binding CurrentGameDirectory}" />
+                            <TextBlock Text="{Binding SelectedVersion.FolderName, StringFormat=versions/{0}, TargetNullValue=尚未选择实例}"
+                                       FontSize="9" FontFamily="Cascadia Mono, Consolas" Foreground="#FFFFFF"
+                                       FontWeight="SemiBold" Margin="0,5,0,0"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="520"
+                                       ToolTip="{Binding CurrentGameDirectory}" />
                             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
                                 <Button Content="▶  启动游戏" Style="{StaticResource PrimaryButton}"
                                         Padding="18,9" Command="{Binding LaunchSelectedCommand}"
@@ -409,8 +420,6 @@
                                         Margin="7,0,0,0" Command="{Binding RepairSelectedCommand}" />
                                 <Button Content="快照" Style="{StaticResource HeroGhostButton}"
                                         Margin="7,0,0,0" Command="{Binding GoToSnapshotsCommand}" />
-                                <Button Content="重新扫描" Style="{StaticResource HeroGhostButton}"
-                                        Margin="7,0,0,0" Command="{Binding RescanCommand}" />
                                 <Button Content="重启" Style="{StaticResource HeroGhostButton}"
                                         Margin="7,0,0,0" Command="{Binding RestartGameCommand}" />
                             </StackPanel>
@@ -421,7 +430,7 @@
                     </Grid>
                 </Border>
 
-                <Grid Grid.Row="1">
+                <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="318" />
