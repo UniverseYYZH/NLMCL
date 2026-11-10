@@ -929,8 +929,7 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        public IReadOnlyList<string> DefaultPageOptions { get; }
-            = new[] { "上次页面", "世界库", "下载中心", "联机", "方块宁理", "快照", "皮肤", "日志", "设置" };
+        public IReadOnlyList<string> DefaultPageOptions => PageNavigation.DefaultOptions;
 
         public string SelectedDefaultPage
         {
@@ -1042,90 +1041,7 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        private static string PageToKey(string? text)
-        {
-            switch (text)
-            {
-                case "上次页面":
-                    return "last";
-                case "下载中心":
-                    return "download";
-                case "联机":
-                case "联机房间":
-                    return "multiplayer";
-                case "方块宁理":
-                    return "ningli";
-                case "快照":
-                    return "snapshot";
-                case "皮肤":
-                    return "skin";
-                case "日志":
-                    return "console";
-                case "设置":
-                    return "settings";
-                default:
-                    return "versions";
-            }
-        }
 
-        private static string PageToText(string? key)
-        {
-            switch (key)
-            {
-                case "last":
-                    return "上次页面";
-                case "download":
-                    return "下载中心";
-                case "multiplayer":
-                    return "联机";
-                case "ningli":
-                    return "方块宁理";
-                case "snapshot":
-                    return "快照";
-                case "skin":
-                    return "皮肤";
-                case "console":
-                    return "日志";
-                case "settings":
-                    return "设置";
-                default:
-                    return "世界库";
-            }
-        }
-
-        private static bool TrySectionToKey(ShellSection section, out string key)
-        {
-            switch (section)
-            {
-                case ShellSection.Versions:
-                    key = "versions";
-                    return true;
-                case ShellSection.Download:
-                    key = "download";
-                    return true;
-                case ShellSection.Multiplayer:
-                    key = "multiplayer";
-                    return true;
-                case ShellSection.Ningli:
-                    key = "ningli";
-                    return true;
-                case ShellSection.Snapshot:
-                    key = "snapshot";
-                    return true;
-                case ShellSection.Skin:
-                    key = "skin";
-                    return true;
-                case ShellSection.Launch:
-                    key = "console";
-                    return true;
-                case ShellSection.Settings:
-                    key = "settings";
-                    return true;
-                default:
-                    key = string.Empty;
-                    return false;
-            }
-        }
 
         private void OnSettingsSpeedLimitChanged()
         {
@@ -1622,7 +1538,7 @@ namespace NLMCL.App.ViewModels
                 string? jvmArgs = string.IsNullOrWhiteSpace(DefaultJvmArgs) ? null : DefaultJvmArgs.Trim();
                 string? gameArgs = string.IsNullOrWhiteSpace(DefaultGameArgs) ? null : DefaultGameArgs.Trim();
                 string? javaPath = string.IsNullOrWhiteSpace(DefaultJavaPath) ? null : DefaultJavaPath;
-                string defaultPage = PageToKey(SelectedDefaultPage);
+                string defaultPage = PageNavigation.ToKey(SelectedDefaultPage);
                 bool autoSnapshot = AutoSnapshotBeforeLaunch;
                 int snapshotRetention = SnapshotRetention;
                 string closeBehavior = CloseBehaviorKey(SelectedCloseBehavior);
@@ -1801,34 +1717,7 @@ namespace NLMCL.App.ViewModels
                 key = settings.LastPage;
             }
 
-            ShellSection target;
-            switch (key)
-            {
-                case "download":
-                    target = ShellSection.Download;
-                    break;
-                case "multiplayer":
-                    target = ShellSection.Multiplayer;
-                    break;
-                case "ningli":
-                    target = ShellSection.Ningli;
-                    break;
-                case "snapshot":
-                    target = ShellSection.Snapshot;
-                    break;
-                case "skin":
-                    target = ShellSection.Skin;
-                    break;
-                case "console":
-                    target = ShellSection.Launch;
-                    break;
-                case "settings":
-                    target = ShellSection.Settings;
-                    break;
-                default:
-                    target = ShellSection.Versions;
-                    break;
-            }
+            ShellSection target = PageNavigation.ToSection(key);
 
             NavigationItem? item = NavigationGroups
                 .SelectMany(group => group.Items)
@@ -1847,7 +1736,7 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            if (!TrySectionToKey(section, out string key))
+            if (!PageNavigation.TryGetKey(section, out string key))
             {
                 return;
             }
@@ -3583,7 +3472,7 @@ namespace NLMCL.App.ViewModels
                     settings.UiScaleMaximized <= 0 ? 150 : settings.UiScaleMaximized * 100);
                 SelectedThreads = (settings.DownloadThreads <= 0 ? 6 : settings.DownloadThreads).ToString();
                 SelectedSpeedLimit = SpeedLimitToText(settings.DownloadSpeedLimitMb);
-                SelectedDefaultPage = PageToText(settings.DefaultPage);
+                SelectedDefaultPage = PageNavigation.ToText(settings.DefaultPage);
                 AutoSnapshotBeforeLaunch = settings.AutoSnapshotBeforeLaunch;
                 SnapshotRetention = settings.SnapshotRetention <= 0 ? 5 : settings.SnapshotRetention;
                 SelectedCloseBehavior = CloseBehaviorText(settings.CloseBehavior);
