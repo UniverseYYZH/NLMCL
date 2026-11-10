@@ -95,6 +95,10 @@ namespace NLMCL.App.ViewModels
         /// <summary>上一次启动用的服务器地址（"重启游戏"要用）。</summary>
         private string? _lastServerAddress;
 
+        /// <summary>实例绝对路径 → 最后一次成功启动时间。</summary>
+        private Dictionary<string, DateTimeOffset> _lastLaunched =
+            new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+
         private readonly IVersionInstaller? _versionInstaller;
         private readonly IFileDownloader? _fileDownloader;
         private readonly IResourceCatalog? _resourceCatalog;
@@ -3508,6 +3512,10 @@ namespace NLMCL.App.ViewModels
             bool wasLoaded = _settingsLoaded;
             _settingsLoaded = false;
 
+            _lastLaunched = new Dictionary<string, DateTimeOffset>(
+                settings.LastLaunched ?? new Dictionary<string, DateTimeOffset>(),
+                StringComparer.OrdinalIgnoreCase);
+
             try
             {
                 SelectedTheme = ThemeToText(settings.Theme);
@@ -4023,7 +4031,7 @@ namespace NLMCL.App.ViewModels
             AddVersionDetails("基础版本", item.MinecraftVersion);
             AddVersionDetails("加载器", DescribeLoader(item.LoaderHint));
             AddVersionDetails("类型", item.KindLabel);
-            AddVersionDetails("发布时间", item.ReleasedLabel);
+            AddVersionDetails("最后启动", item.LastLaunchLabel);
             AddVersionDetails("来源目录", item.GameDirectory);
 
             VersionDetailsData? data = null;
@@ -4166,6 +4174,7 @@ namespace NLMCL.App.ViewModels
 
             IsLaunching = true;
             StatusText = "正在查找 Java…";
+            VersionItem launchedVersion = SelectedVersion;
 
             try
             {
@@ -4300,6 +4309,7 @@ namespace NLMCL.App.ViewModels
                         .ConfigureAwait(true);
 
                     Console.Attach(session);
+                    await RecordLastLaunchAsync(launchedVersion).ConfigureAwait(true);
 
                     StatusText = "已启动 " + SelectedVersion.Name
                         + "（PID " + session.ProcessId + "），日志见「启动与日志」";
@@ -4309,6 +4319,11 @@ namespace NLMCL.App.ViewModels
                 LaunchResult result = await _launcher
                     .LaunchAsync(request, CancellationToken.None)
                     .ConfigureAwait(true);
+
+                if (result.Succeeded)
+                {
+                    await RecordLastLaunchAsync(launchedVersion).ConfigureAwait(true);
+                }
 
                 StatusText = result.Succeeded
                     ? "已启动 " + SelectedVersion.Name + "（PID " + result.ProcessId + "）"
@@ -4321,6 +4336,39 @@ namespace NLMCL.App.ViewModels
             finally
             {
                 IsLaunching = false;
+            }
+        }
+
+        /// <summary>启动成功后记录实例的最后启动时间；写设置失败不影响启动结果。</summary>
+        private async Task RecordLastLaunchAsync(VersionItem version)
+        {
+            if (string.IsNullOrEmpty(version.InstancePath))
+            {
+                return;
+            }
+
+            DateTimeOffset launchedAt = DateTimeOffset.Now;
+            string key = version.InstancePath;
+
+            _lastLaunched[key] = launchedAt;
+            version.MarkLaunched(launchedAt);
+
+            try
+            {
+                await _appSettings.UpdateAsync(settings =>
+                {
+                    if (settings.LastLaunched == null)
+                    {
+                        settings.LastLaunched = new Dictionary<string, DateTimeOffset>(
+                            StringComparer.OrdinalIgnoreCase);
+                    }
+
+                    settings.LastLaunched[key] = launchedAt;
+                }, CancellationToken.None).ConfigureAwait(true);
+            }
+            catch (Exception)
+            {
+                // 只影响世界库的展示；不要把一次成功的启动改写成失败。
             }
         }
 
@@ -4602,8 +4650,14 @@ namespace NLMCL.App.ViewModels
 
                         foreach (MinecraftVersion version in versions)
                         {
+                            string instancePath = Path.GetFullPath(
+                                Path.Combine(directory, "versions", version.FolderName));
+
+                            _lastLaunched.TryGetValue(instancePath, out DateTimeOffset launchedAt);
+
                             discovered.Add(new VersionItem(
-                                version, !version.HasClientJar, directory));
+                                version, !version.HasClientJar, directory,
+                                launchedAt == default ? (DateTimeOffset?)null : launchedAt));
                             ids.Add(version.Id);
                         }
                     }

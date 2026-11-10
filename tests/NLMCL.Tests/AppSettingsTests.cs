@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,7 +39,12 @@ namespace NLMCL.Tests
                         LastPage = "multiplayer",
                         AutoSnapshotBeforeLaunch = true,
                         SnapshotRetention = 10,
-                        CloseBehavior = "tray"
+                        CloseBehavior = "tray",
+                        LastLaunched = new Dictionary<string, DateTimeOffset>
+                        {
+                            [@"D:\games\.minecraft\versions\1.21.1"] =
+                                new DateTimeOffset(2026, 11, 10, 22, 30, 0, TimeSpan.FromHours(8))
+                        }
                     },
                     CancellationToken.None);
 
@@ -52,6 +58,9 @@ namespace NLMCL.Tests
                 Assert.True(loaded.AutoSnapshotBeforeLaunch);
                 Assert.Equal(10, loaded.SnapshotRetention);
                 Assert.Equal("tray", loaded.CloseBehavior);
+                Assert.Equal(
+                    new DateTimeOffset(2026, 11, 10, 22, 30, 0, TimeSpan.FromHours(8)),
+                    loaded.LastLaunched[@"D:\games\.minecraft\versions\1.21.1"]);
 
                 Assert.True(File.Exists(paths.SettingsFile));
             }

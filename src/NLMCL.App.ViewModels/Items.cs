@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using NLMCL.Abstractions;
 
@@ -68,7 +69,8 @@ namespace NLMCL.App.ViewModels
     /// <summary>版本列表行。</summary>
     public sealed partial class VersionItem : ObservableObject
     {
-        public VersionItem(MinecraftVersion version, bool clientJarMissing = false, string? gameDirectory = null)
+        public VersionItem(MinecraftVersion version, bool clientJarMissing = false, string? gameDirectory = null,
+            DateTimeOffset? lastLaunchedAt = null)
         {
             if (version == null)
             {
@@ -101,6 +103,11 @@ namespace NLMCL.App.ViewModels
             ReleasedLabel = version.ReleasedAt.HasValue
                 ? version.ReleasedAt.Value.LocalDateTime.ToString("yyyy-MM-dd") + " 发布"
                 : "发布时间未知";
+
+            InstancePath = string.IsNullOrEmpty(GameDirectory)
+                ? string.Empty
+                : Path.GetFullPath(Path.Combine(GameDirectory, "versions", FolderName));
+            _lastLaunchLabel = FormatLastLaunch(lastLaunchedAt);
 
             Warning = clientJarMissing ? "未找到客户端 JAR，可能无法启动" : null;
             HasWarning = clientJarMissing;
@@ -142,6 +149,26 @@ namespace NLMCL.App.ViewModels
         public string KindLabel { get; }
 
         public string ReleasedLabel { get; }
+
+        /// <summary>实例目录的绝对路径；最后启动时间用它作为稳定 key。</summary>
+        public string InstancePath { get; }
+
+        /// <summary>世界库卡片上的“最后启动”标签；从未成功启动时为“从未启动”。</summary>
+        [ObservableProperty]
+        private string _lastLaunchLabel;
+
+        /// <summary>启动成功后立即刷新当前卡片，不必等下一次扫描。</summary>
+        public void MarkLaunched(DateTimeOffset at)
+        {
+            LastLaunchLabel = FormatLastLaunch(at);
+        }
+
+        private static string FormatLastLaunch(DateTimeOffset? at)
+        {
+            return at.HasValue
+                ? "最后启动 " + at.Value.LocalDateTime.ToString("yyyy-MM-dd")
+                : "从未启动";
+        }
 
         /// <summary>卡片上的告警行，null 表示无告警。</summary>
         public string? Warning { get; }

@@ -9,7 +9,7 @@ namespace NLMCL.Abstractions
     public sealed class AppSettings
     {
         /// <summary>当前程序支持的设置结构版本。</summary>
-        public const int CurrentSchemaVersion = 7;
+        public const int CurrentSchemaVersion = 8;
 
         /// <summary>设置结构版本；旧配置没有此字段时按 1 处理。</summary>
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -93,6 +93,13 @@ namespace NLMCL.Abstractions
 
         /// <summary>上一次页面；DefaultPage=last 时使用。</summary>
         public string LastPage { get; set; } = "versions";
+
+        /// <summary>
+        /// 每个实例最后一次成功启动的时间，key 为实例目录的绝对路径。
+        /// 只用于世界库展示；下载页仍显示版本发布时间。
+        /// </summary>
+        public Dictionary<string, DateTimeOffset> LastLaunched { get; set; } =
+            new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>启动游戏前是否自动创建快照。</summary>
         public bool AutoSnapshotBeforeLaunch { get; set; }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using NLMCL.Abstractions;
@@ -142,6 +143,29 @@ namespace NLMCL.Tests
 
             // 两个 Java 中应该挑高版本（这里断言的是"挑中了哪一个实例"）
             Assert.Equal(java21.ExecutablePath, launcher.LastRequest.JavaExecutable);
+            Assert.Contains("已启动", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Successful_launch_records_last_launch_time()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            TestSupport.FakeAppSettings settings = new TestSupport.FakeAppSettings();
+            MainViewModel vm = TestSupport.CreateMain(
+                catalog,
+                new AppPaths(@"C:\Temp\roaming"),
+                javaLocator: new FixedJavaLocator(TestSupport.CreateJava(21)),
+                appSettings: settings);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            string instancePath = vm.Versions[0].InstancePath;
+
+            await vm.LaunchSelectedAsync();
+
+            Assert.True(settings.Current.LastLaunched.ContainsKey(instancePath));
+            Assert.StartsWith("最后启动 ", vm.Versions[0].LastLaunchLabel);
             Assert.Contains("已启动", vm.StatusText);
         }
 

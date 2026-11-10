@@ -58,6 +58,10 @@ namespace NLMCL.Core.Settings
                     WizardCompleted = root.Value<bool?>("wizardCompleted") ?? false,
                     DefaultPage = root.Value<string>("defaultPage") ?? "versions",
                     LastPage = root.Value<string>("lastPage") ?? "versions",
+                    LastLaunched = new Dictionary<string, DateTimeOffset>(
+                        root["lastLaunched"]?.ToObject<Dictionary<string, DateTimeOffset>>()
+                            ?? new Dictionary<string, DateTimeOffset>(),
+                        StringComparer.OrdinalIgnoreCase),
                     AutoSnapshotBeforeLaunch = root.Value<bool?>("autoSnapshotBeforeLaunch") ?? false,
                     SnapshotRetention = root.Value<int?>("snapshotRetention") ?? 5,
                     CloseBehavior = root.Value<string>("closeBehavior") ?? "exit"
@@ -164,6 +168,8 @@ namespace NLMCL.Core.Settings
                 ["wizardCompleted"] = settings.WizardCompleted,
                 ["defaultPage"] = settings.DefaultPage,
                 ["lastPage"] = settings.LastPage,
+                ["lastLaunched"] = JObject.FromObject(
+                    settings.LastLaunched ?? new Dictionary<string, DateTimeOffset>()),
                 ["autoSnapshotBeforeLaunch"] = settings.AutoSnapshotBeforeLaunch,
                 ["snapshotRetention"] = settings.SnapshotRetention,
                 ["closeBehavior"] = settings.CloseBehavior

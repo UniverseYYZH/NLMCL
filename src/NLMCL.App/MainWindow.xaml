@@ -115,7 +115,7 @@
                             </Border>
                         </Grid>
                         <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                            <TextBlock Text="{Binding ReleasedLabel}" FontSize="10.5"
+                            <TextBlock Text="{Binding LastLaunchLabel}" FontSize="10.5"
                                        Foreground="{DynamicResource Muted}" />
                             <TextBlock Text="{Binding BasedOn}" FontSize="10.5"
                                        Foreground="{DynamicResource Faint}" Margin="10,0,0,0"
@@ -493,7 +493,7 @@
                                     </Border>
                                 </Grid>
                                 <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                                    <TextBlock Text="{Binding SelectedVersion.ReleasedLabel, TargetNullValue=尚未选择版本}"
+                                    <TextBlock Text="{Binding SelectedVersion.LastLaunchLabel, TargetNullValue=尚未选择版本}"
                                                FontSize="11" Foreground="{DynamicResource Muted}" />
                                     <TextBlock Text="  ·  " FontSize="11" Foreground="{DynamicResource Faint}" />
                                     <TextBlock Text="{Binding VersionCountLabel}" FontSize="11"
@@ -587,7 +587,7 @@
                                     <TextBlock Text="{Binding SelectedVersion.Name, TargetNullValue=尚未选择实例}"
                                                FontSize="20" FontWeight="SemiBold"
                                                Foreground="{DynamicResource Primary}" Margin="0,4,0,0" />
-                                    <TextBlock Text="{Binding SelectedVersion.ReleasedLabel, TargetNullValue=选择左侧实例开始}"
+                                    <TextBlock Text="{Binding SelectedVersion.LastLaunchLabel, TargetNullValue=选择左侧实例开始}"
                                                Foreground="{DynamicResource Muted}" Margin="0,3,0,0" />
                                     <UniformGrid Columns="3" Margin="0,8,0,0">
                                         <StackPanel>
