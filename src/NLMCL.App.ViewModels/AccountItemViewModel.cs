@@ -22,9 +22,19 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string? _avatarPath;
 
-        public bool HasAvatar => !string.IsNullOrEmpty(AvatarPath);
+        /// <summary>内存头像，避免账号列表再依赖临时/缓存文件。</summary>
+        [ObservableProperty]
+        private byte[]? _avatarPng;
+
+        public bool HasAvatar => !string.IsNullOrEmpty(AvatarPath) ||
+                                 (AvatarPng != null && AvatarPng.Length > 0);
 
         partial void OnAvatarPathChanged(string? value)
+        {
+            OnPropertyChanged(nameof(HasAvatar));
+        }
+
+        partial void OnAvatarPngChanged(byte[]? value)
         {
             OnPropertyChanged(nameof(HasAvatar));
         }

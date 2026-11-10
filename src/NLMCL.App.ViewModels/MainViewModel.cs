@@ -2762,8 +2762,8 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                item.AvatarPath = await _skins
-                    .GetAvatarAsync(item.Account, CancellationToken.None)
+                item.AvatarPng = await _skins
+                    .GetAvatarPngAsync(item.Account, CancellationToken.None)
                     .ConfigureAwait(true);
             }
             catch (Exception)
