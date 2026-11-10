@@ -248,6 +248,7 @@ namespace NLMCL.Tests
 
                 Assert.Equal("本地皮肤", vm.ModelText);
                 Assert.Contains("alpha-local-20260101", vm.StatusText);
+                Assert.True(vm.LocalSkins[0].IsCurrent);
             }
             finally
             {

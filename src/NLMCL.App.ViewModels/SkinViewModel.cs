@@ -103,7 +103,10 @@ namespace NLMCL.App.ViewModels
                     .OrderByDescending(File.GetLastWriteTimeUtc)
                     .Take(24))
                 {
-                    LocalSkins.Add(new LocalSkinItem(file));
+                    LocalSkins.Add(new LocalSkinItem(
+                        file,
+                        !string.IsNullOrEmpty(_skinPng)
+                        && string.Equals(Path.GetFullPath(file), Path.GetFullPath(_skinPng), StringComparison.OrdinalIgnoreCase)));
                 }
 
                 LocalSkinStatusText = LocalSkins.Count == 0
@@ -845,13 +848,16 @@ namespace NLMCL.App.ViewModels
 /// <summary>本地皮肤库中的一张 PNG。</summary>
     public sealed class LocalSkinItem
     {
-        public LocalSkinItem(string path)
+        public LocalSkinItem(string path, bool isCurrent = false)
         {
             Path = path;
             Name = System.IO.Path.GetFileNameWithoutExtension(path);
+            IsCurrent = isCurrent;
         }
 
         public string Path { get; }
 
         public string Name { get; }
+
+        public bool IsCurrent { get; }
     }}
