@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Linq;
@@ -543,7 +543,7 @@ namespace NLMCL.App.ViewModels
 
             _ = LoadAvatarAsync(value);
         }
-        /// <summary>拉取账号头像（头部正面）。失败就算了，侧栏继续显示 "?"。</summary>
+        /// <summary>拉取账号头像（头部正面）。失败时回退默认 Steve，不阻断界面。</summary>
         private async Task LoadAvatarAsync(Account? account)
         {
             int generation = ++_avatarGeneration;
@@ -556,6 +556,14 @@ namespace NLMCL.App.ViewModels
                 }
 
                 return;
+            }
+
+            // 切账号先清掉上一个账号的头像；有缓存就立刻顶上，别让右上角一直挂 “?”。
+            if (generation == _avatarGeneration)
+            {
+                AvatarPath = account.Type == NLMCL.Abstractions.AccountType.Offline
+                    ? null
+                    : NLMCL.Core.Resources.SkinService.GetCachedAvatarPath(_paths, account);
             }
 
             try

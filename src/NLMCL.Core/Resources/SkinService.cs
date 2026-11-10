@@ -33,6 +33,7 @@ namespace NLMCL.Core.Resources
         private readonly IDownloadService _download;
         private readonly IAppPaths _paths;
         private readonly object _localSkinGate = new object();
+        private static readonly object AvatarGate = new object();
 
         public SkinService(IDownloadService download, IAppPaths paths)
         {
@@ -60,22 +61,124 @@ namespace NLMCL.Core.Resources
 
             if (account.Type == AccountType.Microsoft && !string.IsNullOrEmpty(account.AccessToken))
             {
-                Dictionary<string, string> headers = new Dictionary<string, string>
-                {
-                    ["Authorization"] = "Bearer " + account.AccessToken
-                };
-
-                string json = await _download
-                    .GetStringAsync(MicrosoftProfileUrl, headers, cancellationToken)
-                    .ConfigureAwait(false);
-
-                return ParseProfile(json, account.Name, "Minecraft Services");
+                return await GetMicrosoftSkinAsync(account, cancellationToken).ConfigureAwait(false);
             }
 
             // 离线账号默认没有皮肤；仅在用户点「查同名正版皮肤」时才去 Mojang 查
             // （自动按名字匹配会冒用他人皮肤，观感上也容易误会，见 FIX-14 讨论）。
 
             return null;
+        }
+
+        /// <summary>
+        /// 正版皮肤：先走公开的 sessionserver（不需要令牌、国内通常更稳），
+        /// 失败或没有皮肤时再走需要 Bearer 的 Minecraft Services。
+        /// 两条路都失败才抛异常，让上层显示缓存或默认皮肤。
+        /// </summary>
+        private async Task<SkinInfo?> GetMicrosoftSkinAsync(
+            Account account, CancellationToken cancellationToken)
+        {
+            Exception? sessionError = null;
+            string uuid = (account.Uuid ?? string.Empty).Replace("-", string.Empty).Trim();
+
+            if (uuid.Length == 32)
+            {
+                try
+                {
+                    string json = await GetStringWithTimeoutAsync(
+                        SessionserverUrl + uuid.ToLowerInvariant(), null, cancellationToken)
+                        .ConfigureAwait(false);
+
+                    SkinInfo? sessionSkin = ParseProfile(json, account.Name, "Mojang 会话服务器");
+
+                    if (sessionSkin?.SkinUrl != null)
+                    {
+                        return sessionSkin;
+                    }
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    sessionError = ex;
+                }
+            }
+
+            if (!string.IsNullOrEmpty(account.AccessToken))
+            {
+                try
+                {
+                    Dictionary<string, string> headers = new Dictionary<string, string>
+                    {
+                        ["Authorization"] = "Bearer " + account.AccessToken
+                    };
+
+                    string json = await GetStringWithTimeoutAsync(
+                        MicrosoftProfileUrl, headers, cancellationToken).ConfigureAwait(false);
+
+                    return ParseProfile(json, account.Name, "Minecraft Services");
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception apiError)
+                {
+                    string detail = sessionError == null
+                        ? apiError.Message
+                        : "会话服务器：" + sessionError.Message + "；Minecraft Services：" + apiError.Message;
+
+                    throw new InvalidOperationException("读取正版皮肤失败：" + detail, apiError);
+                }
+            }
+
+            if (sessionError != null)
+            {
+                throw new InvalidOperationException("读取正版皮肤失败：" + sessionError.Message, sessionError);
+            }
+
+            return new SkinInfo(account.Name, null, "default", "Mojang 会话服务器");
+        }
+
+        private async Task<string> GetStringWithTimeoutAsync(
+            string url, Dictionary<string, string>? headers, CancellationToken cancellationToken)
+        {
+            using (CancellationTokenSource timeout =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                // 认证接口偶尔会一直挂着；头像和皮肤页都不能无限等。
+                timeout.CancelAfter(TimeSpan.FromSeconds(6));
+
+                try
+                {
+                    return headers == null
+                        ? await _download.GetStringAsync(url, timeout.Token).ConfigureAwait(false)
+                        : await _download.GetStringAsync(url, headers, timeout.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    throw new TimeoutException("请求超时（6 秒）：" + new Uri(url).Host);
+                }
+            }
+        }
+
+        /// <summary>账号皮肤/头像共用的稳定缓存路径；同一账号每次刷新都写这一张。</summary>
+        public static string GetAccountSkinCachePath(IAppPaths paths, Account account)
+        {
+            if (paths == null)
+            {
+                throw new ArgumentNullException(nameof(paths));
+            }
+
+            if (account == null)
+            {
+                throw new ArgumentNullException(nameof(account));
+            }
+
+            return Path.Combine(
+                paths.SkinDirectory, "cache", "account-" + AccountKey(account) + ".png");
         }
 
         /// <summary>
@@ -139,7 +242,52 @@ namespace NLMCL.Core.Resources
 
         public async Task SavePreviewAsync(string url, string targetPath, CancellationToken cancellationToken)
         {
-            await _download.DownloadFileAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
+            string? directory = Path.GetDirectoryName(targetPath);
+
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            // 预览缓存会被头像和皮肤页同时读取；先写临时文件，再原子替换，
+            // 避免读到下载到一半的 PNG。
+            string temp = targetPath + ".tmp-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
+            try
+            {
+                await _download.DownloadFileAsync(url, temp, cancellationToken).ConfigureAwait(false);
+
+                if (File.Exists(targetPath))
+                {
+                    try
+                    {
+                        File.Replace(temp, targetPath, null);
+                    }
+                    catch (IOException)
+                    {
+                        File.Copy(temp, targetPath, overwrite: true);
+                        File.Delete(temp);
+                    }
+                }
+                else
+                {
+                    File.Move(temp, targetPath);
+                }
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(temp))
+                    {
+                        File.Delete(temp);
+                    }
+                }
+                catch (IOException)
+                {
+                    // 清理失败不影响已写入的缓存。
+                }
+            }
         }
 
         public Task<string> ImportLocalAsync(
@@ -404,19 +552,22 @@ namespace NLMCL.Core.Resources
                 return null;
             }
 
-            // 同一个账号会被侧栏、账号列表、皮肤页同时请求头像；
-            // 用唯一文件名，避免并发写同一个 PNG 时互相覆盖/触发 GDI+ 占用错误。
-            string requestId = Guid.NewGuid().ToString("N").Substring(0, 10);
-
             string? localSkin = await GetLocalSkinPathAsync(account, cancellationToken)
                 .ConfigureAwait(false);
 
             string? source = null;
+            string cache = GetAccountSkinCachePath(_paths, account);
+            bool hasCache = File.Exists(cache) && new FileInfo(cache).Length > 1024;
 
             if (account.Type == AccountType.Offline && localSkin != null)
             {
                 // 离线账号没有服务端皮肤：优先用用户自己保存的那张。
                 source = localSkin;
+            }
+            else if (hasCache)
+            {
+                // 头像不需要每次启动都联网重拉：皮肤页刷新时才会更新这张缓存。
+                source = cache;
             }
             else
             {
@@ -428,22 +579,17 @@ namespace NLMCL.Core.Resources
                 }
                 catch (Exception)
                 {
-                    // 皮肤接口挂了不该让头像消失：退回本地皮肤/默认皮肤
+                    // 皮肤接口挂了不该让头像消失：优先用上次缓存，再退回本地/默认皮肤。
                 }
 
                 if (skin?.SkinUrl != null)
                 {
                     try
                     {
-                        string downloaded = Path.Combine(
-                            Path.GetTempPath(),
-                            "nlmcl-skin-src-" + AccountKey(account) + "-" + requestId + ".png");
-
-                        await _download
-                            .DownloadFileAsync(skin.SkinUrl, downloaded, cancellationToken)
+                        await SavePreviewAsync(skin.SkinUrl, cache, cancellationToken)
                             .ConfigureAwait(false);
 
-                        source = downloaded;
+                        source = cache;
                     }
                     catch (Exception)
                     {
@@ -461,31 +607,119 @@ namespace NLMCL.Core.Resources
                 source = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            string avatar = Path.Combine(
-                Path.GetTempPath(),
-                "nlmcl-avatar-" + AccountKey(account) + "-" + requestId + ".png");
+            string? avatar = TryRenderAvatar(account, source, _paths);
 
+            if (avatar != null)
+            {
+                return avatar;
+            }
+
+            // 官方皮肤 URL 偶尔会返回损坏/HTML 内容；再用默认 Steve 渲染一次，
+            // 不要因为一张坏图把侧栏头像变成空白。
             try
             {
-                SkinAvatarRenderer.RenderHead(source, avatar, 8);
-                return avatar;
+                string fallback = await GetDefaultSkinAsync(cancellationToken).ConfigureAwait(false);
+                return TryRenderAvatar(account, fallback, _paths);
             }
             catch (Exception)
             {
-                // 官方皮肤 URL 偶尔会返回损坏/HTML 内容；再用默认 Steve 渲染一次，
-                // 不要因为一张坏图把侧栏头像变成空白。
-                try
-                {
-                    string fallback = await GetDefaultSkinAsync(cancellationToken)
-                        .ConfigureAwait(false);
+                return null;
+            }
+        }
 
-                    SkinAvatarRenderer.RenderHead(fallback, avatar, 8);
-                    return avatar;
-                }
-                catch (Exception)
+        /// <summary>
+        /// 账号切换时先用已有头像顶上，避免右上角在接口返回前一直显示 “?”。
+        /// 没有缓存时返回 null，界面保留占位符等网络结果。
+        /// </summary>
+        public static string? GetCachedAvatarPath(IAppPaths paths, Account account)
+        {
+            if (paths == null || account == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                string cache = GetAccountSkinCachePath(paths, account);
+
+                if (!File.Exists(cache) || new FileInfo(cache).Length <= 1024)
                 {
                     return null;
                 }
+
+                string avatar = GetAvatarCachePath(account, cache, paths);
+                return File.Exists(avatar) && new FileInfo(avatar).Length > 0 ? avatar : null;
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+
+        private static string GetAvatarCachePath(Account account, string source, IAppPaths paths)
+        {
+            long stamp = File.GetLastWriteTimeUtc(source).Ticks;
+            return Path.Combine(
+                paths.SkinDirectory,
+                "cache",
+                "avatar-" + AccountKey(account) + "-" + stamp + ".png");
+        }
+
+        /// <summary>
+        /// 头像按“账号 + 源皮肤时间戳”缓存：同一张皮肤只渲染一次，
+        /// 皮肤更新后时间戳变化，自然得到新文件，也不会无限堆积。
+        /// </summary>
+        private static string? TryRenderAvatar(Account account, string source, IAppPaths paths)
+        {
+            try
+            {
+                if (!File.Exists(source))
+                {
+                    return null;
+                }
+
+                string avatar = GetAvatarCachePath(account, source, paths);
+
+                lock (AvatarGate)
+                {
+                    if (File.Exists(avatar) && new FileInfo(avatar).Length > 0)
+                    {
+                        return avatar;
+                    }
+
+                    string temp = avatar + ".tmp-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+
+                    try
+                    {
+                        SkinAvatarRenderer.RenderHead(source, temp, 8);
+
+                        if (File.Exists(avatar))
+                        {
+                            File.Delete(avatar);
+                        }
+
+                        File.Move(temp, avatar);
+                        return avatar;
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            if (File.Exists(temp))
+                            {
+                                File.Delete(temp);
+                            }
+                        }
+                        catch (IOException)
+                        {
+                            // 清理失败不影响头像本身。
+                        }
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                return null;
             }
         }
 

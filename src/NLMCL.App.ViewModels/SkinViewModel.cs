@@ -248,7 +248,38 @@ namespace NLMCL.App.ViewModels
             }
 
             IsBusy = true;
-            StatusText = "正在读取皮肤…";
+
+            string? cache = account.Type == AccountType.Offline || _paths == null
+                ? null
+                : NLMCL.Core.Resources.SkinService.GetAccountSkinCachePath(_paths, account);
+            bool hasCache = IsUsablePng(cache);
+
+            if (hasCache)
+            {
+                // 先把上次缓存显示出来，网络请求慢也不会是一片空白。
+                _current = null;
+                _skinPng = cache;
+                _slim = false;
+                ModelText = "上次缓存的皮肤";
+                await RenderAsync().ConfigureAwait(true);
+
+                if (generation != _refreshGeneration)
+                {
+                    return;
+                }
+
+                StatusText = "正在刷新账号皮肤…（当前显示上次缓存）";
+            }
+            else
+            {
+                await ShowDefaultPreviewAsync(
+                    generation, "正在读取账号皮肤…（先显示默认皮肤）").ConfigureAwait(true);
+
+                if (generation != _refreshGeneration)
+                {
+                    return;
+                }
+            }
 
             try
             {
@@ -289,41 +320,20 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
-                _current = skin;
-                ModelText = DescribeSkin(skin);
-
-                string source = Path.Combine(
-                    Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
-
                 if (skin?.SkinUrl == null)
                 {
-                    // 没有自定义皮肤也要能预览：用内置默认皮肤兜底，
-                    // 否则玩家登录后看到的是一片空白，不知道是"没有皮肤"还是"功能坏了"。
-                    string fallback = await _skins.GetDefaultSkinAsync(CancellationToken.None).ConfigureAwait(true);
-
-                    if (generation != _refreshGeneration)
-                    {
-                        return;
-                    }
-
-                    File.Copy(fallback, source, overwrite: true);
-
-                    _skinPng = source;
-                    _slim = false;
-
-                    await RenderAsync().ConfigureAwait(true);
-
-                    if (generation != _refreshGeneration)
-                    {
-                        return;
-                    }
-
-                    StatusText = account.Type == AccountType.Offline
-                        ? "离线账号 · 显示的是默认皮肤（经典 Steve）"
-                        : "该账号没有自定义皮肤 · 显示的是默认皮肤（经典 Steve）";
-
+                    // 服务端明确说“没有自定义皮肤”：显示默认 Steve，而不是旧缓存。
+                    await ShowDefaultPreviewAsync(
+                        generation,
+                        account.Type == AccountType.Offline
+                            ? "离线账号 · 显示的是默认皮肤（经典 Steve）"
+                            : "该账号没有自定义皮肤 · 显示的是默认皮肤（经典 Steve）")
+                        .ConfigureAwait(true);
                     return;
                 }
+
+                string source = cache ?? Path.Combine(
+                    Path.GetTempPath(), "nlmcl-skin-src-" + DateTime.Now.Ticks + ".png");
 
                 try
                 {
@@ -332,32 +342,33 @@ namespace NLMCL.App.ViewModels
                 }
                 catch (Exception downloadError)
                 {
-                    // 官方贴图下载失败时不要留空白，回退默认皮肤并提示重试。
-                    string fallback = await _skins
-                        .GetDefaultSkinAsync(CancellationToken.None)
-                        .ConfigureAwait(true);
-
                     if (generation != _refreshGeneration)
                     {
                         return;
                     }
 
-                    File.Copy(fallback, source, overwrite: true);
-
-                    _current = null;
-                    ModelText = "默认皮肤（经典 Steve）";
-                    _skinPng = source;
-                    _slim = false;
-
-                    await RenderAsync().ConfigureAwait(true);
-
-                    if (generation != _refreshGeneration)
+                    if (hasCache)
                     {
-                        return;
+                        _current = null;
+                        _skinPng = cache;
+                        _slim = false;
+                        ModelText = "上次缓存的皮肤";
+                        await RenderAsync().ConfigureAwait(true);
+
+                        if (generation == _refreshGeneration)
+                        {
+                            StatusText = "账号皮肤下载失败，继续显示上次缓存；点「刷新」重试：" +
+                                         downloadError.Message;
+                        }
+                    }
+                    else
+                    {
+                        await ShowDefaultPreviewAsync(
+                            generation,
+                            "账号皮肤下载失败，已显示默认皮肤；点「刷新」重试：" +
+                            downloadError.Message).ConfigureAwait(true);
                     }
 
-                    StatusText = "官方皮肤下载失败，已显示默认皮肤；点「刷新」重试：" +
-                                 downloadError.Message;
                     return;
                 }
 
@@ -366,6 +377,8 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
+                _current = skin;
+                ModelText = DescribeSkin(skin);
                 _skinPng = source;
                 _slim = string.Equals(skin.Model, "slim", StringComparison.OrdinalIgnoreCase);
 
@@ -380,10 +393,29 @@ namespace NLMCL.App.ViewModels
             }
             catch (Exception ex)
             {
-                if (generation == _refreshGeneration)
+                if (generation != _refreshGeneration)
                 {
-                    PreviewPng = null;
-                    StatusText = "读取皮肤失败：" + ex.Message;
+                    return;
+                }
+
+                if (hasCache)
+                {
+                    _current = null;
+                    _skinPng = cache;
+                    _slim = false;
+                    ModelText = "上次缓存的皮肤";
+                    await RenderAsync().ConfigureAwait(true);
+
+                    if (generation == _refreshGeneration)
+                    {
+                        StatusText = "读取账号皮肤失败，继续显示上次缓存；点「刷新」重试：" + ex.Message;
+                    }
+                }
+                else
+                {
+                    await ShowDefaultPreviewAsync(
+                        generation, "读取账号皮肤失败，已显示默认皮肤；点「刷新」重试：" + ex.Message)
+                        .ConfigureAwait(true);
                 }
             }
             finally
@@ -399,6 +431,54 @@ namespace NLMCL.App.ViewModels
                         _ = LoadLibraryAsync();
                     }
                 }
+            }
+        }
+
+        private async Task ShowDefaultPreviewAsync(int generation, string status)
+        {
+            try
+            {
+                string fallback = await _skins
+                    .GetDefaultSkinAsync(CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (generation != _refreshGeneration)
+                {
+                    return;
+                }
+
+                _current = null;
+                _skinPng = fallback;
+                _slim = false;
+                ModelText = "默认皮肤（经典 Steve）";
+                StatusText = status;
+
+                await RenderAsync().ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                if (generation == _refreshGeneration)
+                {
+                    PreviewPng = null;
+                    StatusText = status + "（默认皮肤也不可用：" + ex.Message + "）";
+                }
+            }
+        }
+
+        private static bool IsUsablePng(string? path)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return false;
+            }
+
+            try
+            {
+                return File.Exists(path) && new FileInfo(path).Length > 1024;
+            }
+            catch (IOException)
+            {
+                return false;
             }
         }
 

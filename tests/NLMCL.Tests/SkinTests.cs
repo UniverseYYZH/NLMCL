@@ -200,6 +200,84 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Microsoft_skin_uses_sessionserver_before_the_token_api()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-session-skin-" + Guid.NewGuid().ToString("N"));
+            SessionSkinDownload download = new SessionSkinDownload(Base64Textures("https://cdn/skin.png", "default"));
+            SkinService service = new SkinService(download, new AppPaths(root));
+            Account account = new Account(
+                "UniverseYYZH", "0ae3d697-22ae-4fe0-8eef-80acdcc18fd6",
+                AccountType.Microsoft, "expired-token");
+
+            try
+            {
+                SkinInfo? info = await service.GetAsync(account, CancellationToken.None);
+
+                Assert.NotNull(info);
+                Assert.Equal("https://cdn/skin.png", info!.SkinUrl);
+                Assert.Equal("Mojang 会话服务器", info.Source);
+                Assert.False(download.TokenApiTried);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
+        public async Task Avatar_cache_is_stable_and_lives_under_the_skin_cache()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-avatar-cache-" + Guid.NewGuid().ToString("N"));
+            string steve = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
+            SessionSkinDownload download = new SessionSkinDownload(
+                Base64Textures("https://cdn/skin.png", "default"))
+            {
+                SkinPath = steve
+            };
+            SkinService service = new SkinService(download, new AppPaths(root));
+            Account account = new Account(
+                "UniverseYYZH", "0ae3d697-22ae-4fe0-8eef-80acdcc18fd6",
+                AccountType.Microsoft, "token");
+
+            try
+            {
+                string? first = await service.GetAvatarAsync(account, CancellationToken.None);
+                string? second = await service.GetAvatarAsync(account, CancellationToken.None);
+
+                Assert.NotNull(first);
+                Assert.Equal(first, second);
+                Assert.StartsWith(
+                    Path.Combine(new AppPaths(root).SkinDirectory, "cache"),
+                    first,
+                    StringComparison.OrdinalIgnoreCase);
+                Assert.True(File.Exists(first!));
+                Assert.Equal(first, SkinService.GetCachedAvatarPath(new AppPaths(root), account));
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
+        public async Task Skin_service_failure_still_leaves_a_default_preview()
+        {
+            FakeSkinService skins = new FakeSkinService
+            {
+                GetHandler = _ => throw new InvalidOperationException("Minecraft Services 被阻断")
+            };
+
+            SkinViewModel vm = new SkinViewModel(skins);
+            vm.SetAccount(new Account("UniverseYYZH", "uuid", AccountType.Microsoft));
+
+            await Task.Delay(350);
+
+            Assert.NotNull(vm.PreviewPng);
+            Assert.NotEmpty(vm.PreviewPng!);
+            Assert.Contains("默认皮肤", vm.StatusText);
+        }
+
+        [Fact]
         public async Task Skin_refresh_ignores_stale_account_result()
         {
             FakeSkinService skins = new FakeSkinService
@@ -608,6 +686,53 @@ namespace NLMCL.Tests
             SkinService service = new SkinService(download, new AppPaths(@"C:\Temp\roaming"));
 
             Assert.Null(await service.LookupByNameAsync("not-a-real-player-xyz", CancellationToken.None));
+        }
+
+        private sealed class SessionSkinDownload : DownloadServiceStub
+        {
+            private readonly string _textures;
+
+            public SessionSkinDownload(string textures)
+            {
+                _textures = textures;
+            }
+
+            public bool TokenApiTried { get; private set; }
+
+            public string? SkinPath { get; set; }
+
+            public override Task DownloadFileAsync(
+                string url, string localPath, CancellationToken cancellationToken)
+            {
+                if (SkinPath == null)
+                {
+                    throw new HttpRequestException("no skin fixture");
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
+                File.Copy(SkinPath, localPath, overwrite: true);
+                return Task.CompletedTask;
+            }
+
+            public override Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+            {
+                if (url.Contains("sessionserver.mojang.com"))
+                {
+                    string profile = "{\"id\":\"0ae3d69722ae4fe08eef80acdcc18fd6\","
+                        + "\"name\":\"UniverseYYZH\",\"properties\":[{\"name\":\"textures\",\"value\":\""
+                        + _textures + "\"}]}";
+                    return Task.FromResult(profile);
+                }
+
+                throw new HttpRequestException("unexpected request: " + url);
+            }
+
+            public override Task<string> GetStringAsync(string url,
+                IReadOnlyDictionary<string, string>? headers, CancellationToken cancellationToken)
+            {
+                TokenApiTried = true;
+                throw new HttpRequestException("token API blocked");
+            }
         }
 
         private sealed class QueueDownload : IDownloadService
