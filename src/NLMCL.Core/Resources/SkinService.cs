@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +35,7 @@ namespace NLMCL.Core.Resources
         private readonly IAppPaths _paths;
         private readonly object _localSkinGate = new object();
         private static readonly object AvatarGate = new object();
+        private static readonly HttpClient DirectHttp = new HttpClient();
 
         public SkinService(IDownloadService download, IAppPaths paths)
         {
@@ -145,22 +147,71 @@ namespace NLMCL.Core.Resources
         private async Task<string> GetStringWithTimeoutAsync(
             string url, Dictionary<string, string>? headers, CancellationToken cancellationToken)
         {
-            using (CancellationTokenSource timeout =
-                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-            {
-                // 认证接口偶尔会一直挂着；头像和皮肤页都不能无限等。
-                timeout.CancelAfter(TimeSpan.FromSeconds(6));
+            Exception? downloadError = null;
 
-                try
+            try
+            {
+                using (CancellationTokenSource timeout =
+                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
+                    // 认证接口偶尔会一直挂着；头像和皮肤页都不能无限等。
+                    timeout.CancelAfter(TimeSpan.FromSeconds(6));
+
                     return headers == null
                         ? await _download.GetStringAsync(url, timeout.Token).ConfigureAwait(false)
                         : await _download.GetStringAsync(url, headers, timeout.Token).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                downloadError = ex;
+            }
+
+            // PCL 的下载栈在部分网络/宿主环境里会拒绝请求（例如会话服务器）；
+            // 这里用进程内 HttpClient 直连兜底，不改变缓存与解析逻辑。
+            try
+            {
+                using (CancellationTokenSource timeout =
+                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url))
                 {
-                    throw new TimeoutException("请求超时（6 秒）：" + new Uri(url).Host);
+                    timeout.CancelAfter(TimeSpan.FromSeconds(6));
+
+                    if (headers != null)
+                    {
+                        foreach (KeyValuePair<string, string> header in headers)
+                        {
+                            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                        }
+                    }
+
+                    using (HttpResponseMessage response = await DirectHttp
+                        .SendAsync(request, HttpCompletionOption.ResponseContentRead, timeout.Token)
+                        .ConfigureAwait(false))
+                    {
+                        if (!response.IsSuccessStatusCode)
+                        {
+                            throw new HttpRequestException(
+                                "HTTP " + (int)response.StatusCode + " " + response.ReasonPhrase);
+                        }
+
+                        return await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    }
                 }
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new TimeoutException("请求超时（6 秒）：" + new Uri(url).Host);
+            }
+            catch (Exception directError)
+            {
+                throw new InvalidOperationException(
+                    "请求失败（下载栈：" + downloadError?.Message + "；直连：" + directError.Message + "）",
+                    directError);
             }
         }
 
@@ -255,7 +306,41 @@ namespace NLMCL.Core.Resources
 
             try
             {
-                await _download.DownloadFileAsync(url, temp, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await _download.DownloadFileAsync(url, temp, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception downloadError)
+                {
+                    // 皮肤纹理只是一张小 PNG；PCL 下载栈在部分宿主环境会拒绝请求，
+                    // 这里用直连兜底。已经拿到字节时直接落盘，避免再走一遍下载栈。
+                    try
+                    {
+                        using (CancellationTokenSource timeout =
+                            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                        {
+                            timeout.CancelAfter(TimeSpan.FromSeconds(10));
+                            using (HttpResponseMessage response = await DirectHttp
+                                .GetAsync(url, HttpCompletionOption.ResponseContentRead, timeout.Token)
+                                .ConfigureAwait(false))
+                            {
+                                response.EnsureSuccessStatusCode();
+                                byte[] png = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+                                File.WriteAllBytes(temp, png);
+                            }
+                        }
+                    }
+                    catch (Exception directError)
+                    {
+                        throw new InvalidOperationException(
+                            "皮肤下载失败（下载栈：" + downloadError.Message
+                            + "；直连：" + directError.Message + "）", directError);
+                    }
+                }
 
                 if (File.Exists(targetPath))
                 {
