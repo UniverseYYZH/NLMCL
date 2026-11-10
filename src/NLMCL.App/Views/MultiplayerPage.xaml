@@ -72,6 +72,7 @@
                                         <Button Style="{StaticResource GhostButton}" Content="×"
                                                 Padding="8,6" Margin="2,0,0,0"
                                                 ToolTip="从列表移除"
+                                                AutomationProperties.Name="从列表移除线路"
                                                 Command="{Binding DataContext.RemoveServerCommand,
                                                           RelativeSource={RelativeSource AncestorType=Window}}"
                                                 CommandParameter="{Binding}" />

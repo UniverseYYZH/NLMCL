@@ -110,6 +110,7 @@ namespace NLMCL.Tests
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
 
         private static readonly List<string> TemporaryDirectories = new List<string>();
+        private static readonly DateTime RunStartedUtc = DateTime.UtcNow;
 
         static TestSupport()
         {
@@ -180,6 +181,36 @@ namespace NLMCL.Tests
             }
 
             TemporaryDirectories.Clear();
+
+            // 很多历史用例直接拼 %TEMP%\nlmcl-*，没有登记到上面的列表；
+            // 退出时把本轮开始后新建的同类目录一并收掉。
+            string temp = Path.GetTempPath();
+            DateTime cutoff = RunStartedUtc.AddMinutes(-10);
+            try
+            {
+                foreach (string path in Directory.EnumerateDirectories(temp, "nlmcl-*"))
+                {
+                    try
+                    {
+                        if (Directory.GetLastWriteTimeUtc(path) >= cutoff)
+                        {
+                            Directory.Delete(path, true);
+                        }
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         internal sealed class EmptyCatalog : IVersionCatalog

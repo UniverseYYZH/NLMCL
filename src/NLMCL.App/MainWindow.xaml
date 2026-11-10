@@ -319,7 +319,9 @@
                 </Border>
                 <Border Grid.Column="2" Height="50" MinWidth="204" Background="{DynamicResource Surface}"
                         BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10"
-                        Padding="7,0,13,0" Cursor="Hand" MouseLeftButtonUp="AccountCardClicked">
+                        Padding="7,0,13,0" Cursor="Hand" MouseLeftButtonUp="AccountCardClicked"
+                        AutomationProperties.Name="账号与切换"
+                        AutomationProperties.HelpText="打开账号列表，切换或移除账号">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
