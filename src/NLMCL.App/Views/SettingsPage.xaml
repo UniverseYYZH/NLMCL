@@ -50,49 +50,111 @@
     </UserControl.Resources>
 
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="154" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
+        <!-- F 页头：齿轮只出现在设置页 -->
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,12">
+            <TextBlock Text="PREFERENCES / LOCAL" FontSize="9"
+                       Foreground="{DynamicResource Faint}" />
+            <StackPanel Orientation="Horizontal" Margin="0,1,0,0">
+                <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="22"
+                           Foreground="{DynamicResource Primary}" VerticalAlignment="Center"
+                           Margin="0,0,9,0" />
+                <TextBlock Text="设置" FontSize="26" FontWeight="Bold"
+                           Foreground="{DynamicResource Text}" />
+            </StackPanel>
+            <TextBlock Text="启动器行为、Java、外观与数据都在本机；修改后自动写入。"
+                       FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
         <!-- F 左侧设置分组 -->
-        <Border Grid.Column="0" Style="{StaticResource CardStyle}" Padding="10,10"
+        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource CardStyle}" Padding="10,10"
                 Margin="0,0,12,0" VerticalAlignment="Top">
             <StackPanel>
                 <TextBlock Text="设置分组" FontSize="9" Foreground="{DynamicResource Faint}"
                            Margin="4,0,0,8" />
-                <ToggleButton Content="全部" Style="{StaticResource SettingsFilterToggle}"
+                <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter=""
-                              IsChecked="{Binding IsAllGroupActive, Mode=OneWay}" />
-                <ToggleButton Content="通用" Style="{StaticResource SettingsFilterToggle}"
+                              IsChecked="{Binding IsAllGroupActive, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE71D;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   Width="18" VerticalAlignment="Center" />
+                        <TextBlock Text="全部" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="general"
-                              IsChecked="{Binding IsGeneralGroupActive, Mode=OneWay}" />
-                <ToggleButton Content="游戏与 Java" Style="{StaticResource SettingsFilterToggle}"
+                              IsChecked="{Binding IsGeneralGroupActive, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE713;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   Width="18" VerticalAlignment="Center" />
+                        <TextBlock Text="通用" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="game"
-                              IsChecked="{Binding IsGameGroupActive, Mode=OneWay}" />
-                <ToggleButton Content="外观" Style="{StaticResource SettingsFilterToggle}"
+                              IsChecked="{Binding IsGameGroupActive, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   Width="18" VerticalAlignment="Center" />
+                        <TextBlock Text="游戏与 Java" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="appearance"
-                              IsChecked="{Binding IsAppearanceGroupActive, Mode=OneWay}" />
-                <ToggleButton Content="下载与网络" Style="{StaticResource SettingsFilterToggle}"
+                              IsChecked="{Binding IsAppearanceGroupActive, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE790;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   Width="18" VerticalAlignment="Center" />
+                        <TextBlock Text="外观" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="download"
-                              IsChecked="{Binding IsDownloadGroupActive, Mode=OneWay}" />
-                <ToggleButton Content="日志与诊断" Style="{StaticResource SettingsFilterToggle}"
+                              IsChecked="{Binding IsDownloadGroupActive, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   Width="18" VerticalAlignment="Center" />
+                        <TextBlock Text="下载与网络" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="logs"
-                              IsChecked="{Binding IsLogsGroupActive, Mode=OneWay}" />
-                <ToggleButton Content="数据与备份" Style="{StaticResource SettingsFilterToggle}"
+                              IsChecked="{Binding IsLogsGroupActive, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE9D9;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   Width="18" VerticalAlignment="Center" />
+                        <TextBlock Text="日志与诊断" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
+                <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="data"
-                              IsChecked="{Binding IsDataGroupActive, Mode=OneWay}" />
+                              IsChecked="{Binding IsDataGroupActive, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE74E;" FontFamily="Segoe MDL2 Assets" FontSize="12"
+                                   Width="18" VerticalAlignment="Center" />
+                        <TextBlock Text="数据与备份" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ToggleButton>
             </StackPanel>
         </Border>
 
-        <StackPanel Grid.Column="1">
+        <StackPanel Grid.Row="1" Grid.Column="1">
 
         <Border Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,0,10"
                 BorderBrush="{DynamicResource Amber}"

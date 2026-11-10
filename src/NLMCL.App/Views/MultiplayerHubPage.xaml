@@ -1,0 +1,92 @@
+<UserControl x:Class="NLMCL.App.Views.MultiplayerHubPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="clr-namespace:NLMCL.App.Views"
+             FontFamily="{DynamicResource UiFont}">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/NLMCL;component/Themes/Design.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Style x:Key="ModeTab" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Muted}" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="14,6" />
+                <Setter Property="Margin" Value="0,0,5,0" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="active">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource PrimarySoft}" />
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource BorderColor}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Primary}" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
+                                </DataTrigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid Margin="26,18,26,12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,8">
+            <TextBlock Text="MULTIPLAYER / LAN + DIRECT" FontSize="9"
+                       Foreground="{DynamicResource Faint}" />
+            <Grid Margin="0,1,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="联机" FontSize="26" FontWeight="Bold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="ROOMS &amp; SERVERS" FontSize="10"
+                               FontFamily="Consolas"
+                               Foreground="{DynamicResource Faint}"
+                               VerticalAlignment="Bottom" Margin="8,0,0,4" />
+                </StackPanel>
+                <Button Content="扫描局域网" Style="{StaticResource GhostButton}"
+                        Padding="12,5" FontSize="10.5" HorizontalAlignment="Right"
+                        VerticalAlignment="Center" Click="ScanLan_Click"
+                        ToolTip="切到局域网扫描并开始发现房间" />
+            </Grid>
+            <TextBlock Text="服务器档案、局域网开房与扫描、地址二维码都在这里。连不上时先看检查项。"
+                       FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0"
+                       TextWrapping="Wrap" />
+
+            <Grid Margin="0,12,0,0">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="ServersTab" Content="服务器房间" Style="{StaticResource ModeTab}"
+                            Tag="active" Click="ServersTab_Click" />
+                    <Button x:Name="LanTab" Content="局域网扫描" Style="{StaticResource ModeTab}"
+                            Click="LanTab_Click" />
+                </StackPanel>
+                <TextBlock Text="服务器档案 · 局域网发现 · 地址二维码"
+                           FontSize="9" Foreground="{DynamicResource Faint}"
+                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+            </Grid>
+        </StackPanel>
+
+        <Grid Grid.Row="1">
+            <views:MultiplayerPage x:Name="ServersView" />
+            <views:LanScanPage x:Name="LanView" DataContext="{Binding LanScan}" Visibility="Collapsed" />
+        </Grid>
+    </Grid>
+</UserControl>

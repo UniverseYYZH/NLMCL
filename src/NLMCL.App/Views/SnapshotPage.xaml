@@ -98,9 +98,21 @@
                                 </Style>
                             </Button.Style>
                         </Button>
-                        <TextBlock Text="只备份 saves / config / options.txt，不复制整个版本。"
-                                   FontSize="8.5" Foreground="{DynamicResource Faint}" Margin="0,6,0,0"
-                                   TextWrapping="Wrap" />
+                        <Border Background="{DynamicResource PrimarySoft}" BorderBrush="{DynamicResource BorderColor}"
+                                BorderThickness="1" CornerRadius="7" Padding="10,8" Margin="0,10,0,0">
+                            <StackPanel>
+                                <TextBlock Text="BACKUP SCOPE" FontSize="8" FontFamily="Consolas"
+                                           Foreground="{DynamicResource Primary}" />
+                                <WrapPanel Margin="0,5,0,0">
+                                    <Border Style="{StaticResource Chip}" Margin="0,0,4,0"><TextBlock Text="saves" FontSize="8.5" Foreground="{DynamicResource Primary}" /></Border>
+                                    <Border Style="{StaticResource Chip}" Margin="0,0,4,0"><TextBlock Text="config" FontSize="8.5" Foreground="{DynamicResource Primary}" /></Border>
+                                    <Border Style="{StaticResource Chip}"><TextBlock Text="options.txt" FontSize="8.5" Foreground="{DynamicResource Primary}" /></Border>
+                                </WrapPanel>
+                                <TextBlock Text="不复制整个版本，也不包含 mods 与资源包。"
+                                           FontSize="8.5" Foreground="{DynamicResource Muted}" Margin="0,6,0,0"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </Border>
             </Grid>

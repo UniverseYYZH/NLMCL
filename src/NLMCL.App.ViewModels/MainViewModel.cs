@@ -259,7 +259,7 @@ namespace NLMCL.App.ViewModels
             // F 顶部导航顺序与逻辑分组解耦：分组保留给内部逻辑/测试，顶部按 F 排列。
             TopNavigation = new ReadOnlyCollection<NavigationItem>(new[]
             {
-                versions, downloadNav, multiplayer, snapshot, skinNav, consoleNav, lanScanNav, settings
+                versions, downloadNav, multiplayer, snapshot, skinNav, consoleNav, settings
             });
             SelectSection(versions);
 
@@ -1662,10 +1662,15 @@ namespace NLMCL.App.ViewModels
         /// <summary>按分区选中；导入/Mod 已合并进下载中心，仍保留内部激活入口。</summary>
         public void SelectSection(ShellSection section)
         {
-            // 导入资源 / Mod 管理已并入下载中心；直接请求旧分区时回落到下载中心，避免空白页。
+            // 导入资源 / Mod 管理已并入下载中心、局域网已并入联机；
+            // 直接请求旧分区时回落到对应页面，避免空白页。
             if (section == ShellSection.Import || section == ShellSection.Mods)
             {
                 section = ShellSection.Download;
+            }
+            else if (section == ShellSection.LanScan)
+            {
+                section = ShellSection.Multiplayer;
             }
 
             NavigationItem? item = NavigationGroups

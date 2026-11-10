@@ -355,7 +355,8 @@ namespace NLMCL.Tests
             SkinViewModel? skin = null,
             IFolderPicker? folderPicker = null,
             IVersionDetailsService? versionDetails = null,
-            IFilePicker? filePicker = null)
+            IFilePicker? filePicker = null,
+            LanScanViewModel? lanScan = null)
         {
             return new MainViewModel(
                 catalog,
@@ -382,7 +383,8 @@ namespace NLMCL.Tests
                 skins: skins,
                 skin: skin,
                 versionDetails: versionDetails,
-                filePicker: filePicker);
+                filePicker: filePicker,
+                lanScan: lanScan);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {

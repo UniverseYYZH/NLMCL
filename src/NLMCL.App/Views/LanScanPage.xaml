@@ -22,12 +22,7 @@
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0">
-            <TextBlock Text="LAN DISCOVERY / SLP" FontSize="9" Foreground="{DynamicResource Faint}" Margin="0,0,0,1" />
-            <TextBlock Text="局域网扫描" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource Text}" />
-            <TextBlock Text="对方在游戏里选择「对局域网开放」，这里就能发现房间"
-                       FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0" />
-
-            <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,0">
                 <Button Content="开始扫描" Style="{StaticResource PrimaryButton}" Padding="16,7"
                         Command="{Binding ScanCommand}"
                         IsEnabled="{Binding IsScanning, Converter={StaticResource InverseBool}}" />

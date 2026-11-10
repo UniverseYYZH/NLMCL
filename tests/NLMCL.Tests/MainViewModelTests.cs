@@ -43,6 +43,18 @@ namespace NLMCL.Tests
             Assert.True(vm.IsDownloadSection);
             Assert.False(vm.IsImportSection);
         }
+
+        [Fact]
+        public void Legacy_lan_section_falls_back_to_multiplayer()
+        {
+            MainViewModel vm = Create();
+
+            vm.SelectSection(ShellSection.LanScan);
+
+            Assert.True(vm.IsMultiplayerSection);
+            Assert.False(vm.IsLanScanSection);
+        }
+
         [Fact]
         public async Task Refresh_populates_list_and_reports_count()
         {

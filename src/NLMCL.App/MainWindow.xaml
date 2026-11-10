@@ -683,12 +683,6 @@
             </Grid>
             <!-- 导入资源页 -->
             
-            <!-- 局域网扫描页 -->
-            <views:LanScanPage Margin="26,18,26,12"
-                               DataContext="{Binding LanScan}"
-                               Visibility="{Binding DataContext.IsLanScanSection,
-                                                    RelativeSource={RelativeSource AncestorType=Window},
-                                                    Converter={StaticResource BoolToVisibility}}" />
             <!-- Mod 管理页 -->
             
             <!-- 皮肤页 -->
@@ -697,10 +691,10 @@
                             Visibility="{Binding DataContext.IsSkinSection,
                                                  RelativeSource={RelativeSource AncestorType=Window},
                                                  Converter={StaticResource BoolToVisibility}}" />
-            <!-- 联机房间页 -->
-            <views:MultiplayerPage Margin="26,18,26,12"
-                                   Visibility="{Binding IsMultiplayerSection,
-                                                        Converter={StaticResource BoolToVisibility}}" />
+            <!-- 联机房间 / 局域网 -->
+            <views:MultiplayerHubPage Margin="26,18,26,12"
+                                      Visibility="{Binding IsMultiplayerSection,
+                                                           Converter={StaticResource BoolToVisibility}}" />
 
             <!-- 启动与日志页 -->
             <!-- 实例快照页 -->
