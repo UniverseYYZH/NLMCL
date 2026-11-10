@@ -130,6 +130,8 @@
                     </Grid.ColumnDefinitions>
                     <Button x:Name="ServersTab" Grid.Column="0"
                             Style="{StaticResource HubModeCard}" Tag="active"
+                            AutomationProperties.Name="服务器房间模式"
+                            AutomationProperties.HelpText="查看收藏的服务器、开房与直连"
                             Click="ServersTab_Click">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -152,7 +154,10 @@
                         </Grid>
                     </Button>
                     <Button x:Name="LanTab" Grid.Column="1"
-                            Style="{StaticResource HubModeCard}" Click="LanTab_Click">
+                            Style="{StaticResource HubModeCard}"
+                            AutomationProperties.Name="局域网扫描模式"
+                            AutomationProperties.HelpText="发现同一网段的局域网房间"
+                            Click="LanTab_Click">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="38" />
