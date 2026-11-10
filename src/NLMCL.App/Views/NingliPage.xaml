@@ -1,6 +1,7 @@
 <UserControl x:Class="NLMCL.App.Views.NingliPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             DataContext="{Binding Ningli}"
              FontFamily="{DynamicResource UiFont}">
 
     <UserControl.Resources>

@@ -779,41 +779,29 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isLanScanSection;
 
+        /// <summary>方块宁理页的展示状态。</summary>
+        public NingliViewModel Ningli { get; } = new NingliViewModel();
+
         /// <summary>服务器档案：进入一台服需要什么（版本/加载器/模组）。</summary>
-        public System.Collections.ObjectModel.ObservableCollection<ServerProfile> ServerProfiles { get; }
-            = new System.Collections.ObjectModel.ObservableCollection<ServerProfile>();
+        public ObservableCollection<ServerProfile> ServerProfiles => Ningli.ServerProfiles;
 
         /// <summary>进服前检查（账号 / 客户端 / 模组 / 内存 / 整合包）。</summary>
-        public ObservableCollection<ServerJoinCheck> JoinChecks { get; }
-            = new ObservableCollection<ServerJoinCheck>();
+        public ObservableCollection<ServerJoinCheck> JoinChecks => Ningli.JoinChecks;
 
         /// <summary>主按钮对应的服务器（第一个需要模组的档案）。</summary>
-        public ServerProfile? PrimaryProfile => ServerProfiles.FirstOrDefault(p => p.RequiresMods)
-            ?? ServerProfiles.FirstOrDefault();
+        public ServerProfile? PrimaryProfile => Ningli.PrimaryProfile;
 
         /// <summary>纯净子服档案（还原服等）：不装任何加载器。</summary>
-        public ServerProfile? VanillaProfile => ServerProfiles.FirstOrDefault(p => !p.RequiresMods);
+        public ServerProfile? VanillaProfile => Ningli.VanillaProfile;
 
-        /// <summary>是否有纯净档案（卡片绑定它；计算属性本身不发通知）。</summary>
-        [ObservableProperty]
-        private bool _hasVanillaProfile;
+        /// <summary>是否有可显示的服务器档案。</summary>
+        public bool HasPrimaryProfile => Ningli.HasPrimaryProfile;
 
-        /// <summary>是否有可显示的服务器档案（卡片绑定它，避免异步加载后不刷新）。</summary>
-        [ObservableProperty]
-        private bool _hasPrimaryProfile;
+        /// <summary>是否有纯净档案。</summary>
+        public bool HasVanillaProfile => Ningli.HasVanillaProfile;
+
         /// <summary>联机页当前会显示几个服档案；用于 1 栏 / 2 栏自适应。</summary>
-        public int VisibleServerProfileCount =>
-            (HasPrimaryProfile ? 1 : 0) + (HasVanillaProfile ? 1 : 0);
-
-        partial void OnHasPrimaryProfileChanged(bool value)
-        {
-            OnPropertyChanged(nameof(VisibleServerProfileCount));
-        }
-
-        partial void OnHasVanillaProfileChanged(bool value)
-        {
-            OnPropertyChanged(nameof(VisibleServerProfileCount));
-        }
+        public int VisibleServerProfileCount => Ningli.VisibleServerProfileCount;
 
 
         /// <summary>已保存的账号（当前账号在第一位）。</summary>
@@ -2351,10 +2339,9 @@ namespace NLMCL.App.ViewModels
 
         public void RefreshJoinChecks()
         {
-            HasPrimaryProfile = PrimaryProfile != null;
-            HasVanillaProfile = VanillaProfile != null;
-            OnPropertyChanged(nameof(VanillaProfile));
-            OnPropertyChanged(nameof(PrimaryProfile));
+            Ningli.HasPrimaryProfile = PrimaryProfile != null;
+            Ningli.HasVanillaProfile = VanillaProfile != null;
+            Ningli.NotifyProfilesChanged();
 
             JoinChecks.Clear();
 
