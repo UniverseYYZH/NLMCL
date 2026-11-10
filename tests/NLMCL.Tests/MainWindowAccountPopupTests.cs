@@ -160,10 +160,10 @@ namespace NLMCL.Tests
             public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
                 => Task.FromResult(skinPngPath);
 
-            public Task<string> Create3DPreviewAsync(
+            public Task<byte[]> Create3DPreviewAsync(
                 string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
                 CancellationToken cancellationToken)
-                => Task.FromResult(skinPngPath);
+                => Task.FromResult(TestSupport.OnePixelPng);
 
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => Task.FromResult(_avatar);

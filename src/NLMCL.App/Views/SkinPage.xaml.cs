@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -17,6 +18,7 @@ namespace NLMCL.App.Views
     {
         private readonly DispatcherTimer _timer;
 
+        private SkinViewModel? _viewModel;
         private bool _dragging;
         private double _lastX;
 
@@ -31,14 +33,57 @@ namespace NLMCL.App.Views
 
             _timer.Tick += (sender, args) =>
             {
-                if (!_dragging && DataContext is SkinViewModel vm)
+                if (!_dragging && IsVisible && _viewModel != null)
                 {
-                    vm.AutoRotateStep();
+                    _viewModel.AutoRotateStep();
                 }
             };
 
-            Loaded += (sender, args) => _timer.Start();
+            DataContextChanged += (sender, args) => BindViewModel();
+            Loaded += (sender, args) => UpdateTimer();
             Unloaded += (sender, args) => _timer.Stop();
+            IsVisibleChanged += (sender, args) => UpdateTimer();
+        }
+
+        private void BindViewModel()
+        {
+            if (_viewModel != null)
+            {
+                _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+            }
+
+            _viewModel = DataContext as SkinViewModel;
+
+            if (_viewModel != null)
+            {
+                _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+            }
+
+            UpdateTimer();
+        }
+
+        private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(SkinViewModel.IsAutoRotating))
+            {
+                UpdateTimer();
+            }
+        }
+
+        /// <summary>
+        /// 页面被 Visibility 隐藏时不会触发 Unloaded，必须自己停表；
+        /// 自动旋转关闭时也停，避免在后台空转。
+        /// </summary>
+        private void UpdateTimer()
+        {
+            if (IsLoaded && IsVisible && _viewModel?.IsAutoRotating == true)
+            {
+                _timer.Start();
+            }
+            else
+            {
+                _timer.Stop();
+            }
         }
 
         private void OnPreviewMouseDown(object sender, MouseButtonEventArgs e)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -285,10 +285,10 @@ namespace NLMCL.Tests
             public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
                 => Task.FromResult(skinPngPath);
 
-            public Task<string> Create3DPreviewAsync(
+            public Task<byte[]> Create3DPreviewAsync(
                 string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
                 CancellationToken cancellationToken)
-                => Task.FromResult(skinPngPath);
+                => Task.FromResult(TestSupport.OnePixelPng);
 
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => Task.FromResult<string?>(null);
@@ -404,6 +404,20 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Renderer_returns_png_bytes_without_a_file()
+        {
+            string source = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
+
+            byte[] png = NLMCL.Core.Skins.SkinRender3D.RenderPng(source, 320, 28, 8, slim: false);
+
+            Assert.True(png.Length > 100);
+            Assert.Equal((byte)0x89, png[0]);
+            Assert.Equal((byte)0x50, png[1]);
+            Assert.Equal((byte)0x4E, png[2]);
+            Assert.Equal((byte)0x47, png[3]);
+        }
+
+        [Fact]
         public void Renderer_fails_on_missing_file()
         {
             Assert.Throws<FileNotFoundException>(() =>
@@ -472,10 +486,10 @@ namespace NLMCL.Tests
             public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
                 => Task.FromResult(@"C:\skins\doll.png");
 
-            public Task<string> Create3DPreviewAsync(
+            public Task<byte[]> Create3DPreviewAsync(
                 string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
                 CancellationToken cancellationToken)
-                => Task.FromResult(@"C:\skins\3d.png");
+                => Task.FromResult(TestSupport.OnePixelPng);
 
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => Task.FromResult<string?>(@"C:\skins\avatar.png");
@@ -507,7 +521,7 @@ namespace NLMCL.Tests
             await vm.PickLocalAsync();
 
             Assert.True(vm.HasPreview);
-            Assert.Equal(@"C:\skins\3d.png", vm.PreviewPath);
+            Assert.NotEmpty(vm.PreviewPng!);
             Assert.Equal("本地皮肤", vm.ModelText);
             Assert.Contains("本地皮肤", vm.StatusText);
         }

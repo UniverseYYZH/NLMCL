@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -53,9 +53,9 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string _statusText = "未登录。登录账号后这里会显示皮肤。";
 
-        /// <summary>3D 渲染结果（本地 PNG 路径）。</summary>
+        /// <summary>3D 渲染结果（内存 PNG 字节，不落盘）。</summary>
         [ObservableProperty]
-        private string? _previewPath;
+        private byte[]? _previewPng;
 
         [ObservableProperty]
         private string _accountText = "未登录";
@@ -193,9 +193,9 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private double _pitch = 8;
 
-        public bool HasPreview => !string.IsNullOrEmpty(PreviewPath);
+        public bool HasPreview => PreviewPng != null && PreviewPng.Length > 0;
 
-        partial void OnPreviewPathChanged(string? value)
+        partial void OnPreviewPngChanged(byte[]? value)
         {
             OnPropertyChanged(nameof(HasPreview));
         }
@@ -240,7 +240,7 @@ namespace NLMCL.App.ViewModels
             {
                 _current = null;
                 _skinPng = null;
-                PreviewPath = null;
+                PreviewPng = null;
                 ModelText = string.Empty;
                 StatusText = "未登录。登录账号后这里会显示皮肤。";
                 IsBusy = false;
@@ -382,7 +382,7 @@ namespace NLMCL.App.ViewModels
             {
                 if (generation == _refreshGeneration)
                 {
-                    PreviewPath = null;
+                    PreviewPng = null;
                     StatusText = "读取皮肤失败：" + ex.Message;
                 }
             }
@@ -797,14 +797,14 @@ namespace NLMCL.App.ViewModels
 
                 try
                 {
-                    string? path = await _skins
+                    byte[] png = await _skins
                         .Create3DPreviewAsync(skin, Yaw, Pitch, slim, CancellationToken.None)
                         .ConfigureAwait(true);
 
                     // 渲染期间切了账号/换了皮肤：旧结果不能覆盖新预览。
                     if (string.Equals(_skinPng, skin, StringComparison.Ordinal) && _slim == slim)
                     {
-                        PreviewPath = path;
+                        PreviewPng = png;
                     }
                 }
                 catch (Exception ex)

@@ -87,6 +87,26 @@ namespace NLMCL.Core.Skins
             double yawDegrees = 28, double pitchDegrees = 8,
             bool slim = false)
         {
+            byte[] png = RenderPng(skinPath, size, yawDegrees, pitchDegrees, slim);
+            string? directory = Path.GetDirectoryName(outputPath);
+
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            File.WriteAllBytes(outputPath, png);
+        }
+
+        /// <summary>
+        /// 渲染成 PNG 字节，不写临时文件。皮肤页每帧自动旋转都走这里，
+        /// 由 WPF 的图片转换器在内存中解码，避免临时目录堆积几十万张图。
+        /// </summary>
+        public static byte[] RenderPng(
+            string skinPath, int size = 384,
+            double yawDegrees = 28, double pitchDegrees = 8,
+            bool slim = false)
+        {
             if (!File.Exists(skinPath))
             {
                 throw new FileNotFoundException("找不到皮肤文件。", skinPath);
@@ -116,15 +136,10 @@ namespace NLMCL.Core.Skins
                 }
 
                 using (Bitmap result = Downscale(canvas, big, size))
+                using (MemoryStream stream = new MemoryStream())
                 {
-                    string? directory = Path.GetDirectoryName(outputPath);
-
-                    if (!string.IsNullOrEmpty(directory))
-                    {
-                        Directory.CreateDirectory(directory);
-                    }
-
-                    result.Save(outputPath, ImageFormat.Png);
+                    result.Save(stream, ImageFormat.Png);
+                    return stream.ToArray();
                 }
             }
         }

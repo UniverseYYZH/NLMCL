@@ -325,20 +325,15 @@ namespace NLMCL.Core.Resources
             return Task.FromResult(output);
         }
 
-        public async Task<string> Create3DPreviewAsync(
+        public Task<byte[]> Create3DPreviewAsync(
             string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
             CancellationToken cancellationToken)
         {
-            string output = Path.Combine(
-                Path.GetTempPath(),
-                "nlmcl-skin-3d-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".png");
-
-            // 光栅化是 CPU 密集的（320² × 2×2 超采样），放到线程池，避免自动旋转时卡 UI
-            await Task.Run(
-                () => SkinRender3D.Render(skinPngPath, output, 320, yawDegrees, pitchDegrees, slim),
-                cancellationToken).ConfigureAwait(false);
-
-            return output;
+            // 光栅化是 CPU 密集的（320² × 2×2 超采样），放到线程池，避免自动旋转时卡 UI。
+            // 直接返回 PNG 字节，不产生临时文件。
+            return Task.Run(
+                () => SkinRender3D.RenderPng(skinPngPath, 320, yawDegrees, pitchDegrees, slim),
+                cancellationToken);
         }
 
         /// <summary>

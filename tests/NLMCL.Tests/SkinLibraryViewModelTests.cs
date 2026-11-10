@@ -29,7 +29,7 @@ namespace NLMCL.Tests
 
             await vm.ApplyLibrarySkinAsync(vm.LibrarySkins[0]);
 
-            Assert.NotNull(vm.PreviewPath);
+            Assert.NotNull(vm.PreviewPng);
             Assert.Contains("已下载", vm.LibraryStatusText);
         }
 
@@ -46,7 +46,7 @@ namespace NLMCL.Tests
 
             await vm.PreviewLibrarySkinAsync(vm.LibrarySkins[0]);
 
-            Assert.NotNull(vm.PreviewPath);
+            Assert.NotNull(vm.PreviewPng);
             Assert.Contains("3D 预览", vm.LibraryStatusText);
             Assert.Contains("才会写入账号", vm.StatusText);
         }

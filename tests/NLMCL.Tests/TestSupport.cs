@@ -105,6 +105,10 @@ namespace NLMCL.Tests
     /// <summary>测试用的零件工厂：避免每个测试都重复实现依赖。</summary>
     internal static class TestSupport
     {
+        /// <summary>1×1 透明 PNG，用于不需要真实皮肤的预览测试替身。</summary>
+        internal static readonly byte[] OnePixelPng = Convert.FromBase64String(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
+
         internal sealed class EmptyCatalog : IVersionCatalog
         {
             public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
@@ -443,10 +447,10 @@ namespace NLMCL.Tests
             public Task<string> CreatePreviewAsync(string skinPngPath, CancellationToken cancellationToken)
                 => Task.FromResult(skinPngPath);
 
-            public Task<string> Create3DPreviewAsync(
+            public Task<byte[]> Create3DPreviewAsync(
                 string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,
                 CancellationToken cancellationToken)
-                => Task.FromResult(skinPngPath);
+                => Task.FromResult(OnePixelPng);
 
             public Task<string?> GetAvatarAsync(Account account, CancellationToken cancellationToken)
                 => AvatarHandler == null

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -8,6 +8,7 @@ using System.Windows.Media.Imaging;
 using NLMCL.App.ViewModels;
 using NLMCL.Core;
 using NLMCL.Core.Pcl;
+using NLMCL.Core.Skins;
 using Xunit;
 
 namespace NLMCL.Tests
@@ -44,6 +45,13 @@ namespace NLMCL.Tests
                             new PclVersionCatalog(), paths, skin: skin);
                         vm.SelectSection(vm.NavigationGroups.SelectMany(g => g.Items)
                             .First(i => i.Section == ShellSection.Skin));
+
+                        // 未登录账号进入皮肤页会同步清空预览；选择后再注入真实 3D 结果，
+                        // 验证 PreviewPng 经过值转换器能显示到 Image 上。
+                        if (File.Exists(source))
+                        {
+                            skin.PreviewPng = SkinRender3D.RenderPng(source, 320, 28, 8, slim: false);
+                        }
 
                         const int width = 1060;
                         const int height = 720;

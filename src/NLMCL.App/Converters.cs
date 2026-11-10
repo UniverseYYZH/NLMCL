@@ -185,4 +185,57 @@ namespace NLMCL.App
             throw new System.NotSupportedException();
         }
     }
+
+    /// <summary>
+    /// 把内存里的 PNG 字节解码成 ImageSource。
+    /// 3D 预览每帧都会生成新的 byte[]，用 OnLoad 解码后立即释放流，不占用临时文件。
+    /// </summary>
+    public sealed class PngBytesToImageSourceConverter : IValueConverter
+    {
+        public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (!(value is byte[] bytes) || bytes.Length == 0)
+            {
+                return null;
+            }
+
+            try
+            {
+                System.Windows.Media.Imaging.BitmapImage bitmap =
+                    new System.Windows.Media.Imaging.BitmapImage();
+
+                using (MemoryStream stream = new MemoryStream(bytes))
+                {
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                    bitmap.StreamSource = stream;
+                    bitmap.EndInit();
+                }
+
+                bitmap.Freeze();
+                return bitmap;
+            }
+            catch (System.NotSupportedException)
+            {
+                return null;
+            }
+            catch (System.IO.IOException)
+            {
+                return null;
+            }
+            catch (System.FormatException)
+            {
+                return null;
+            }
+            catch (System.ArgumentException)
+            {
+                return null;
+            }
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotSupportedException();
+        }
+    }
 }
