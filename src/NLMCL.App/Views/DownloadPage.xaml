@@ -280,7 +280,7 @@
                     <Grid Margin="0,0,0,4">
                         <TextBlock Text="安装版本" FontSize="11" Foreground="{DynamicResource Faint}"
                                    VerticalAlignment="Center" />
-                        <Button Content="✕" ToolTip="关闭" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        <Button Content="✕" ToolTip="关闭" AutomationProperties.Name="关闭" HorizontalAlignment="Right" VerticalAlignment="Top"
                                 Style="{StaticResource GhostButton}" Padding="9,1" FontSize="11"
                                 Command="{Binding CloseInstallCommand}" />
                     </Grid>

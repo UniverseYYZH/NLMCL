@@ -109,6 +109,43 @@ namespace NLMCL.Tests
         internal static readonly byte[] OnePixelPng = Convert.FromBase64String(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=");
 
+        private static readonly List<string> TemporaryDirectories = new List<string>();
+
+        static TestSupport()
+        {
+            AppDomain.CurrentDomain.ProcessExit += (_, __) => CleanupTemporaryDirectories();
+        }
+
+        internal static string CreateTemporaryDirectory(string prefix)
+        {
+            string path = Path.Combine(Path.GetTempPath(), prefix + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(path);
+            TemporaryDirectories.Add(path);
+            return path;
+        }
+
+        internal static void CleanupTemporaryDirectories()
+        {
+            foreach (string path in TemporaryDirectories.ToArray())
+            {
+                try
+                {
+                    if (Directory.Exists(path))
+                    {
+                        Directory.Delete(path, true);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+            }
+
+            TemporaryDirectories.Clear();
+        }
+
         internal sealed class EmptyCatalog : IVersionCatalog
         {
             public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
@@ -343,7 +380,7 @@ namespace NLMCL.Tests
         /// </summary>
         internal static JavaRuntime CreateJava(int major)
         {
-            string home = Path.Combine(Path.GetTempPath(), "nlmcl-java-" + Guid.NewGuid().ToString("N"));
+            string home = CreateTemporaryDirectory("nlmcl-java-");
             Directory.CreateDirectory(Path.Combine(home, "bin"));
             File.WriteAllText(Path.Combine(home, "bin", "javaw.exe"), "");
             return new JavaRuntime(home + Path.DirectorySeparatorChar, new Version(major, 0));
