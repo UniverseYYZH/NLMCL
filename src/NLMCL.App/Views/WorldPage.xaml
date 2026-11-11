@@ -9,6 +9,7 @@
                 <ResourceDictionary Source="/NLMCL;component/Themes/Design.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <local:InverseBooleanConverter x:Key="InverseBool" />
             <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
             <local:NullToVisibilityConverter x:Key="NullToVisibility" />
 
@@ -67,9 +68,11 @@
                     <Button Content="启动设置" Style="{StaticResource GhostButton}" Padding="14,8"
                             Margin="8,0,0,0" Click="OpenLaunchSettings_Click" />
                     <Button Content="修复" Style="{StaticResource GhostButton}" Padding="14,8"
-                            Margin="8,0,0,0" Command="{Binding RepairSelectedCommand}" />
+                            Margin="8,0,0,0" Command="{Binding RepairSelectedCommand}"
+                            IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
                     <Button Content="▶  启动世界" Style="{StaticResource PrimaryButton}"
-                            Padding="18,9" Margin="8,0,0,0" Command="{Binding LaunchSelectedCommand}" />
+                            Padding="18,9" Margin="8,0,0,0" Command="{Binding LaunchSelectedCommand}"
+                            IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
                 </StackPanel>
             </Grid>
 
@@ -131,7 +134,8 @@
                             <Button Content="▶  启动世界" Style="{StaticResource PrimaryButton}" Padding="18,10"
                                     Background="{DynamicResource FrameYellow}" Foreground="{DynamicResource FrameRedDeep}"
                                     BorderBrush="{DynamicResource FrameYellow}" FontWeight="SemiBold"
-                                    Command="{Binding LaunchSelectedCommand}" />
+                                    Command="{Binding LaunchSelectedCommand}"
+                                    IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
                             <Button Content="打开目录" Style="{StaticResource GhostButton}" Padding="16,10"
                                     Margin="8,0,0,0" Command="{Binding OpenGameDirectoryCommand}" />
                             <Button Content="创建快照" Style="{StaticResource GhostButton}" Padding="16,10"

@@ -538,11 +538,13 @@
                                     <Button Content="打开目录" Style="{StaticResource GhostButton}"
                                             Margin="7,0,0,0" Command="{Binding OpenGameDirectoryCommand}" />
                                     <Button Content="修复" Style="{StaticResource GhostButton}"
-                                            Margin="7,0,0,0" Command="{Binding RepairSelectedCommand}" />
+                                            Margin="7,0,0,0" Command="{Binding RepairSelectedCommand}"
+                                            IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
                                     <Button Content="快照" Style="{StaticResource GhostButton}"
                                             Margin="7,0,0,0" Command="{Binding GoToSnapshotsCommand}" />
                                     <Button Content="重启" Style="{StaticResource GhostButton}"
-                                            Margin="7,0,0,0" Command="{Binding RestartGameCommand}" />
+                                            Margin="7,0,0,0" Command="{Binding RestartGameCommand}"
+                                            IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -630,7 +632,8 @@
                                     </UniformGrid>
                                     <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
                                         <Button Content="启动" Style="{StaticResource PrimaryButton}"
-                                                Padding="14,6" FontSize="10.5" Command="{Binding LaunchSelectedCommand}" />
+                                                Padding="14,6" FontSize="10.5" Command="{Binding LaunchSelectedCommand}"
+                                                IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}" />
                                         <Button Content="详情" Style="{StaticResource GhostButton}"
                                                 Padding="12,6" FontSize="10" Margin="6,0,0,0"
                                                 Command="{Binding ShowVersionDetailsCommand}"

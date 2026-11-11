@@ -2249,6 +2249,11 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task RestartGameAsync()
         {
+            if (IsLaunching)
+            {
+                return;
+            }
+
             if (Console.IsRunning)
             {
                 StatusText = "正在停止当前游戏 …";
