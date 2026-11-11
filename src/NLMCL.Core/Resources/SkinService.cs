@@ -388,6 +388,16 @@ namespace NLMCL.Core.Resources
                 throw new InvalidDataException("不是有效的 PNG 文件（皮肤必须是 PNG）。");
             }
 
+            string fullSource = Path.GetFullPath(sourcePath);
+            string skinRoot = Path.GetFullPath(_paths.SkinDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            if (fullSource.StartsWith(skinRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                // 已经在皮肤库里，直接复用；再次点击卡片不应复制一份。
+                return Task.FromResult(fullSource);
+            }
+
             Directory.CreateDirectory(_paths.SkinDirectory);
 
             string name = SafeName(playerName) + "-local-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".png";

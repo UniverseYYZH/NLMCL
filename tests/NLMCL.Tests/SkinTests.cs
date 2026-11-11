@@ -184,6 +184,39 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Importing_an_existing_library_skin_does_not_duplicate_it()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-localskin-" + Guid.NewGuid().ToString("N"));
+            string source = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "steve.png");
+
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                SkinService service = new SkinService(new NoopDownload(), paths);
+                Account alpha = new Account("Alpha", "uuid-alpha", AccountType.Offline);
+
+                string first = await service.ImportLocalAsync(alpha, source, CancellationToken.None);
+                int countAfterFirst = Directory.GetFiles(paths.SkinDirectory, "*.png").Length;
+
+                string second = await service.ImportLocalAsync(alpha, first, CancellationToken.None);
+
+                Assert.Equal(first, second);
+                Assert.Equal(countAfterFirst, Directory.GetFiles(paths.SkinDirectory, "*.png").Length);
+                Assert.Equal(first, await service.GetLocalSkinPathAsync(alpha, CancellationToken.None));
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
         public async Task Custom_skin_label_is_not_classic_steve()
         {
             FakeSkinService skins = new FakeSkinService
