@@ -181,10 +181,28 @@
                                                Foreground="{DynamicResource Faint}" Margin="0,3,0,0"
                                                TextWrapping="Wrap" />
                                 </StackPanel>
-                                <Button Grid.Column="1" Content="刷新" Style="{StaticResource GhostButton}"
-                                        Padding="9,4" FontSize="9"
-                                        Command="{Binding RefreshLibraryCommand}"
-                                        IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="‹" Style="{StaticResource GhostButton}"
+                                            Width="24" Height="24" Padding="0" FontSize="13"
+                                            Command="{Binding PrevLibraryPageCommand}"
+                                            ToolTip="上一页"
+                                            IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
+                                    <TextBlock VerticalAlignment="Center" Margin="7,0" FontSize="9"
+                                               Foreground="{DynamicResource Muted}">
+                                        <Run Text="{Binding LibraryPage, Mode=OneWay}" />
+                                        <Run Text=" / " />
+                                        <Run Text="{Binding LibraryLastPage, Mode=OneWay}" />
+                                    </TextBlock>
+                                    <Button Content="›" Style="{StaticResource GhostButton}"
+                                            Width="24" Height="24" Padding="0" FontSize="13"
+                                            Command="{Binding NextLibraryPageCommand}"
+                                            ToolTip="下一页"
+                                            IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
+                                    <Button Content="刷新" Style="{StaticResource GhostButton}"
+                                            Padding="9,4" FontSize="9" Margin="8,0,0,0"
+                                            Command="{Binding RefreshLibraryCommand}"
+                                            IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
+                                </StackPanel>
                             </Grid>
                             <Grid Margin="0,8,0,0">
                                 <Grid.ColumnDefinitions>
@@ -326,23 +344,6 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
-                                        Visibility="{Binding HasLibrarySkins, Converter={StaticResource BoolToVisibility}}">
-                                <Button Content="‹ 上一页" Style="{StaticResource GhostButton}"
-                                        Padding="10,5" FontSize="10"
-                                        Command="{Binding PrevLibraryPageCommand}"
-                                        IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
-                                <TextBlock VerticalAlignment="Center" Margin="9,0,0,0"
-                                           FontSize="9" Foreground="{DynamicResource Muted}">
-                                    <Run Text="第 " /><Run Text="{Binding LibraryPage, Mode=OneWay}" />
-                                    <Run Text=" / " /><Run Text="{Binding LibraryLastPage, Mode=OneWay}" />
-                                    <Run Text=" 页" />
-                                </TextBlock>
-                                <Button Content="下一页 ›" Style="{StaticResource GhostButton}"
-                                        Margin="9,0,0,0" Padding="10,5" FontSize="10"
-                                        Command="{Binding NextLibraryPageCommand}"
-                                        IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
-                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>
