@@ -28,6 +28,9 @@ namespace NLMCL.App
     {
         private ServiceProvider? _services;
 
+        private Mutex? _singleInstance;
+        private bool _ownsSingleInstance;
+
         /// <summary>页面代码后置需要从组合根取窗口/服务时使用。</summary>
         public IServiceProvider RootServices =>
             _services ?? throw new InvalidOperationException("应用尚未完成初始化。");
@@ -35,6 +38,23 @@ namespace NLMCL.App
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+
+            // 两个实例同时写 accounts.json / 实例设置会互相覆盖；先拿单实例锁。
+            _singleInstance = new Mutex(
+                initiallyOwned: true,
+                name: @"Local\NLMCL.SingleInstance",
+                createdNew: out _ownsSingleInstance);
+
+            if (!_ownsSingleInstance)
+            {
+                MessageBox.Show(
+                    "NLMCL 已经在运行。请先关闭另一个窗口，再重新打开。",
+                    "NLMCL",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
 
             // 先挂兜底再干活：没有这几行，后台线程上的任何异常都会让进程无声消失。
             DispatcherUnhandledException += OnDispatcherUnhandledException;
@@ -313,6 +333,19 @@ namespace NLMCL.App
                 _services.Dispose();
             }
 
+            if (_ownsSingleInstance)
+            {
+                try
+                {
+                    _singleInstance?.ReleaseMutex();
+                }
+                catch (ApplicationException)
+                {
+                    // 锁已由系统释放，忽略。
+                }
+            }
+
+            _singleInstance?.Dispose();
             base.OnExit(e);
         }
     }
