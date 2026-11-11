@@ -104,21 +104,31 @@ namespace NLMCL.Core.Installing
             //    先换直链再下载到 mods；Modrinth 走文件清单。
             string instanceDirectory = Path.Combine(minecraftDirectory, "versions", versionId);
 
-            if (IsCurseForgeManifest(index))
+            try
             {
-                await DownloadCurseForgeFilesAsync(
-                    index, instanceDirectory, progress, cancellationToken).ConfigureAwait(false);
-            }
-            else
-            {
-                await DownloadModrinthFilesAsync(
-                    index, instanceDirectory, progress, cancellationToken).ConfigureAwait(false);
-            }
+                if (IsCurseForgeManifest(index))
+                {
+                    await DownloadCurseForgeFilesAsync(
+                        index, instanceDirectory, progress, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await DownloadModrinthFilesAsync(
+                        index, instanceDirectory, progress, cancellationToken).ConfigureAwait(false);
+                }
 
-            // 3) overrides：整体铺到实例目录
-            progress?.Report(new InstallProgress("展开 overrides", 88, 0));
-            string overridesPrefix = (index.Value<string>("overrides") ?? "overrides").TrimEnd('/') + "/";
-            ExtractOverrides(archive, instanceDirectory, overridesPrefix);
+                // 3) overrides：整体铺到实例目录
+                progress?.Report(new InstallProgress("展开 overrides", 88, 0));
+                string overridesPrefix = (index.Value<string>("overrides") ?? "overrides").TrimEnd('/') + "/";
+                ExtractOverrides(archive, instanceDirectory, overridesPrefix);
+            }
+            catch
+            {
+                // 下载/解压失败时不能留下只有 JSON 的空壳版本：
+                // 用户会在世界库里看到一个永远启动不了、也无法增量修复的实例。
+                TryDeleteDirectory(instanceDirectory);
+                throw;
+            }
 
             progress?.Report(new InstallProgress("整合包安装完成", 100, 0));
 
@@ -884,6 +894,23 @@ namespace NLMCL.Core.Installing
             }
 
             return combined;
+        }
+
+        private static void TryDeleteDirectory(string path)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    Directory.Delete(path, true);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         private static string Sanitize(string name)

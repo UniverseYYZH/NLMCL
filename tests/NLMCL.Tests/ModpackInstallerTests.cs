@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -193,6 +194,19 @@ namespace NLMCL.Tests
                 => Task.FromResult("{}");
         }
 
+        private sealed class ThrowingFileDownloader : IFileDownloader
+        {
+            public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
+                => throw new HttpRequestException("模拟下载失败");
+
+            public Task DownloadAsync(
+                string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+                => throw new HttpRequestException("模拟下载失败");
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+                => Task.FromResult("{}");
+        }
+
         private sealed class InlineInstallProgress : IProgress<InstallProgress>
         {
             private readonly Action<InstallProgress> _apply;
@@ -310,6 +324,39 @@ namespace NLMCL.Tests
                 Assert.True(File.Exists(Path.Combine(instanceDir, "config", "curse.toml")));
                 Assert.Contains(files.Downloaded, url => url.Contains("cf.jar"));
                 Assert.Contains(reports, item => item.BytesTotal > 0 && item.BytesReceived > 0);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Failed_download_does_not_leave_an_empty_instance()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-mrp-" + Guid.NewGuid().ToString("N"));
+            string mc = Path.Combine(root, ".minecraft");
+            Directory.CreateDirectory(mc);
+
+            try
+            {
+                string pack = BuildCurseForgePack(root);
+                ModpackInstaller installer = new ModpackInstaller(
+                    new FakeDownload(), new FakeVersions(), new FakeLoaders(),
+                    new ThrowingFileDownloader());
+
+                await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    installer.InstallAsync(
+                        pack, mc, @"C:\Java\bin\javaw.exe", null, CancellationToken.None));
+
+                string instance = Path.Combine(mc, "versions", "Curse-Test-Pack");
+                Assert.False(Directory.Exists(instance), "失败后不应留下空壳实例目录");
             }
             finally
             {

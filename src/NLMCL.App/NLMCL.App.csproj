@@ -5,7 +5,8 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>NLMCL.App</RootNamespace>
     <AssemblyName>NLMCL</AssemblyName>
-    <ApplicationIcon></ApplicationIcon>
+    <!-- 占位图标：先接入构建，正式图标后续替换。 -->
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
   </PropertyGroup>

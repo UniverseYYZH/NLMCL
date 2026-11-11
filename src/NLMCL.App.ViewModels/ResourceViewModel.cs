@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NLMCL.Abstractions;
+using NLMCL.Core.Resources;
 
 namespace NLMCL.App.ViewModels
 {
@@ -606,6 +607,28 @@ namespace NLMCL.App.ViewModels
                     .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, token)
                     .ConfigureAwait(true);
             }
+
+            // 直连下载器不校验哈希；Modrinth 给了 SHA1 就必须验，
+            // 否则 CDN 返回半截/错误内容也会被当成安装成功。
+            if (!string.IsNullOrWhiteSpace(file.Sha1) &&
+                !ResourceInstaller.IsChecksumValid(path, file.Sha1, out string actualSha1, out _))
+            {
+                try
+                {
+                    File.Delete(path);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+
+                throw new InvalidDataException(
+                    "文件校验失败：" + file.Name + "（期望 SHA1 " + file.Sha1 +
+                    "，实际 " + actualSha1 + "）");
+            }
+
             Trace("安装成功：" + path);
                 StatusText = "已安装到 " + path;
                 HasProgress = false;

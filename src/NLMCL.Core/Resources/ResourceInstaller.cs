@@ -88,7 +88,7 @@ namespace NLMCL.Core.Resources
         }
 
         /// <summary>有 SHA1 就校验；没有就只看"文件非空"。</summary>
-        internal static bool IsChecksumValid(string path, string? expectedSha1, out string actual, out long length)
+        public static bool IsChecksumValid(string path, string? expectedSha1, out string actual, out long length)
         {
             actual = string.Empty;
             length = 0;

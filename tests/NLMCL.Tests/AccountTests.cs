@@ -137,6 +137,37 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Corrupt_primary_file_falls_back_to_the_last_good_backup()
+        {
+            string root = NewRoot();
+            AppPaths paths = new AppPaths(root);
+
+            try
+            {
+                JsonAccountStore store = new JsonAccountStore(paths);
+                await store.SaveAsync(OfflineAccountFactory.Create("Alpha"), CancellationToken.None);
+                await store.SaveAsync(OfflineAccountFactory.Create("Beta"), CancellationToken.None);
+
+                string backup = paths.AccountsFile + ".bak";
+                Assert.True(File.Exists(backup));
+
+                File.WriteAllText(paths.AccountsFile, "{ half-written");
+
+                System.Collections.Generic.IReadOnlyList<Account> accounts =
+                    await new JsonAccountStore(paths).LoadAllAsync(CancellationToken.None);
+
+                Account only = Assert.Single(accounts);
+                Assert.Equal("Alpha", only.Name);
+                Assert.NotEmpty(Directory.GetFiles(
+                    Path.GetDirectoryName(paths.AccountsFile)!, "accounts.json.corrupt-*"));
+            }
+            finally
+            {
+                TryDelete(root);
+            }
+        }
+
+        [Fact]
         public async Task Unreadable_account_entry_does_not_break_the_account_list()
         {
             string root = NewRoot();

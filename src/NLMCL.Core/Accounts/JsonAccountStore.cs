@@ -190,13 +190,21 @@ namespace NLMCL.Core.Accounts
                 return Task.FromResult(set);
             }
 
-            JToken root;
+            JToken? root;
 
             try
             {
                 root = JToken.Parse(File.ReadAllText(file, Encoding.UTF8));
             }
             catch (JsonException)
+            {
+                // 主文件损坏时先留一份现场，再尝试上一次成功写入留下的 .bak，
+                // 避免一次断电/半截写就把所有正版账号静默清空。
+                PreserveCorruptFile(file);
+                root = TryReadBackup(file);
+            }
+
+            if (root == null)
             {
                 return Task.FromResult(set);
             }
@@ -247,22 +255,38 @@ namespace NLMCL.Core.Accounts
             };
 
             string temporary = _paths.AccountsFile + ".tmp-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            string backup = _paths.AccountsFile + ".bak";
 
             try
             {
                 File.WriteAllText(temporary, root.ToString(Formatting.Indented), Encoding.UTF8);
 
-                // 杀毒软件/另一个实例短暂占用时，直接覆盖可能失败；重试几次再放弃。
+                // 用同目录临时文件 + File.Replace 做原子替换，并保留上一版 .bak。
+                // 杀毒软件/另一个实例短暂占用时重试几次再放弃。
                 for (int attempt = 0; ; attempt++)
                 {
                     try
                     {
-                        File.Copy(temporary, _paths.AccountsFile, overwrite: true);
+                        if (File.Exists(_paths.AccountsFile))
+                        {
+                            File.Replace(temporary, _paths.AccountsFile, backup, ignoreMetadataErrors: true);
+                        }
+                        else
+                        {
+                            File.Move(temporary, _paths.AccountsFile);
+                        }
+
                         break;
                     }
                     catch (IOException) when (attempt < 2)
                     {
                         Thread.Sleep(40 * (attempt + 1));
+                    }
+                    catch (PlatformNotSupportedException)
+                    {
+                        // 极少数文件系统不支持 Replace：退回覆盖写，但 .bak 保留。
+                        File.Copy(temporary, _paths.AccountsFile, overwrite: true);
+                        break;
                     }
                 }
             }
@@ -313,6 +337,49 @@ namespace NLMCL.Core.Accounts
             {
             }
         }
+        private static JToken? TryReadBackup(string file)
+        {
+            string backup = file + ".bak";
+
+            if (!File.Exists(backup))
+            {
+                return null;
+            }
+
+            try
+            {
+                return JToken.Parse(File.ReadAllText(backup, Encoding.UTF8));
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+
+        private static void PreserveCorruptFile(string file)
+        {
+            try
+            {
+                if (!File.Exists(file))
+                {
+                    return;
+                }
+
+                string copy = file + ".corrupt-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                File.Copy(file, copy, overwrite: false);
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
         private static DateTimeOffset? ParseLastUsed(JObject item)
         {
             string? text = item.Value<string>("lastUsed");
