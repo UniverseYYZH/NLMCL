@@ -1,4 +1,4 @@
-﻿<UserControl x:Class="NLMCL.App.Views.LaunchConsolePage"
+<UserControl x:Class="NLMCL.App.Views.LaunchConsolePage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:NLMCL.App"
@@ -90,19 +90,21 @@
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="240" />
+                    <ColumnDefinition Width="150" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Column="0" Text="版本目录名" FontSize="11"
+                <TextBlock Grid.Column="0" Text="实例" FontSize="11"
                            Foreground="{DynamicResource Muted}" VerticalAlignment="Center" />
                 <Border Grid.Column="1" Background="{DynamicResource Surface}" Margin="10,0"
                         BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
-                        CornerRadius="7" Padding="10,6">
-                    <TextBox Text="{Binding VersionId, UpdateSourceTrigger=PropertyChanged}"
-                             Background="Transparent" BorderThickness="0" FontSize="11.5"
-                             Foreground="{DynamicResource Text}" />
+                        CornerRadius="7" Padding="10,6"
+                        ToolTip="在「世界库」选择要启动的实例">
+                    <TextBox Text="{Binding VersionId, Mode=OneWay}"
+                             IsReadOnly="True" Background="Transparent" BorderThickness="0"
+                             FontSize="11.5" Foreground="{DynamicResource Text}"
+                             ToolTip="在「世界库」选择要启动的实例" />
                 </Border>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
