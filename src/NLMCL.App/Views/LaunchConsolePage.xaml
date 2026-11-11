@@ -34,6 +34,21 @@
                                Foreground="{Binding Color}" TextWrapping="Wrap" />
                 </Grid>
             </DataTemplate>
+
+            <Style x:Key="LogListItemStyle" TargetType="ListBoxItem">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <ContentPresenter />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -191,10 +206,15 @@
         <!-- 日志终端 -->
         <Border Grid.Row="3" Background="#101A16" CornerRadius="10" Padding="12,10">
             <Grid>
-                <ScrollViewer x:Name="LogScroll" VerticalScrollBarVisibility="Auto">
-                    <ItemsControl ItemsSource="{Binding Lines}"
-                                  ItemTemplate="{StaticResource LogLineTemplate}" />
-                </ScrollViewer>
+                <ListBox x:Name="LogList" ItemsSource="{Binding Lines}"
+                         ItemTemplate="{StaticResource LogLineTemplate}"
+                         ItemContainerStyle="{StaticResource LogListItemStyle}"
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         VirtualizingStackPanel.IsVirtualizing="True"
+                         VirtualizingStackPanel.VirtualizationMode="Recycling" />
 
                 <TextBlock Text="点击「启动」后，游戏的输出会出现在这里"
                            FontSize="11.5" Foreground="#4E6357"

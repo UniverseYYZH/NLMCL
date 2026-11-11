@@ -36,7 +36,15 @@ namespace NLMCL.App.Views
             }
 
             // 日志是高频追加，滚到底用优先级最低的调度，避免卡住 UI 线程。
-            Dispatcher.BeginInvoke(new System.Action(() => LogScroll.ScrollToEnd()),
+            Dispatcher.BeginInvoke(new System.Action(() =>
+                {
+                    if (LogList.Items.Count == 0)
+                    {
+                        return;
+                    }
+
+                    LogList.ScrollIntoView(LogList.Items[LogList.Items.Count - 1]);
+                }),
                 System.Windows.Threading.DispatcherPriority.Background);
         }
     }
