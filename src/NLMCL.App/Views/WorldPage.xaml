@@ -1,0 +1,242 @@
+<UserControl x:Class="NLMCL.App.Views.WorldPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:NLMCL.App"
+             FontFamily="{DynamicResource UiFont}">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/NLMCL;component/Themes/Design.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+            <local:NullToVisibilityConverter x:Key="NullToVisibility" />
+
+            <Style x:Key="WorldKicker" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="Foreground" Value="{DynamicResource Faint}" />
+            </Style>
+
+            <Style x:Key="FactLabel" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{DynamicResource MonoFont}" />
+                <Setter Property="FontSize" Value="9.5" />
+                <Setter Property="Foreground" Value="{DynamicResource Faint}" />
+            </Style>
+
+            <Style x:Key="FactValue" TargetType="TextBlock">
+                <Setter Property="FontSize" Value="14" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource Text}" />
+                <Setter Property="Margin" Value="0,5,0,0" />
+                <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="26,18,26,12">
+
+            <!-- 页头 -->
+            <Grid Margin="0,0,0,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="WORLD  /  INSTANCE DOSSIER" Style="{StaticResource WorldKicker}" />
+                    <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                        <TextBlock Text="{Binding SelectedVersion.Name, TargetNullValue=世界}"
+                                   FontFamily="{DynamicResource DisplayFont}"
+                                   FontSize="38" Foreground="{DynamicResource Text}"
+                                   TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="WORLD DOSSIER" FontFamily="{DynamicResource DisplayFont}"
+                                   FontStyle="Italic" FontSize="22" Foreground="{DynamicResource Faint}"
+                                   Margin="12,10,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="世界/实例的配置、模组、启动参数与本地快照。只保存在这台电脑。"
+                               FontSize="13" Foreground="{DynamicResource Muted}" Margin="0,7,0,0" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+                    <Button Content="版本详情" Style="{StaticResource GhostButton}" Padding="14,8"
+                            Command="{Binding ShowVersionDetailsCommand}"
+                            CommandParameter="{Binding SelectedVersion}" />
+                    <Button Content="修复" Style="{StaticResource GhostButton}" Padding="14,8"
+                            Margin="8,0,0,0" Command="{Binding RepairSelectedCommand}" />
+                    <Button Content="▶  启动世界" Style="{StaticResource PrimaryButton}"
+                            Padding="18,9" Margin="8,0,0,0" Command="{Binding LaunchSelectedCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- 当前世界 banner -->
+            <Border CornerRadius="14" Padding="24,22" Margin="0,0,0,16">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#27483F" Offset="0" />
+                        <GradientStop Color="#1C332E" Offset="0.58" />
+                        <GradientStop Color="#162923" Offset="1" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="250" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="CURRENT WORLD  /  OFFLINE READY" FontFamily="{DynamicResource MonoFont}"
+                                   FontSize="10" Foreground="#D7C68C" />
+                        <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                            <TextBlock Text="{Binding SelectedVersion.Name, TargetNullValue=未选择世界}"
+                                       FontFamily="{DynamicResource DisplayFont}" FontSize="31"
+                                       Foreground="#FFF9EC" TextTrimming="CharacterEllipsis" />
+                            <Border Background="#33F8D818" BorderBrush="#66F8D818" BorderThickness="1"
+                                    CornerRadius="7" Padding="8,3" Margin="12,7,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding SelectedVersion.KindLabel, TargetNullValue=本地实例}"
+                                           FontSize="10" Foreground="#F8D818" />
+                            </Border>
+                        </StackPanel>
+
+                        <TextBlock Foreground="#D8E4DC" FontSize="12" Margin="0,9,0,0"
+                                   TextTrimming="CharacterEllipsis">
+                            <Run Text="Minecraft " /><Run Text="{Binding SelectedVersion.MinecraftVersion, Mode=OneWay}" />
+                            <Run Text="  ·  " /><Run Text="{Binding SelectedVersion.LoaderHint, Mode=OneWay}" />
+                            <Run Text="  ·  " /><Run Text="{Binding Mods.Mods.Count, Mode=OneWay, FallbackValue=0, TargetNullValue=0}" /><Run Text=" 个模组" />
+                        </TextBlock>
+
+                        <Border Background="#18FFFFFF" BorderBrush="#30FFFFFF" BorderThickness="1"
+                                CornerRadius="7" Padding="9,5" Margin="0,13,0,0" HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding SelectedVersion.InstancePath}" FontFamily="{DynamicResource MonoFont}"
+                                       FontSize="9.5" Foreground="#CFE1D7" TextTrimming="CharacterEllipsis"
+                                       MaxWidth="520" ToolTip="{Binding SelectedVersion.InstancePath}" />
+                        </Border>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                            <Button Content="▶  启动世界" Style="{StaticResource PrimaryButton}" Padding="16,8"
+                                    Background="{DynamicResource FrameYellow}" Foreground="{DynamicResource FrameRedDeep}"
+                                    BorderBrush="{DynamicResource FrameYellow}" FontWeight="SemiBold"
+                                    Command="{Binding LaunchSelectedCommand}" />
+                            <Button Content="打开目录" Style="{StaticResource GhostButton}" Padding="14,8"
+                                    Margin="8,0,0,0" Command="{Binding OpenGameDirectoryCommand}" />
+                            <Button Content="创建快照" Style="{StaticResource GhostButton}" Padding="14,8"
+                                    Margin="8,0,0,0" Command="{Binding CreateSnapshotCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- 右侧抽象世界插画 -->
+                    <Grid Grid.Column="1" Margin="16,0,0,0" ClipToBounds="True">
+                        <Ellipse Width="92" Height="92" Fill="#22F8D818" HorizontalAlignment="Right"
+                                 VerticalAlignment="Top" Margin="0,-22,-16,0" />
+                        <Path Data="M 0,150 L 58,86 L 108,132 L 156,72 L 232,150 Z"
+                              Fill="#2E6A58" Stretch="Fill" Height="118" VerticalAlignment="Bottom" />
+                        <Path Data="M 0,170 L 48,124 L 96,154 L 154,110 L 226,170 Z"
+                              Fill="#3E8069" Stretch="Fill" Height="92" VerticalAlignment="Bottom" />
+                        <Border Width="46" Height="46" Background="#1E3A31" BorderBrush="#6E9C84"
+                                BorderThickness="1" CornerRadius="4" HorizontalAlignment="Center"
+                                VerticalAlignment="Bottom" Margin="0,0,36,20">
+                            <Grid>
+                                <Rectangle Height="9" Fill="#5D8B70" VerticalAlignment="Top" />
+                                <Rectangle Width="9" Height="10" Fill="#7AA68B" HorizontalAlignment="Left"
+                                           VerticalAlignment="Bottom" Margin="7,0,0,7" />
+                                <Rectangle Width="9" Height="10" Fill="#7AA68B" HorizontalAlignment="Left"
+                                           VerticalAlignment="Bottom" Margin="19,0,0,7" />
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- Facts -->
+            <UniformGrid Columns="4" Margin="0,0,0,16">
+                <Border Style="{StaticResource CardStyle}" Padding="16,13" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="JAVA  /  运行时" Style="{StaticResource FactLabel}" />
+                        <TextBlock Text="{Binding EffectiveJavaText}" Style="{StaticResource FactValue}"
+                                   ToolTip="{Binding EffectiveJavaText}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CardStyle}" Padding="16,13" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="MEMORY  /  分配内存" Style="{StaticResource FactLabel}" />
+                        <TextBlock Text="{Binding MemoryMb, StringFormat={}{0} MB}" Style="{StaticResource FactValue}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CardStyle}" Padding="16,13" Margin="0,0,10,0">
+                    <StackPanel>
+                        <TextBlock Text="LAST PLAYED  /  最后启动" Style="{StaticResource FactLabel}" />
+                        <TextBlock Text="{Binding SelectedVersion.LastLaunchLabel, TargetNullValue=从未启动}"
+                                   Style="{StaticResource FactValue}" />
+                    </StackPanel>
+                </Border>
+                <Border Style="{StaticResource CardStyle}" Padding="16,13">
+                    <StackPanel>
+                        <TextBlock Text="VERSION  /  实例类型" Style="{StaticResource FactLabel}" />
+                        <TextBlock Text="{Binding SelectedVersion.KindLabel, TargetNullValue=本地实例}"
+                                   Style="{StaticResource FactValue}" />
+                    </StackPanel>
+                </Border>
+            </UniformGrid>
+
+            <!-- Mods -->
+            <Border Style="{StaticResource CardStyle}" Padding="20,16">
+                <StackPanel>
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="MODS  /  LOCAL" FontFamily="{DynamicResource MonoFont}"
+                                       FontSize="10" Foreground="{DynamicResource Faint}" />
+                            <TextBlock Text="已安装模组" FontSize="18" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Text}" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="打开 mods" Style="{StaticResource GhostButton}" Padding="12,7"
+                                    Command="{Binding Mods.OpenModsFolderCommand}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="当前实例的模组列表。只显示本地实际存在的 jar；启用状态来自文件名。"
+                               FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,0,0,10" />
+
+                    <ItemsControl ItemsSource="{Binding Mods.Mods}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource BorderColor}" BorderThickness="0,1,0,0"
+                                        Padding="0,9">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <CheckBox IsChecked="{Binding Enabled, Mode=OneWay}" IsHitTestVisible="False"
+                                                  VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding FileName}" FontFamily="{DynamicResource MonoFont}"
+                                                       FontSize="9.5" Foreground="{DynamicResource Muted}"
+                                                       Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Content="启用 / 禁用" Style="{StaticResource GhostButton}"
+                                                Padding="10,5" FontSize="10.5" VerticalAlignment="Center"
+                                                Command="{Binding DataContext.Mods.ToggleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="还没有模组。把 jar 放进 mods 目录后点「打开 mods」查看。"
+                               FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,10,0,0"
+                               Visibility="{Binding Mods.HasMods, Converter={StaticResource InverseBoolToVisibility}}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

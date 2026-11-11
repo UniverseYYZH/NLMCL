@@ -244,6 +244,7 @@ namespace NLMCL.App.ViewModels
             CurrentGameDirectory = paths.DefaultMinecraftDirectory;
 
             NavigationItem versions = new NavigationItem("世界库", "扫描本地 .minecraft", ShellSection.Versions);
+            NavigationItem world = new NavigationItem("世界", "当前实例详情", ShellSection.World);
             NavigationItem consoleNav = new NavigationItem("日志", "多实例控制台", ShellSection.Launch);
             NavigationItem multiplayer = new NavigationItem("联机", "局域网与直连", ShellSection.Multiplayer);
             NavigationItem ningli = new NavigationItem("方块宁理", "宝可梦与还原服", ShellSection.Ningli);
@@ -257,14 +258,14 @@ namespace NLMCL.App.ViewModels
 
             NavigationGroups = new ReadOnlyCollection<NavigationGroup>(new List<NavigationGroup>
             {
-                new NavigationGroup("工作区", new[] { versions, consoleNav, multiplayer, ningli, snapshot, lanScanNav, settings }),
+                new NavigationGroup("工作区", new[] { versions, world, consoleNav, multiplayer, ningli, snapshot, lanScanNav, settings }),
                 new NavigationGroup("工具", new[] { downloadNav, import, modsNav, skinNav })
             });
 
             // F 顶部导航顺序与逻辑分组解耦：分组保留给内部逻辑/测试，顶部按 F 排列。
             TopNavigation = new ReadOnlyCollection<NavigationItem>(new[]
             {
-                versions, downloadNav, multiplayer, ningli, snapshot, skinNav, consoleNav, settings
+                versions, world, downloadNav, multiplayer, ningli, snapshot, skinNav, consoleNav, settings
             });
             SelectSection(versions);
 
@@ -730,6 +731,9 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isVersionsSection = true;
 
+        /// <summary>当前显示「世界」实例详情页。</summary>
+        [ObservableProperty]
+        private bool _isWorldSection;
 
         /// <summary>是否停在「实例快照」页。</summary>
         [ObservableProperty]
@@ -1600,6 +1604,7 @@ namespace NLMCL.App.ViewModels
             SelectedNavigation = item;
 
             IsVersionsSection = item.Section == ShellSection.Versions;
+            IsWorldSection = item.Section == ShellSection.World;
             IsDownloadSection = item.Section == ShellSection.Download;
 
             IsLaunchSection = item.Section == ShellSection.Launch;

@@ -50,6 +50,7 @@ namespace NLMCL.Tests
         }
 
         [Theory]
+        [InlineData("world")]
         [InlineData("ningli")]
         [InlineData("snapshot")]
         [InlineData("skin")]
@@ -70,6 +71,7 @@ namespace NLMCL.Tests
 
             Assert.True(page switch
             {
+                "world" => vm.IsWorldSection,
                 "ningli" => vm.IsNingliSection,
                 "snapshot" => vm.IsSnapshotSection,
                 "skin" => vm.IsSkinSection,
@@ -82,6 +84,7 @@ namespace NLMCL.Tests
 
         [Theory]
         [InlineData(ShellSection.Versions, "versions")]
+        [InlineData(ShellSection.World, "world")]
         [InlineData(ShellSection.Download, "download")]
         [InlineData(ShellSection.Multiplayer, "multiplayer")]
         [InlineData(ShellSection.Ningli, "ningli")]
@@ -116,7 +119,7 @@ namespace NLMCL.Tests
                 new TestSupport.EmptyCatalog(), new AppPaths(@"C:\Temp\roaming"));
 
             Assert.Equal(
-                new[] { "上次页面", "世界库", "下载中心", "联机", "方块宁理", "快照", "皮肤", "日志", "设置" },
+                new[] { "上次页面", "世界库", "世界", "下载中心", "联机", "方块宁理", "快照", "皮肤", "日志", "设置" },
                 vm.DefaultPageOptions);
         }
     }

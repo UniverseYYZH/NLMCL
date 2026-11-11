@@ -22,7 +22,9 @@ namespace NLMCL.App.ViewModels
 
         Mods = 9,
 
-        Ningli = 10
+        Ningli = 10,
+
+        World = 11
     }
 
     /// <summary>

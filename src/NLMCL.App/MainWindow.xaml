@@ -9,6 +9,7 @@
         MinHeight="620" MinWidth="980"
         WindowStartupLocation="CenterScreen"
         FontFamily="{DynamicResource UiFont}"
+        FontSize="13"
         Background="{DynamicResource Bg}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
@@ -746,6 +747,10 @@
                     </ScrollViewer>
                 </Grid>
             </Grid>
+            <!-- 世界实例详情 -->
+            <views:WorldPage Margin="26,18,26,12"
+                             Visibility="{Binding IsWorldSection, Converter={StaticResource BoolToVisibility}}" />
+
             <!-- 设置页：页头由 SettingsPage 自己负责，避免重复 -->
             <views:SettingsPage x:Name="SettingsView" Margin="26,18,26,12"
                                 Visibility="{Binding DataContext.IsSettingsSection,

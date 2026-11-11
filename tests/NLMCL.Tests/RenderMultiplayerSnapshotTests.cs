@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -42,7 +43,7 @@ namespace NLMCL.Tests
                     vm.RefreshJoinChecks();
                     Assert.Equal(2, vm.VisibleServerProfileCount);
 
-                    vm.SelectSection(vm.NavigationGroups[0].Items[2]);
+                    vm.SelectSection(vm.NavigationGroups.SelectMany(g => g.Items).First(i => i.Section == ShellSection.Multiplayer));
                     Assert.True(vm.IsMultiplayerSection);
 
                     vm.MyPort = "54321";
@@ -118,7 +119,7 @@ namespace NLMCL.Tests
                         paths,
                         lanScan: new LanScanViewModel(new EmptyLanScanner(), new TestSupport.FakeClipboard()));
 
-                    vm.SelectSection(vm.NavigationGroups[0].Items[2]);
+                    vm.SelectSection(vm.NavigationGroups.SelectMany(g => g.Items).First(i => i.Section == ShellSection.Multiplayer));
                     Assert.True(vm.IsMultiplayerSection);
                     Assert.NotNull(vm.LanScan);
 

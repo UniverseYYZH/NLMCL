@@ -60,8 +60,8 @@ namespace NLMCL.Tests
         {
             MainViewModel vm = Create();
 
-            Assert.Equal(8, vm.TopNavigation.Count);
-            NavigationItem ningli = vm.TopNavigation[3];
+            Assert.Equal(9, vm.TopNavigation.Count);
+            NavigationItem ningli = vm.TopNavigation[4];
             Assert.Equal(ShellSection.Ningli, ningli.Section);
             Assert.Equal("方块宁理", ningli.Title);
 
@@ -147,7 +147,7 @@ namespace NLMCL.Tests
 
             Assert.Equal(2, vm.NavigationGroups.Count);
             Assert.Equal("工作区", vm.NavigationGroups[0].Caption);
-            Assert.Equal(7, vm.NavigationGroups[0].Items.Count);
+            Assert.Equal(8, vm.NavigationGroups[0].Items.Count);
             Assert.Equal("工具", vm.NavigationGroups[1].Caption);
             Assert.Equal(4, vm.NavigationGroups[1].Items.Count); // 版本下载 / 导入资源 / Mod 管理 / 皮肤
 

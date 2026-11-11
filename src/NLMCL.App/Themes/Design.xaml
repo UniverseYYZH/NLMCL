@@ -41,7 +41,9 @@
     <SolidColorBrush x:Key="FrameMuted" Color="#F2D7D1" />
     <SolidColorBrush x:Key="OnPrimary" Color="#FFFFFF" />
 
-    <FontFamily x:Key="UiFont">Microsoft YaHei UI</FontFamily>
+    <FontFamily x:Key="UiFont">Segoe UI Variable Text, Microsoft YaHei UI</FontFamily>
+    <FontFamily x:Key="DisplayFont">Georgia, Microsoft YaHei UI</FontFamily>
+    <FontFamily x:Key="MonoFont">Cascadia Mono, Consolas</FontFamily>
 
     <!-- ===== 卡片 ===== -->
     <Style x:Key="CardStyle" TargetType="Border">

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -155,7 +155,8 @@ namespace NLMCL.Tests
                     MainViewModel vm = TestSupport.CreateMain(new PclVersionCatalog(), new AppPaths(roaming));
 
                     // 切到「启动与日志」分区
-                    vm.SelectSection(vm.NavigationGroups[0].Items[1]);
+                    vm.SelectSection(vm.NavigationGroups.SelectMany(g => g.Items)
+                        .First(i => i.Section == ShellSection.Launch));
                     Assert.True(vm.IsLaunchSection);
 
                     // 塞几行有代表性的日志，覆盖三种标签 + 普通行

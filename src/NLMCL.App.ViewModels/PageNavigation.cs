@@ -7,7 +7,7 @@ namespace NLMCL.App.ViewModels
     internal static class PageNavigation
     {
         public static IReadOnlyList<string> DefaultOptions { get; }
-            = new[] { "上次页面", "世界库", "下载中心", "联机", "方块宁理", "快照", "皮肤", "日志", "设置" };
+            = new[] { "上次页面", "世界库", "世界", "下载中心", "联机", "方块宁理", "快照", "皮肤", "日志", "设置" };
 
         public static string ToKey(string? text)
         {
@@ -15,6 +15,8 @@ namespace NLMCL.App.ViewModels
             {
                 case "上次页面":
                     return "last";
+                case "世界":
+                    return "world";
                 case "下载中心":
                     return "download";
                 case "联机":
@@ -41,6 +43,8 @@ namespace NLMCL.App.ViewModels
             {
                 case "last":
                     return "上次页面";
+                case "world":
+                    return "世界";
                 case "download":
                     return "下载中心";
                 case "multiplayer":
@@ -66,6 +70,9 @@ namespace NLMCL.App.ViewModels
             {
                 case ShellSection.Versions:
                     key = "versions";
+                    return true;
+                case ShellSection.World:
+                    key = "world";
                     return true;
                 case ShellSection.Download:
                     key = "download";
@@ -98,6 +105,8 @@ namespace NLMCL.App.ViewModels
         {
             switch (key)
             {
+                case "world":
+                    return ShellSection.World;
                 case "download":
                 case "import":
                 case "mods":
