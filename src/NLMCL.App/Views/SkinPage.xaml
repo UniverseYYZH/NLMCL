@@ -332,13 +332,6 @@
                                                                    Stretch="Uniform"
                                                                    RenderOptions.BitmapScalingMode="HighQuality" />
                                                         </Button>
-                                                        <Border Background="{DynamicResource Amber}" CornerRadius="6"
-                                                                Padding="5,1" Margin="0,3,3,0"
-                                                                HorizontalAlignment="Right" VerticalAlignment="Top"
-                                                                ToolTip="收藏数">
-                                                            <TextBlock Text="{Binding LikesText}" FontSize="8.5"
-                                                                       FontWeight="SemiBold" Foreground="#FFF8EC" />
-                                                        </Border>
                                                     </Grid>
                                                     <TextBlock Text="{Binding Name}" FontSize="9.5"
                                                                Foreground="{DynamicResource Text}"
