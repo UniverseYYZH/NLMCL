@@ -44,6 +44,12 @@ namespace NLMCL.Tests
                 Directory.CreateDirectory(saves);
                 File.WriteAllText(Path.Combine(saves, "level.dat"), "keep");
 
+                // 存档目录里同名后缀的目录也不能当成下载缓存。
+                string saveParts = Path.Combine(saves, "data.parts");
+                Directory.CreateDirectory(saveParts);
+                File.WriteAllText(Path.Combine(saveParts, "0.part"), "keep");
+                Directory.SetLastWriteTimeUtc(saveParts, DateTime.UtcNow.AddHours(-8));
+
                 string logs = Path.Combine(paths.DataRoot, "logs");
                 Directory.CreateDirectory(logs);
                 string oldLog = Path.Combine(logs, "crash-old.log");
@@ -93,6 +99,7 @@ namespace NLMCL.Tests
                 Assert.False(Directory.Exists(oldParts));
                 Assert.True(Directory.Exists(newParts));
                 Assert.True(File.Exists(Path.Combine(saves, "level.dat")));
+                Assert.True(Directory.Exists(saveParts));
                 Assert.False(File.Exists(oldLog));
                 Assert.True(File.Exists(newLog));
                 Assert.False(File.Exists(broken));

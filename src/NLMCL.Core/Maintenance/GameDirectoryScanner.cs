@@ -91,6 +91,20 @@ namespace NLMCL.Core.Maintenance
 
                     roots = GetOtherDriveRoots();
 
+                    // C 盘不整盘扫，但常见的手动安装位置要覆盖。
+                    string systemDrive = Path.GetPathRoot(
+                        Environment.GetFolderPath(Environment.SpecialFolder.Windows)) ?? "C:\\";
+
+                    foreach (string common in new[] { "Games", "MC", "Minecraft" })
+                    {
+                        string candidate = Path.Combine(systemDrive, common);
+
+                        if (Directory.Exists(candidate))
+                        {
+                            roots.Add(candidate);
+                        }
+                    }
+
                     if (!Directory.Exists(primary))
                     {
                         // 标准位置不存在时才退回用户目录，仍不扫整个 C 盘。

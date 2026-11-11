@@ -188,25 +188,42 @@ namespace NLMCL.Core.Maintenance
 
             DateTime cutoff = DateTime.UtcNow - DownloadPartsMinAge;
 
-            foreach (string directory in EnumerateDirectoriesSafe(
-                gameDirectory, "*.parts", SearchOption.AllDirectories))
+            // 只扫描下载器实际会写入的目录；saves/config 里同名的用户目录不能碰。
+            string[] downloadRoots =
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                "assets", "cache", "libraries", "mods",
+                "resourcepacks", "shaderpacks", "versions"
+            };
 
-                try
+            foreach (string name in downloadRoots)
+            {
+                string downloadRoot = Path.Combine(gameDirectory, name);
+
+                if (!Directory.Exists(downloadRoot))
                 {
-                    if (Directory.GetLastWriteTimeUtc(directory) >= cutoff)
-                    {
-                        continue;
-                    }
-
-                    category.Entries.Add(new CacheEntry(
-                        directory, true, DirectorySize(directory), gameDirectory));
+                    continue;
                 }
-                catch (Exception ex) when (
-                    ex is IOException || ex is UnauthorizedAccessException)
+
+                foreach (string directory in EnumerateDirectoriesSafe(
+                    downloadRoot, "*.parts", SearchOption.AllDirectories))
                 {
-                    // 单个目录不可读不影响其他缓存。
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    try
+                    {
+                        if (Directory.GetLastWriteTimeUtc(directory) >= cutoff)
+                        {
+                            continue;
+                        }
+
+                        category.Entries.Add(new CacheEntry(
+                            directory, true, DirectorySize(directory), gameDirectory));
+                    }
+                    catch (Exception ex) when (
+                        ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        // 单个目录不可读不影响其他缓存。
+                    }
                 }
             }
 
