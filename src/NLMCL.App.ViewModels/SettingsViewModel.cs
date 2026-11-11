@@ -181,7 +181,9 @@ namespace NLMCL.App.ViewModels
                 string keywords = string.IsNullOrEmpty(_activeSettingsGroup)
                     ? string.Empty
                     : match.Keywords.Split(' ')[0];
-                SearchInput = keywords;
+
+                // 分组是过滤维度，不写进搜索框；否则用户会以为自己搜过东西。
+                SearchInput = string.Empty;
                 SettingsSearchText = keywords;
             }
             finally

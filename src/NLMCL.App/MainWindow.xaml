@@ -190,7 +190,8 @@
             <Setter Property="FontSize" Value="13.5" />
             <Setter Property="FontWeight" Value="Medium" />
             <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Focusable" Value="True" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
@@ -203,6 +204,11 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#6B1010" />
+                                <Setter Property="Foreground" Value="{DynamicResource FrameText}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Line" Property="Background" Value="{DynamicResource FrameText}" />
                                 <Setter TargetName="Bd" Property="Background" Value="#6B1010" />
                                 <Setter Property="Foreground" Value="{DynamicResource FrameText}" />
                             </Trigger>
@@ -314,7 +320,7 @@
                         CornerRadius="8" Padding="9,5" ToolTip="离线可用">
                     <StackPanel Orientation="Horizontal">
                         <Ellipse Width="6" Height="6" Fill="{DynamicResource Primary}" Margin="0,0,6,0" />
-                        <TextBlock Text="本地服务在线" FontSize="10.5"
+                        <TextBlock Text="本地可用" FontSize="10.5"
                                    Foreground="{DynamicResource Muted}" />
                     </StackPanel>
                 </Border>
@@ -822,6 +828,23 @@
 
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <ItemsControl ItemsSource="{Binding VersionDetailsLines}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,0,0,7">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="112" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Label}" FontSize="10.5"
+                                                   Foreground="{DynamicResource Muted}"
+                                                   VerticalAlignment="Top" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11.5"
+                                                   Foreground="{DynamicResource Text}"
+                                                   FontFamily="{DynamicResource MonoFont}"
+                                                   TextWrapping="Wrap" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
                 </DockPanel>

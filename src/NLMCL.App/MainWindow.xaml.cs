@@ -85,14 +85,16 @@ namespace NLMCL.App
                 StatusToast.BeginAnimation(UIElement.OpacityProperty, fadeIn);
             }
 
-            _toastTimer = new System.Windows.Threading.DispatcherTimer
+            // 定时器必须捕获自己这一实例：若 Tick 里读 _toastTimer 字段，
+            // 新提示替换字段后，旧计时器会误停新计时器，提前掐掉新提示。
+            System.Windows.Threading.DispatcherTimer timer = new System.Windows.Threading.DispatcherTimer
             {
                 Interval = System.TimeSpan.FromSeconds(3.2)
             };
 
-            _toastTimer.Tick += (sender, args) =>
+            timer.Tick += (sender, args) =>
             {
-                _toastTimer.Stop();
+                timer.Stop();
 
                 if (_viewModel.ReduceMotion)
                 {
@@ -107,7 +109,8 @@ namespace NLMCL.App
                 StatusToast.BeginAnimation(UIElement.OpacityProperty, fadeOut);
             };
 
-            _toastTimer.Start();
+            _toastTimer = timer;
+            timer.Start();
         }
 
         private System.Windows.Threading.DispatcherTimer? _toastTimer;

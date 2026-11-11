@@ -181,6 +181,15 @@ namespace NLMCL.Core.Snapshots
             if (!string.IsNullOrWhiteSpace(versionFolder))
             {
                 string isolated = Path.Combine(minecraftDirectory, "versions", versionFolder!);
+
+                // 实例目录整个消失时不能再回落到 .minecraft 根：
+                // 那会把快照写进别的实例/根目录，造成跨实例污染。
+                if (!Directory.Exists(isolated))
+                {
+                    throw new InvalidOperationException(
+                        "实例目录不存在，已停止回滚：" + isolated);
+                }
+
                 if (Items.Any(item => Exists(Path.Combine(isolated, item))))
                 {
                     return isolated;

@@ -86,10 +86,12 @@ namespace NLMCL.Core.Installing
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 Task reporter = ReportProgressAsync(targetPath, total, progress, polling.Token);
+                bool completed = false;
 
                 try
                 {
                     await DownloadAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
+                    completed = true;
                 }
                 finally
                 {
@@ -103,7 +105,8 @@ namespace NLMCL.Core.Installing
                     {
                     }
 
-                    progress.Report(1);
+                    // 取消/失败不能假装 100% 完成，否则用户看到“满进度 + 安装失败”。
+                    progress.Report(completed ? 1 : 0);
                 }
             }
         }
@@ -128,10 +131,12 @@ namespace NLMCL.Core.Installing
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 Task reporter = ReportByteProgressAsync(targetPath, total, progress, polling.Token);
+                bool completed = false;
 
                 try
                 {
                     await DownloadAsync(url, targetPath, cancellationToken).ConfigureAwait(false);
+                    completed = true;
                 }
                 finally
                 {
@@ -145,7 +150,7 @@ namespace NLMCL.Core.Installing
                     {
                     }
 
-                    long final = CurrentDownloadedBytes(targetPath);
+                    long final = completed ? CurrentDownloadedBytes(targetPath) : 0;
                     progress.Report(new FileDownloadProgress(final, total > 0 ? total : final));
                 }
             }

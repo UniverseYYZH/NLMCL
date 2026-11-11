@@ -147,6 +147,24 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Launch_keeps_global_jvm_arguments()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            RecordingLauncher launcher = new RecordingLauncher();
+            MainViewModel vm = Create(catalog, launcher, new FixedJavaLocator(TestSupport.CreateJava(21)));
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            vm.DefaultJvmArgs = "-XX:+UseG1GC -XX:MaxGCPauseMillis=50";
+
+            await vm.LaunchSelectedAsync();
+
+            Assert.NotNull(launcher.LastRequest);
+            Assert.Contains("UseG1GC", launcher.LastRequest!.ExtraJvmArguments);
+        }
+
+        [Fact]
         public async Task Successful_launch_records_last_launch_time()
         {
             CountingCatalog catalog = new CountingCatalog(

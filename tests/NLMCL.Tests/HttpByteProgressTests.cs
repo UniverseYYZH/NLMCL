@@ -84,6 +84,13 @@ namespace NLMCL.Tests
 
                 try
                 {
+                    if (context.Request.Url != null
+                        && context.Request.Url.AbsolutePath.Contains("missing"))
+                    {
+                        context.Response.StatusCode = 404;
+                        continue;
+                    }
+
                     context.Response.ContentType = "application/octet-stream";
                     context.Response.ContentLength64 = _payload.Length;
 
@@ -120,6 +127,23 @@ namespace NLMCL.Tests
             Assert.Equal(_payload.Length, last.Received);
             Assert.Equal(_payload.Length, last.Total);
             Assert.Contains(reports, item => item.Received > 0 && item.Total == _payload.Length);
+        }
+
+        [Fact]
+        public async Task Failure_does_not_report_a_completed_progress()
+        {
+            List<FileDownloadProgress> reports = new List<FileDownloadProgress>();
+            HttpFileDownloader downloader = new HttpFileDownloader();
+            string target = Path.Combine(_workDir, "missing.bin");
+
+            await Assert.ThrowsAnyAsync<Exception>(() => downloader.DownloadAsync(
+                _baseUrl + "missing.bin",
+                target,
+                new InlineProgress(reports.Add),
+                CancellationToken.None));
+
+            Assert.NotEmpty(reports);
+            Assert.Equal(0, reports[reports.Count - 1].Received);
         }
 
         private sealed class InlineProgress : IProgress<FileDownloadProgress>

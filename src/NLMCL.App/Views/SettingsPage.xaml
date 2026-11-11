@@ -99,9 +99,8 @@
                         Background="{DynamicResource Surface}" BorderBrush="{DynamicResource BorderColor}"
                         Foreground="{DynamicResource Primary}"
                         Command="{Binding DataContext.ToggleAccountPopupCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
-                <Button Content="保存设置" Style="{StaticResource PrimaryButton}" Padding="17,9"
-                        Margin="8,0,0,0"
-                        Command="{Binding DataContext.SaveSettingsCommand, RelativeSource={RelativeSource AncestorType=Window}}" />
+                <TextBlock Text="修改后自动保存" FontSize="11.5" Foreground="{DynamicResource Muted}"
+                           VerticalAlignment="Center" Margin="12,0,2,0" />
             </StackPanel>
         </Grid>
 

@@ -19,6 +19,8 @@ namespace NLMCL.Tests
 
             public int CreateCalls { get; private set; }
 
+            public int RestoreCalls { get; private set; }
+
             public Task<IReadOnlyList<SnapshotInfo>> ListAsync(CancellationToken cancellationToken)
                 => Task.FromResult<IReadOnlyList<SnapshotInfo>>(new List<SnapshotInfo>(Items));
 
@@ -40,7 +42,10 @@ namespace NLMCL.Tests
             }
 
             public Task RestoreAsync(SnapshotInfo snapshot, string minecraftDirectory, CancellationToken cancellationToken)
-                => Task.CompletedTask;
+            {
+                RestoreCalls++;
+                return Task.CompletedTask;
+            }
 
             public Task DeleteAsync(string snapshotId, CancellationToken cancellationToken)
             {
@@ -112,6 +117,29 @@ namespace NLMCL.Tests
 
             Assert.Equal(1, dialogs.Calls);
             Assert.Single(snapshots.Items);
+            Assert.Contains("已取消", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Restoring_asks_for_confirmation_and_cancel_changes_nothing()
+        {
+            FakeSnapshots snapshots = new FakeSnapshots();
+            snapshots.Items.Add(new SnapshotInfo(
+                "s1", "1.20.1", "1.20.1", "回滚点", DateTimeOffset.Now, 1024, 1, new[] { "saves" }));
+
+            FakeDialogs dialogs = new FakeDialogs(false);
+            MainViewModel vm = TestSupport.CreateMain(
+                new OneVersionCatalog(), new AppPaths(@"C:\Temp\roaming"),
+                snapshotService: snapshots, dialogs: dialogs);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.OpenSnapshotsAsync();
+
+            await vm.RestoreSnapshotAsync(vm.Snapshots[0]);
+
+            Assert.Equal(1, dialogs.Calls);
+            Assert.Equal(0, snapshots.RestoreCalls);
             Assert.Contains("已取消", vm.StatusText);
         }
 

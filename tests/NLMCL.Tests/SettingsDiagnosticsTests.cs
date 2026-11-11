@@ -20,6 +20,7 @@ namespace NLMCL.Tests
             vm.Settings.SelectSettingsGroupCommand.Execute("game");
 
             Assert.Equal("游戏", vm.Settings.SettingsSearchText);
+            Assert.Equal(string.Empty, vm.Settings.SearchInput);
             Assert.True(vm.Settings.IsGameGroupActive);
             Assert.False(vm.Settings.HasNoSettingsSearchResults);
         }

@@ -3224,6 +3224,16 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            // 回滚会覆盖 saves/config/options.txt，属于不可逆操作；没有对话框端口时按确认处理（单测/降级）
+            if (_dialogs != null && !_dialogs.Confirm(
+                    "回滚快照",
+                    "将用快照「" + snapshot.Title + "」覆盖当前实例的 saves、config、options.txt。\n\n"
+                    + "回滚前会自动备份当前状态，但仍建议先确认这是正确的实例。"))
+            {
+                StatusText = "已取消回滚。";
+                return;
+            }
+
             IsSnapshotBusy = true;
             StatusText = "正在回滚到「" + snapshot.Title + "」…";
 
@@ -4185,7 +4195,7 @@ namespace NLMCL.App.ViewModels
                             ? "该版本需要 Java " + required.Value
                                 + "，本机只有 " + JavaRequirements.Describe(javas)
                                 + "（不兼容）。请安装 Java " + required.Value + "。"
-                            : "没有找到可用的 Java，请先安装 JDK 17 或更高版本";
+                            : "没有找到可用的 Java。请安装该版本所需的 Java 运行时后重试";
                         return;
                     }
 
@@ -4201,7 +4211,7 @@ namespace NLMCL.App.ViewModels
 
                 if (string.IsNullOrEmpty(javaExecutable))
                 {
-                    StatusText = "没有找到可用的 Java，请先安装 JDK 17 或更高版本";
+                    StatusText = "没有找到可用的 Java。请安装该版本所需的 Java 运行时后重试";
                     return;
                 }
 
@@ -4226,12 +4236,19 @@ namespace NLMCL.App.ViewModels
                 // 失败就明确报错，不要带着空身份启动（服务器会直接踢人，日志还看不出原因）。
                 try
                 {
-            // 全局 JVM 参数（设置页）拼在外置登录注入的参数之前
-            string globalJvm = string.IsNullOrWhiteSpace(DefaultJvmArgs) ? string.Empty : DefaultJvmArgs.Trim();
+                    // 全局 JVM 参数（设置页）拼在外置登录注入的参数之前。
+                    // 这里以前算出了 globalJvm 却直接覆盖，导致设置页的输入框完全不生效。
+                    string globalJvm = string.IsNullOrWhiteSpace(DefaultJvmArgs)
+                        ? string.Empty
+                        : DefaultJvmArgs.Trim();
 
-                    request.ExtraJvmArguments = await ExternalLaunch
+                    string? externalJvm = await ExternalLaunch
                         .BuildJvmArgumentsAsync(Account, _authlibInjector, CancellationToken.None)
                         .ConfigureAwait(true);
+
+                    request.ExtraJvmArguments = string.Join(" ",
+                        new[] { globalJvm, externalJvm ?? string.Empty }
+                            .Where(part => !string.IsNullOrWhiteSpace(part)));
                 }
                 catch (Exception ex)
                 {

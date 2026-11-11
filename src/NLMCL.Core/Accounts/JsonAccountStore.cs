@@ -208,10 +208,10 @@ namespace NLMCL.Core.Accounts
                 foreach (JObject item in array.OfType<JObject>())
                 {
                     Account? account = FromJson(item);
-                    account.LastUsed = ParseLastUsed(item);
 
                     if (account != null)
                     {
+                        account.LastUsed = ParseLastUsed(item);
                         set.Entries.Add(item);
                         set.Accounts.Add(account);
                     }

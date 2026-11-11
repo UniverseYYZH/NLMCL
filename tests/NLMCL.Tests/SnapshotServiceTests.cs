@@ -140,6 +140,33 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Restore_refuses_to_fall_back_when_the_instance_is_gone()
+        {
+            string root = NewRoot();
+            try
+            {
+                CreateIsolatedInstance(root, "1.20.1");
+                SnapshotService service = new SnapshotService(PathsOf(root));
+                string mc = Path.Combine(root, ".minecraft");
+
+                SnapshotInfo snapshot = await service.CreateAsync(
+                    mc, "1.20.1", "实例还在时", CancellationToken.None);
+
+                Directory.Delete(Path.Combine(mc, "versions", "1.20.1"), true);
+
+                InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                    service.RestoreAsync(snapshot, mc, CancellationToken.None));
+
+                Assert.Contains("实例目录不存在", error.Message);
+                Assert.False(Directory.Exists(Path.Combine(mc, "saves")));
+            }
+            finally
+            {
+                TryDelete(root);
+            }
+        }
+
+        [Fact]
         public async Task List_is_newest_first_and_delete_removes_it()
         {
             string root = NewRoot();

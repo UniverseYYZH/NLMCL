@@ -136,6 +136,37 @@ namespace NLMCL.Tests
             }
         }
 
+        [Fact]
+        public async Task Unreadable_account_entry_does_not_break_the_account_list()
+        {
+            string root = NewRoot();
+            AppPaths paths = new AppPaths(root);
+            JsonAccountStore store = new JsonAccountStore(paths);
+
+            try
+            {
+                Directory.CreateDirectory(paths.DataRoot);
+                File.WriteAllText(paths.AccountsFile, @"{
+  ""current"": ""2b570d8b-14df-3270-83c9-a36d7bd8f614"",
+  ""accounts"": [
+    { ""name"": """", ""uuid"": """", ""type"": ""Offline"" },
+    { ""name"": ""Steve"", ""uuid"": ""2b570d8b-14df-3270-83c9-a36d7bd8f614"", ""type"": ""Offline"" }
+  ]
+}");
+
+                // 单条坏记录（缺 name/uuid）不能让整个账号列表 NRE
+                System.Collections.Generic.IReadOnlyList<Account> accounts =
+                    await store.LoadAllAsync(CancellationToken.None);
+
+                Account only = Assert.Single(accounts);
+                Assert.Equal("Steve", only.Name);
+            }
+            finally
+            {
+                TryDelete(root);
+            }
+        }
+
         private static void TryDelete(string path)
         {
             try
