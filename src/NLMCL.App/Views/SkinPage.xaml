@@ -89,12 +89,15 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" Text="{Binding LocalSearchText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="按本地皮肤名称搜索" Padding="7,5" FontSize="10"
+                                         AutomationProperties.Name="搜索本地皮肤"
                                          Background="{DynamicResource Surface}"
                                          BorderBrush="{DynamicResource BorderColor}" />
                                 <ComboBox Grid.Column="1" Margin="6,0,0,0" Padding="6,4" FontSize="10"
+                                          AutomationProperties.Name="本地皮肤类型筛选"
                                           ItemsSource="{Binding LocalTypeFilters}"
                                           SelectedItem="{Binding LocalTypeFilter}" />
                                 <ComboBox Grid.Column="2" Margin="6,0,0,0" Padding="6,4" FontSize="10"
+                                          AutomationProperties.Name="本地皮肤使用筛选"
                                           ItemsSource="{Binding LocalUsageFilters}"
                                           SelectedItem="{Binding LocalUsageFilter}" />
                             </Grid>
@@ -108,15 +111,18 @@
                                 <TextBlock Text="排序" FontSize="9.5" VerticalAlignment="Center"
                                            Foreground="{DynamicResource Faint}" />
                                 <ComboBox Grid.Column="1" Width="112" Margin="6,0,0,0" Padding="6,4" FontSize="10"
+                                          AutomationProperties.Name="本地皮肤排序"
                                           ItemsSource="{Binding LocalSortOptions}"
                                           SelectedItem="{Binding LocalSortOption}" />
                                 <Button Grid.Column="2" Content="{Binding LocalSortDirectionLabel}"
                                         Style="{StaticResource GhostButton}" Padding="9,4" FontSize="10"
                                         HorizontalAlignment="Left" Margin="6,0,0,0"
                                         Command="{Binding ToggleLocalSortDirectionCommand}"
+                                        AutomationProperties.Name="切换本地皮肤排序方向"
                                         ToolTip="切换升序 / 降序" />
                                 <Button Grid.Column="3" Content="清除筛选" Style="{StaticResource GhostButton}"
                                         Padding="9,4" FontSize="9.5"
+                                        AutomationProperties.Name="清除本地皮肤筛选"
                                         Click="ClearLocalFilters_Click" />
                             </Grid>
                             <ScrollViewer MaxHeight="182" Margin="0,8,0,0"
@@ -193,6 +199,7 @@
                                     <Button Content="‹" Style="{StaticResource GhostButton}"
                                             Width="24" Height="24" Padding="0" FontSize="13"
                                             Command="{Binding PrevLibraryPageCommand}"
+                                            AutomationProperties.Name="MUA 上一页"
                                             ToolTip="上一页"
                                             IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
                                     <TextBlock VerticalAlignment="Center" Margin="7,0" FontSize="9"
@@ -207,11 +214,13 @@
                                     <Button Content="›" Style="{StaticResource GhostButton}"
                                             Width="24" Height="24" Padding="0" FontSize="13"
                                             Command="{Binding NextLibraryPageCommand}"
+                                            AutomationProperties.Name="MUA 下一页"
                                             ToolTip="下一页"
                                             IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
                                     <Button Content="刷新" Style="{StaticResource GhostButton}"
                                             Padding="9,4" FontSize="9" Margin="8,0,0,0"
                                             Command="{Binding RefreshLibraryCommand}"
+                                            AutomationProperties.Name="刷新 MUA 皮肤站"
                                             IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
                                 </StackPanel>
                             </Grid>
@@ -223,11 +232,13 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <ComboBox Grid.Column="0" Padding="5,4" FontSize="9.5"
+                                          AutomationProperties.Name="MUA 搜索方式"
                                           ItemsSource="{Binding MuaSearchModes}"
                                           SelectedItem="{Binding MuaSearchMode}" />
                                 <TextBox Grid.Column="1" Margin="6,0,0,0" Padding="7,5" FontSize="10"
                                          Text="{Binding MuaSearchText, UpdateSourceTrigger=PropertyChanged}"
                                          ToolTip="{Binding MuaSearchHint}"
+                                         AutomationProperties.Name="搜索 MUA 皮肤"
                                          Background="{DynamicResource Surface}"
                                          BorderBrush="{DynamicResource BorderColor}" />
                                 <Button Grid.Column="2" Content="搜索" Style="{StaticResource GhostButton}"
@@ -249,17 +260,20 @@
                                 <TextBlock Text="筛选" FontSize="9.5" VerticalAlignment="Center"
                                            Foreground="{DynamicResource Faint}" />
                                 <ComboBox Grid.Column="1" Margin="6,0,0,0" Padding="5,4" FontSize="9.5"
+                                          AutomationProperties.Name="MUA 皮肤类型筛选"
                                           ItemsSource="{Binding MuaTypeFilters}"
                                           SelectedItem="{Binding MuaTypeFilter}" />
                                 <TextBlock Grid.Column="2" Text="排序" FontSize="9.5" VerticalAlignment="Center"
                                            Margin="10,0,0,0" Foreground="{DynamicResource Faint}" />
                                 <ComboBox Grid.Column="3" Margin="6,0,0,0" Padding="5,4" FontSize="9.5"
+                                          AutomationProperties.Name="MUA 皮肤排序"
                                           ItemsSource="{Binding MuaSortOptions}"
                                           SelectedItem="{Binding MuaSortOption}" />
                                 <Button Grid.Column="4" Content="{Binding MuaSortDirectionLabel}"
                                         Style="{StaticResource GhostButton}" Padding="9,4" FontSize="10"
                                         HorizontalAlignment="Left" Margin="6,0,0,0"
                                         Command="{Binding ToggleMuaSortDirectionCommand}"
+                                        AutomationProperties.Name="切换 MUA 排序方向"
                                         ToolTip="切换升序 / 降序" />
                             </Grid>
                             <Border Background="{DynamicResource Surface}"
