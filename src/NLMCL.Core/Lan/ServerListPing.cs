@@ -35,6 +35,7 @@ namespace NLMCL.Core.Lan
 
                 if (completed != connect)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     throw new TimeoutException("连接超时：" + host + ":" + port);
                 }
 
