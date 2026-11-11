@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -25,12 +26,17 @@ namespace NLMCL.App.ViewModels
         private readonly IProfileTextureUploader? _uploader;
         private readonly IDialogService? _dialogs;
         private readonly IAppPaths? _paths;
+        private readonly SkinUsageStore _usage;
+        private readonly List<LocalSkinItem> _allLocalSkins = new List<LocalSkinItem>();
 
         private Account? _account;
         private SkinInfo? _current;
         private string? _skinPng;
         private bool _slim;
         private string _libraryRoot = "https://skin.mualliance.ltd";
+        private string? _activeUsagePath;
+        private DateTimeOffset _activeUsageSince;
+        private string? _playerSkinModel;
 
         public SkinViewModel(
             ISkinService skins,
@@ -46,9 +52,14 @@ namespace NLMCL.App.ViewModels
             _uploader = uploader;
             _dialogs = dialogs;
             _paths = paths;
+            _usage = new SkinUsageStore(paths?.DataRoot);
             LocalSkins.CollectionChanged += (_, __) => OnPropertyChanged(nameof(HasLocalSkins));
             RefreshLocalSkins();
-            LibrarySkins.CollectionChanged += (_, __) => OnPropertyChanged(nameof(HasLibrarySkins));
+            LibrarySkins.CollectionChanged += (_, __) =>
+            {
+                OnPropertyChanged(nameof(HasLibrarySkins));
+                OnPropertyChanged(nameof(ShowMuaEmptyState));
+            };
         }
 
         [ObservableProperty]
@@ -80,12 +91,56 @@ namespace NLMCL.App.ViewModels
 
         public bool HasLocalSkins => LocalSkins.Count > 0;
 
+        public IReadOnlyList<string> LocalTypeFilters { get; }
+            = new[] { "全部类型", "经典", "纤细" };
+
+        public IReadOnlyList<string> LocalUsageFilters { get; }
+            = new[] { "全部", "最近 7 天", "最近 30 天", "使用 < 1 小时", "使用 1–10 小时", "使用 > 10 小时", "从未使用" };
+
+        public IReadOnlyList<string> LocalSortOptions { get; }
+            = new[] { "获取时间", "名称", "最近使用", "使用时长" };
+
+        [ObservableProperty]
+        private string _localSearchText = string.Empty;
+
+        partial void OnLocalSearchTextChanged(string value) => ApplyLocalFilters();
+
+        [ObservableProperty]
+        private string _localTypeFilter = "全部类型";
+
+        partial void OnLocalTypeFilterChanged(string value) => ApplyLocalFilters();
+
+        [ObservableProperty]
+        private string _localUsageFilter = "全部";
+
+        partial void OnLocalUsageFilterChanged(string value) => ApplyLocalFilters();
+
+        [ObservableProperty]
+        private string _localSortOption = "获取时间";
+
+        partial void OnLocalSortOptionChanged(string value) => ApplyLocalFilters();
+
+        [ObservableProperty]
+        private bool _localSortDescending = true;
+
+        partial void OnLocalSortDescendingChanged(bool value)
+        {
+            OnPropertyChanged(nameof(LocalSortDirectionLabel));
+            ApplyLocalFilters();
+        }
+
+        public string LocalSortDirectionLabel => LocalSortDescending ? "↓" : "↑";
+
+        [RelayCommand]
+        private void ToggleLocalSortDirection()
+        {
+            LocalSortDescending = !LocalSortDescending;
+        }
+
         /// <summary>扫描本机皮肤目录；不联网，失败时只显示空库。</summary>
         [RelayCommand]
         public void RefreshLocalSkins()
         {
-            LocalSkins.Clear();
-
             if (_paths == null)
             {
                 LocalSkinStatusText = "本地皮肤目录不可用。";
@@ -94,31 +149,132 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                if (!Directory.Exists(_paths.SkinDirectory))
+                _allLocalSkins.Clear();
+
+                if (Directory.Exists(_paths.SkinDirectory))
                 {
-                    LocalSkinStatusText = "还没有本地皮肤；点「打开本地皮肤」导入一张。";
-                    return;
+                    foreach (string file in Directory.GetFiles(_paths.SkinDirectory, "*.png")
+                        .Take(300))
+                    {
+                        SkinUsageRecord? usage = _usage.Get(file);
+                        DateTime acquired;
+
+                        try
+                        {
+                            acquired = File.GetCreationTimeUtc(file);
+                        }
+                        catch (IOException)
+                        {
+                            acquired = File.GetLastWriteTimeUtc(file);
+                        }
+
+                        _allLocalSkins.Add(new LocalSkinItem(
+                            file,
+                            !string.IsNullOrEmpty(_skinPng)
+                            && string.Equals(Path.GetFullPath(file), Path.GetFullPath(_skinPng), StringComparison.OrdinalIgnoreCase),
+                            RenderLocalThumbnail(file),
+                            new DateTimeOffset(acquired, TimeSpan.Zero),
+                            usage?.LastUsedAt,
+                            usage?.TotalSeconds ?? 0,
+                            DetectLocalModel(file)));
+                    }
                 }
 
-                foreach (string file in Directory.GetFiles(_paths.SkinDirectory, "*.png")
-                    .OrderByDescending(File.GetLastWriteTimeUtc)
-                    .Take(24))
-                {
-                    LocalSkins.Add(new LocalSkinItem(
-                        file,
-                        !string.IsNullOrEmpty(_skinPng)
-                        && string.Equals(Path.GetFullPath(file), Path.GetFullPath(_skinPng), StringComparison.OrdinalIgnoreCase),
-                        RenderLocalThumbnail(file)));
-                }
-
-                LocalSkinStatusText = LocalSkins.Count == 0
+                ApplyLocalFilters();
+                LocalSkinStatusText = _allLocalSkins.Count == 0
                     ? "还没有本地皮肤；点「打开本地皮肤」导入一张。"
-                    : "共 " + LocalSkins.Count + " 张本地皮肤，点击卡片预览并使用。";
+                    : "共 " + _allLocalSkins.Count + " 张本地皮肤"
+                      + (LocalSkins.Count == _allLocalSkins.Count
+                          ? "，点击卡片预览并使用。"
+                          : "，当前筛选出 " + LocalSkins.Count + " 张。");
             }
             catch (Exception ex)
             {
                 LocalSkinStatusText = "读取本地皮肤失败：" + ex.Message;
             }
+        }
+
+        private void ApplyLocalFilters()
+        {
+            IEnumerable<LocalSkinItem> query = _allLocalSkins;
+            string search = (LocalSearchText ?? string.Empty).Trim();
+
+            if (search.Length > 0)
+            {
+                query = query.Where(item =>
+                    item.Name.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+
+            if (LocalTypeFilter == "经典")
+            {
+                query = query.Where(item => item.ModelLabel == "经典");
+            }
+            else if (LocalTypeFilter == "纤细")
+            {
+                query = query.Where(item => item.ModelLabel == "纤细");
+            }
+
+            DateTimeOffset now = DateTimeOffset.Now;
+
+            switch (LocalUsageFilter)
+            {
+                case "最近 7 天":
+                    query = query.Where(item => item.LastUsedAt.HasValue
+                        && item.LastUsedAt.Value >= now.AddDays(-7));
+                    break;
+                case "最近 30 天":
+                    query = query.Where(item => item.LastUsedAt.HasValue
+                        && item.LastUsedAt.Value >= now.AddDays(-30));
+                    break;
+                case "使用 < 1 小时":
+                    query = query.Where(item => item.UsageSeconds < 3600);
+                    break;
+                case "使用 1–10 小时":
+                    query = query.Where(item => item.UsageSeconds >= 3600
+                        && item.UsageSeconds < 36000);
+                    break;
+                case "使用 > 10 小时":
+                    query = query.Where(item => item.UsageSeconds >= 36000);
+                    break;
+                case "从未使用":
+                    query = query.Where(item => !item.LastUsedAt.HasValue && item.UsageSeconds == 0);
+                    break;
+            }
+
+            List<LocalSkinItem> rest = query.Where(item => !item.IsCurrent).ToList();
+            Func<LocalSkinItem, object> key = LocalSortOption switch
+            {
+                "名称" => item => item.Name,
+                "最近使用" => item => item.LastUsedAt ?? DateTimeOffset.MinValue,
+                "使用时长" => item => item.UsageSeconds,
+                _ => item => item.AcquiredAt
+            };
+
+            rest = (LocalSortDescending ? rest.OrderByDescending(key) : rest.OrderBy(key)).ToList();
+
+            LocalSkinItem? current = _allLocalSkins.FirstOrDefault(item => item.IsCurrent);
+
+            LocalSkins.Clear();
+
+            if (current != null)
+            {
+                LocalSkins.Add(current);
+            }
+
+            foreach (LocalSkinItem item in rest)
+            {
+                LocalSkins.Add(item);
+            }
+        }
+
+        private static string DetectLocalModel(string path)
+        {
+            string name = Path.GetFileNameWithoutExtension(path);
+
+            return name.IndexOf("slim", StringComparison.OrdinalIgnoreCase) >= 0
+                || name.IndexOf("alex", StringComparison.OrdinalIgnoreCase) >= 0
+                ? "纤细"
+                : "经典";
         }
 
         /// <summary>本地皮肤：直接预览并设为当前账号的本地皮肤。</summary>
@@ -146,6 +302,7 @@ namespace NLMCL.App.ViewModels
 
                 ModelText = "本地皮肤";
                 StatusText = "已使用本地皮肤：" + item.Name;
+                BeginUsage(saved);
                 RefreshLocalSkins();
             }
             catch (Exception ex)
@@ -153,6 +310,32 @@ namespace NLMCL.App.ViewModels
                 StatusText = "使用本地皮肤失败：" + ex.Message;
             }
         }
+
+        private void BeginUsage(string path)
+        {
+            EndUsage();
+            _activeUsagePath = path;
+            _activeUsageSince = DateTimeOffset.Now;
+            _usage.MarkUsed(path, _activeUsageSince);
+        }
+
+        private void EndUsage()
+        {
+            if (_activeUsagePath == null)
+            {
+                return;
+            }
+
+            _usage.AddDuration(_activeUsagePath, DateTimeOffset.Now - _activeUsageSince);
+            _activeUsagePath = null;
+        }
+
+        /// <summary>退出应用时由 App 调用，把当前皮肤的本次使用时长落盘。</summary>
+        public void FlushUsage()
+        {
+            EndUsage();
+        }
+
         [ObservableProperty]
         private bool _isLibraryBusy;
 
@@ -167,6 +350,96 @@ namespace NLMCL.App.ViewModels
 
         [ObservableProperty]
         private bool _isExternalAccount;
+
+        public IReadOnlyList<string> MuaSearchModes { get; }
+            = new[] { "名称", "皮肤 ID", "作者 ID", "正版玩家" };
+
+        public IReadOnlyList<string> MuaTypeFilters { get; }
+            = new[] { "全部类型", "经典", "纤细" };
+
+        public IReadOnlyList<string> MuaSortOptions { get; }
+            = new[] { "最新上传", "最多收藏", "名称" };
+
+        [ObservableProperty]
+        private string _muaSearchText = string.Empty;
+
+        [ObservableProperty]
+        private string _muaSearchMode = "名称";
+
+        partial void OnMuaSearchModeChanged(string value)
+        {
+            OnPropertyChanged(nameof(MuaSearchHint));
+        }
+
+        public string MuaSearchHint
+        {
+            get
+            {
+                switch (MuaSearchMode)
+                {
+                    case "皮肤 ID":
+                        return "输入皮肤 ID，例如 6168";
+                    case "作者 ID":
+                        return "输入作者数字 ID，例如 10445";
+                    case "正版玩家":
+                        return "输入正版玩家 ID，例如 Notch";
+                    default:
+                        return "输入皮肤名称，例如 Saber";
+                }
+            }
+        }
+
+        [ObservableProperty]
+        private string _muaTypeFilter = "全部类型";
+
+        partial void OnMuaTypeFilterChanged(string value) => ReloadLibraryForFilter();
+
+        [ObservableProperty]
+        private string _muaSortOption = "最新上传";
+
+        partial void OnMuaSortOptionChanged(string value) => ReloadLibraryForFilter();
+
+        [ObservableProperty]
+        private bool _muaSortDescending = true;
+
+        partial void OnMuaSortDescendingChanged(bool value)
+        {
+            OnPropertyChanged(nameof(MuaSortDirectionLabel));
+            ReloadLibraryForFilter();
+        }
+
+        public string MuaSortDirectionLabel => MuaSortDescending ? "↓" : "↑";
+
+        [RelayCommand]
+        private void ToggleMuaSortDirection()
+        {
+            MuaSortDescending = !MuaSortDescending;
+        }
+
+        [ObservableProperty]
+        private bool _isMuaSearching;
+
+        [ObservableProperty]
+        private string _playerSkinName = string.Empty;
+
+        [ObservableProperty]
+        private string? _playerSkinTextureUrl;
+
+        [ObservableProperty]
+        private string _playerSkinStatus = string.Empty;
+
+        [ObservableProperty]
+        private bool _isPlayerSkinBusy;
+
+        public bool HasPlayerSkinResult => !string.IsNullOrEmpty(PlayerSkinTextureUrl);
+
+        public bool ShowMuaEmptyState => !HasLibrarySkins && !HasPlayerSkinResult;
+
+        partial void OnPlayerSkinTextureUrlChanged(string? value)
+        {
+            OnPropertyChanged(nameof(HasPlayerSkinResult));
+            OnPropertyChanged(nameof(ShowMuaEmptyState));
+        }
 
         public bool CanApplyLibrarySkins => _uploader != null
             && _account != null
@@ -235,6 +508,7 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task RefreshAsync()
         {
+            EndUsage();
             int generation = ++_refreshGeneration;
             Account? account = _account;
 
@@ -661,13 +935,25 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            if (MuaSearchMode == "正版玩家")
+            {
+                LibraryStatusText = "点「搜索」解析正版玩家 ID；MUA 列表不会按玩家 ID 检索。";
+                return;
+            }
+
+            if (!TryBuildMuaQuery(out MuaSkinQuery? query, out string error))
+            {
+                LibraryStatusText = error;
+                return;
+            }
+
             IsLibraryBusy = true;
             LibraryStatusText = "正在加载 MUA 皮肤库…";
 
             try
             {
                 MuaSkinPage page = await _library
-                    .ListAsync(_libraryRoot, LibraryPage, CancellationToken.None)
+                    .QueryAsync(_libraryRoot, query, CancellationToken.None)
                     .ConfigureAwait(true);
 
                 LibrarySkins.Clear();
@@ -677,11 +963,16 @@ namespace NLMCL.App.ViewModels
                     LibrarySkins.Add(new MuaSkinItemViewModel(skin));
                 }
 
-                LibraryPage = page.Page;
+                OnPropertyChanged(nameof(ShowMuaEmptyState));
+                LibraryPage = Math.Min(query.Page, page.LastPage);
                 LibraryLastPage = page.LastPage;
+                string filter = string.IsNullOrWhiteSpace(query.Keyword)
+                    ? string.Empty
+                    : "「" + query.Keyword + "」";
                 LibraryStatusText = page.Items.Count == 0
-                    ? "这一页没有公开皮肤。"
-                    : "共 " + page.Total + " 个公开皮肤 · 第 " + page.Page + "/" + page.LastPage + " 页";
+                    ? "没有找到符合条件的皮肤。"
+                    : filter + "共 " + page.Total + " 个公开皮肤 · 第 "
+                      + page.Page + "/" + page.LastPage + " 页";
             }
             catch (Exception ex)
             {
@@ -693,10 +984,201 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        private bool TryBuildMuaQuery(out MuaSkinQuery? query, out string error)
+        {
+            query = new MuaSkinQuery
+            {
+                Page = Math.Max(1, LibraryPage),
+                Model = MuaTypeFilter == "纤细"
+                    ? "slim"
+                    : MuaTypeFilter == "经典"
+                        ? "default"
+                        : null,
+                Sort = MuaSortOption == "最多收藏"
+                    ? MuaSkinSort.MostFavorited
+                    : MuaSortOption == "名称"
+                        ? MuaSkinSort.Name
+                        : MuaSkinSort.Newest,
+                Descending = MuaSortDescending,
+                KnownLastPage = MuaSortDescending ? 0 : LibraryLastPage
+            };
+
+            string text = (MuaSearchText ?? string.Empty).Trim();
+
+            switch (MuaSearchMode)
+            {
+                case "皮肤 ID":
+                    if (!int.TryParse(text, out int tid) || tid <= 0)
+                    {
+                        error = "请输入有效的皮肤 ID（数字）。";
+                        query = null;
+                        return false;
+                    }
+
+                    query.Tid = tid;
+                    break;
+                case "作者 ID":
+                    if (!int.TryParse(text, out int uploader) || uploader <= 0)
+                    {
+                        error = "请输入有效的作者 ID（数字）。";
+                        query = null;
+                        return false;
+                    }
+
+                    query.UploaderId = uploader;
+                    break;
+                case "名称":
+                    if (text.Length > 0)
+                    {
+                        query.Keyword = text;
+                    }
+
+                    break;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        private void ReloadLibraryForFilter()
+        {
+            if (_library == null || IsLibraryBusy || _account == null)
+            {
+                return;
+            }
+
+            LibraryPage = 1;
+            LibraryLastPage = 1;
+            _ = LoadLibraryAsync();
+        }
+
+        [RelayCommand]
+        public async Task SearchLibraryAsync()
+        {
+            if (MuaSearchMode == "正版玩家")
+            {
+                await SearchPlayerSkinAsync().ConfigureAwait(true);
+                return;
+            }
+
+            LibraryPage = 1;
+            LibraryLastPage = 1;
+            await LoadLibraryAsync().ConfigureAwait(true);
+        }
+
+        [RelayCommand]
+        public async Task ClearLibrarySearchAsync()
+        {
+            MuaSearchText = string.Empty;
+            PlayerSkinName = string.Empty;
+            PlayerSkinTextureUrl = null;
+            PlayerSkinStatus = string.Empty;
+            _playerSkinModel = null;
+            LibraryPage = 1;
+            LibraryLastPage = 1;
+            await LoadLibraryAsync().ConfigureAwait(true);
+        }
+
+        private async Task SearchPlayerSkinAsync()
+        {
+            string name = (MuaSearchText ?? string.Empty).Trim();
+
+            if (name.Length == 0)
+            {
+                LibraryStatusText = "请输入正版玩家 ID。";
+                return;
+            }
+
+            if (IsPlayerSkinBusy)
+            {
+                return;
+            }
+
+            IsPlayerSkinBusy = true;
+            PlayerSkinStatus = "正在查询正版玩家「" + name + "」…";
+
+            try
+            {
+                SkinInfo? skin = await _skins
+                    .LookupByNameAsync(name, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (skin?.SkinUrl == null)
+                {
+                    PlayerSkinName = string.Empty;
+                    PlayerSkinTextureUrl = null;
+                    PlayerSkinStatus = "没有找到正版玩家「" + name + "」。";
+                    return;
+                }
+
+                PlayerSkinName = name;
+                PlayerSkinTextureUrl = skin.SkinUrl;
+                _playerSkinModel = skin.Model;
+                PlayerSkinStatus = "已找到 " + name + " 的皮肤 · " + skin.Source;
+                LibrarySkins.Clear();
+                LibraryStatusText = "正版玩家皮肤已找到，点“在 3D 中查看”。";
+            }
+            catch (Exception ex)
+            {
+                PlayerSkinStatus = "查询失败：" + ex.Message;
+            }
+            finally
+            {
+                IsPlayerSkinBusy = false;
+            }
+        }
+
+        [RelayCommand]
+        public async Task PreviewPlayerSkinAsync()
+        {
+            if (_account == null || string.IsNullOrEmpty(PlayerSkinTextureUrl))
+            {
+                return;
+            }
+
+            if (IsPlayerSkinBusy)
+            {
+                return;
+            }
+
+            IsPlayerSkinBusy = true;
+            EndUsage();
+
+            try
+            {
+                string source = GetLookupCachePath(_account);
+                await _skins
+                    .SavePreviewAsync(PlayerSkinTextureUrl!, source, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                _current = new SkinInfo(
+                    PlayerSkinName,
+                    PlayerSkinTextureUrl,
+                    _playerSkinModel ?? "default",
+                    "正版玩家查询");
+                _skinPng = source;
+                _slim = string.Equals(_playerSkinModel, "slim", StringComparison.OrdinalIgnoreCase);
+                ModelText = DescribeSkin(_current);
+
+                await RenderAsync().ConfigureAwait(true);
+                PlayerSkinStatus = "已在右侧显示 " + PlayerSkinName + " 的 3D 皮肤。";
+                StatusText = "正在预览正版玩家「" + PlayerSkinName + "」的皮肤；仅本机预览";
+            }
+            catch (Exception ex)
+            {
+                PlayerSkinStatus = "预览失败：" + ex.Message;
+            }
+            finally
+            {
+                IsPlayerSkinBusy = false;
+            }
+        }
+
         [RelayCommand]
         public async Task RefreshLibraryAsync()
         {
             LibraryPage = 1;
+            LibraryLastPage = 1;
             await LoadLibraryAsync().ConfigureAwait(true);
         }
 
@@ -739,6 +1221,7 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            EndUsage();
             IsLibraryBusy = true;
             LibraryStatusText = "正在下载「" + item.Name + "」用于 3D 预览…";
 
@@ -806,6 +1289,7 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            EndUsage();
             IsLibraryBusy = true;
             LibraryStatusText = "正在下载「" + item.Name + "」…";
 
@@ -1086,12 +1570,23 @@ namespace NLMCL.App.ViewModels
 /// <summary>本地皮肤库中的一张 PNG。</summary>
     public sealed class LocalSkinItem
     {
-        public LocalSkinItem(string path, bool isCurrent = false, byte[]? previewPng = null)
+        public LocalSkinItem(
+            string path,
+            bool isCurrent = false,
+            byte[]? previewPng = null,
+            DateTimeOffset acquiredAt = default,
+            DateTimeOffset? lastUsedAt = null,
+            double usageSeconds = 0,
+            string modelLabel = "经典")
         {
             Path = path;
             Name = System.IO.Path.GetFileNameWithoutExtension(path);
             IsCurrent = isCurrent;
             PreviewPng = previewPng;
+            AcquiredAt = acquiredAt == default ? DateTimeOffset.Now : acquiredAt;
+            LastUsedAt = lastUsedAt;
+            UsageSeconds = usageSeconds;
+            ModelLabel = modelLabel;
         }
 
         public string Path { get; }
@@ -1106,4 +1601,35 @@ namespace NLMCL.App.ViewModels
         public bool HasPreview => PreviewPng != null && PreviewPng.Length > 0;
 
         public string PreviewLabel => HasPreview ? "3D 预览" : "本地 PNG";
+
+        public DateTimeOffset AcquiredAt { get; }
+
+        public DateTimeOffset? LastUsedAt { get; }
+
+        public double UsageSeconds { get; }
+
+        public string ModelLabel { get; }
+
+        public string AcquiredLabel => AcquiredAt.ToLocalTime().ToString("yyyy-MM-dd");
+
+        public string LastUsedLabel => LastUsedAt == null
+            ? "从未使用"
+            : LastUsedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
+
+        public string UsageLabel
+        {
+            get
+            {
+                if (UsageSeconds <= 0)
+                {
+                    return "未计时";
+                }
+
+                TimeSpan span = TimeSpan.FromSeconds(UsageSeconds);
+
+                return span.TotalHours >= 1
+                    ? (int)span.TotalHours + " 小时 " + span.Minutes + " 分"
+                    : Math.Max(1, (int)span.TotalMinutes) + " 分钟";
+            }
+        }
     }}

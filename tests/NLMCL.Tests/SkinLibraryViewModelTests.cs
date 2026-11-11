@@ -26,6 +26,7 @@ namespace NLMCL.Tests
 
             Assert.Single(vm.LibrarySkins);
             Assert.Equal("测试皮肤", vm.LibrarySkins[0].Name);
+            Assert.Equal("♥ 3", vm.LibrarySkins[0].LikesText);
 
             await vm.ApplyLibrarySkinAsync(vm.LibrarySkins[0]);
 
@@ -51,11 +52,48 @@ namespace NLMCL.Tests
             Assert.Contains("才会写入账号", vm.StatusText);
         }
 
+        [Fact]
+        public async Task Search_builds_query_for_author_filter_and_ascending_sort()
+        {
+            FakeLibrary library = new FakeLibrary();
+            SkinViewModel vm = new SkinViewModel(
+                new TestSupport.NoopSkinService(), null, library);
+
+            vm.MuaSearchMode = "作者 ID";
+            vm.MuaSearchText = "10445";
+            vm.MuaTypeFilter = "纤细";
+            vm.MuaSortOption = "最多收藏";
+            vm.MuaSortDescending = false;
+
+            vm.SetAccount(new Account("Alpha", "uuid-alpha", AccountType.Offline));
+            await Task.Delay(250);
+
+            await vm.SearchLibraryAsync();
+
+            Assert.NotNull(library.LastQuery);
+            Assert.Equal(10445, library.LastQuery!.UploaderId);
+            Assert.Equal("slim", library.LastQuery.Model);
+            Assert.Equal(MuaSkinSort.MostFavorited, library.LastQuery.Sort);
+            Assert.False(library.LastQuery.Descending);
+        }
+
         private sealed class FakeLibrary : IMuaSkinLibrary
         {
+            public MuaSkinQuery? LastQuery { get; private set; }
+
             public Task<MuaSkinPage> ListAsync(
                 string siteRoot, int page, CancellationToken cancellationToken)
             {
+                return QueryAsync(
+                    siteRoot,
+                    new MuaSkinQuery { Page = page },
+                    cancellationToken);
+            }
+
+            public Task<MuaSkinPage> QueryAsync(
+                string siteRoot, MuaSkinQuery query, CancellationToken cancellationToken)
+            {
+                LastQuery = query;
                 MuaSkin skin = new MuaSkin(
                     42,
                     "测试皮肤",

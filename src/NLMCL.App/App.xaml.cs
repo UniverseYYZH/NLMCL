@@ -284,6 +284,18 @@ namespace NLMCL.App
         {
             if (_services != null)
             {
+                try
+                {
+                    if (_services.GetService(typeof(SkinViewModel)) is SkinViewModel skin)
+                    {
+                        skin.FlushUsage();
+                    }
+                }
+                catch (Exception)
+                {
+                    // 使用时长只是辅助数据，退出时不能阻止进程关闭。
+                }
+
                 _services.Dispose();
             }
 

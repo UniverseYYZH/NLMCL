@@ -34,32 +34,108 @@ namespace NLMCL.Core.Resources
             _download = download ?? throw new ArgumentNullException(nameof(download));
         }
 
-        public async Task<MuaSkinPage> ListAsync(
+        public Task<MuaSkinPage> ListAsync(
             string siteRoot, int page, CancellationToken cancellationToken)
         {
+            return QueryAsync(
+                siteRoot,
+                new MuaSkinQuery { Page = Math.Max(1, page) },
+                cancellationToken);
+        }
+
+        public async Task<MuaSkinPage> QueryAsync(
+            string siteRoot, MuaSkinQuery query, CancellationToken cancellationToken)
+        {
+            if (query == null)
+            {
+                throw new ArgumentNullException(nameof(query));
+            }
+
             string root = ResolveSiteRoot(siteRoot);
-            int safePage = Math.Max(1, page);
+            int wantedPage = Math.Max(1, query.Page);
 
-            string url = root + "/skinlib/list?page=" + safePage;
-            string json;
-
-            try
+            if (query.Tid is int tid && tid > 0)
             {
-                json = await _download
-                    .GetStringAsync(url, cancellationToken)
+                return await GetByTidAsync(root, tid, cancellationToken).ConfigureAwait(false);
+            }
+
+            // 皮肤站只支持单向排序（收藏/名称/上传时间都是降序）。升序时反向取页，
+            // 再把页内顺序反过来，就能得到跨页的升序结果。
+            if (query.Descending)
+            {
+                MuaSkinPage page = await FetchPageAsync(root, wantedPage, query, cancellationToken)
                     .ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception)
-            {
-                // 启动器自带的下载栈在部分网络环境下会被代理/线程检查卡住；
-                // 列表是公开 JSON，直接请求一次作为兜底。
-                json = await GetStringDirectAsync(url, cancellationToken).ConfigureAwait(false);
+                return new MuaSkinPage(page.Items, wantedPage, page.LastPage, page.Total);
             }
 
+            int lastPage = query.KnownLastPage;
+            MuaSkinPage? probe = null;
+
+            if (lastPage <= 0)
+            {
+                probe = await FetchPageAsync(root, 1, query, cancellationToken).ConfigureAwait(false);
+                lastPage = probe.LastPage;
+            }
+
+            int serverPage = Math.Max(1, lastPage - wantedPage + 1);
+            MuaSkinPage result = probe != null && serverPage == 1
+                ? probe
+                : await FetchPageAsync(root, serverPage, query, cancellationToken).ConfigureAwait(false);
+
+            List<MuaSkin> items = new List<MuaSkin>(result.Items.Count);
+
+            for (int i = result.Items.Count - 1; i >= 0; i--)
+            {
+                items.Add(result.Items[i]);
+            }
+
+            return new MuaSkinPage(
+                items,
+                wantedPage,
+                Math.Max(lastPage, result.LastPage),
+                result.Total);
+        }
+
+        private async Task<MuaSkinPage> FetchPageAsync(
+            string root, int page, MuaSkinQuery query, CancellationToken cancellationToken)
+        {
+            string url = root + "/skinlib/list?page=" + Math.Max(1, page);
+
+            if (!string.IsNullOrWhiteSpace(query.Keyword))
+            {
+                url += "&keyword=" + Uri.EscapeDataString(query.Keyword.Trim());
+            }
+
+            if (query.UploaderId is int uploader && uploader > 0)
+            {
+                url += "&uploader=" + uploader;
+            }
+
+            if (string.Equals(query.Model, "slim", StringComparison.OrdinalIgnoreCase))
+            {
+                url += "&filter=alex";
+            }
+            else if (string.Equals(query.Model, "default", StringComparison.OrdinalIgnoreCase))
+            {
+                url += "&filter=steve";
+            }
+
+            switch (query.Sort)
+            {
+                case MuaSkinSort.MostFavorited:
+                    url += "&sort=likes";
+                    break;
+                case MuaSkinSort.Name:
+                    url += "&sort=name";
+                    break;
+                case MuaSkinSort.Newest:
+                    // 站点默认就是按上传时间倒序，省略参数保持 URL 简洁。
+                    break;
+                default:
+                    break;
+            }
+
+            string json = await GetStringWithFallbackAsync(url, cancellationToken).ConfigureAwait(false);
             JObject document;
 
             try
@@ -86,7 +162,7 @@ namespace NLMCL.Core.Resources
 
                     string type = token.Value<string>("type") ?? "steve";
                     string name = token.Value<string>("name") ?? ("皮肤 #" + tid);
-                    string uploader = token.Value<string>("nickname") ?? "未知";
+                    string uploaderName = token.Value<string>("nickname") ?? "未知";
 
                     items.Add(new MuaSkin(
                         tid,
@@ -94,18 +170,92 @@ namespace NLMCL.Core.Resources
                         string.Equals(type, "alex", StringComparison.OrdinalIgnoreCase)
                             ? "slim"
                             : "default",
-                        uploader,
+                        uploaderName,
                         token.Value<int?>("likes") ?? 0,
                         root + "/raw/" + tid,
-                        root + "/avatar/" + tid));
+                        root + "/avatar/" + tid,
+                        token.Value<int?>("uploader") ?? 0));
                 }
             }
 
+            int serverPage = Math.Max(1, page);
             return new MuaSkinPage(
                 items,
-                document.Value<int?>("current_page") ?? safePage,
-                Math.Max(1, document.Value<int?>("last_page") ?? safePage),
+                serverPage,
+                Math.Max(1, document.Value<int?>("last_page") ?? serverPage),
                 document.Value<int?>("total") ?? items.Count);
+        }
+
+        private async Task<MuaSkinPage> GetByTidAsync(
+            string root, int tid, CancellationToken cancellationToken)
+        {
+            string url = root + "/skinlib/show/" + tid;
+            string html = await GetStringWithFallbackAsync(url, cancellationToken).ConfigureAwait(false);
+
+            string name = "皮肤 #" + tid;
+            System.Text.RegularExpressions.Match title = System.Text.RegularExpressions.Regex.Match(
+                html,
+                @"<title>\s*(.*?)\s*-\s*[^<]+</title>",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase
+                | System.Text.RegularExpressions.RegexOptions.Singleline);
+
+            if (title.Success)
+            {
+                string value = System.Net.WebUtility.HtmlDecode(title.Groups[1].Value).Trim();
+
+                if (value.Length > 0)
+                {
+                    name = value;
+                }
+            }
+
+            string uploader = "未知";
+            System.Text.RegularExpressions.Match nickname = System.Text.RegularExpressions.Regex.Match(
+                html,
+                @"""nickname""\s*:\s*""([^""]*)""",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+            if (nickname.Success)
+            {
+                uploader = System.Net.WebUtility.HtmlDecode(nickname.Groups[1].Value);
+            }
+
+            return new MuaSkinPage(
+                new[]
+                {
+                    new MuaSkin(
+                        tid,
+                        name,
+                        "default",
+                        uploader,
+                        0,
+                        root + "/raw/" + tid,
+                        root + "/avatar/" + tid)
+                },
+                1,
+                1,
+                1);
+        }
+
+        private async Task<string> GetStringWithFallbackAsync(
+            string url, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await _download
+                    .GetStringAsync(url, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 启动器自带的下载栈在部分网络环境下会被代理/线程检查卡住；
+                // 公开 JSON/HTML 直接请求一次作为兜底。
+                return await GetStringDirectAsync(url, cancellationToken).ConfigureAwait(false);
+            }
         }
 
         public async Task<string> DownloadAsync(

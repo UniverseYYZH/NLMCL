@@ -436,11 +436,57 @@ namespace NLMCL.Tests
                 try { Directory.Delete(root, true); } catch (IOException) { }
             }
         }
+        [Fact]
+        public async Task Local_sort_keeps_current_first_and_applies_search_and_usage_filters()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-localsort-" + Guid.NewGuid().ToString("N"));
+            AppPaths paths = new AppPaths(root);
+            Directory.CreateDirectory(paths.SkinDirectory);
+
+            try
+            {
+                foreach (string name in new[] { "zeta", "alpha", "middle" })
+                {
+                    string file = Path.Combine(paths.SkinDirectory, name + ".png");
+                    File.WriteAllBytes(file, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+                    File.SetCreationTimeUtc(file, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)
+                        .AddDays(name == "alpha" ? 1 : name == "middle" ? 2 : 3));
+                }
+
+                SkinViewModel vm = new SkinViewModel(new FakeSkinService(), paths: paths);
+                vm.LocalSortOption = "名称";
+                vm.LocalSortDescending = false;
+
+                Assert.Equal("alpha", vm.LocalSkins[0].Name);
+
+                await vm.UseLocalSkinCommand.ExecuteAsync(
+                    vm.LocalSkins.First(item => item.Name == "zeta"));
+
+                vm.LocalSearchText = "alpha";
+
+                Assert.Equal("zeta", vm.LocalSkins[0].Name);
+                Assert.Equal(2, vm.LocalSkins.Count);
+                Assert.Contains(vm.LocalSkins, item => item.Name == "alpha");
+
+                vm.LocalSearchText = string.Empty;
+                vm.LocalUsageFilter = "从未使用";
+
+                Assert.Equal("zeta", vm.LocalSkins[0].Name);
+                Assert.Contains(vm.LocalSkins, item => item.Name == "middle");
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
         private sealed class FakeSkinService : ISkinService
         {
             public Func<Account, Task<SkinInfo?>>? GetHandler { get; set; }
 
             public Func<string, string, Task>? SavePreviewHandler { get; set; }
+
+            public Func<string, Task<SkinInfo?>>? LookupHandler { get; set; }
 
             public Task<SkinInfo?> GetAsync(Account account, CancellationToken cancellationToken)
                 => GetHandler == null
@@ -490,11 +536,35 @@ namespace NLMCL.Tests
 
             public System.Threading.Tasks.Task<SkinInfo?> LookupByNameAsync(
                 string playerName, System.Threading.CancellationToken cancellationToken)
-                => System.Threading.Tasks.Task.FromResult<SkinInfo?>(null);
+                => LookupHandler == null
+                    ? System.Threading.Tasks.Task.FromResult<SkinInfo?>(null)
+                    : LookupHandler(playerName);
 
             public System.Threading.Tasks.Task<string> SavePresetAsync(
                 string presetId, string playerName, System.Threading.CancellationToken cancellationToken)
                 => System.Threading.Tasks.Task.FromResult(string.Empty);
+        }
+
+        [Fact]
+        public async Task Player_id_search_uses_named_lookup_and_shows_a_result()
+        {
+            FakeSkinService skins = new FakeSkinService
+            {
+                LookupHandler = name => Task.FromResult<SkinInfo?>(
+                    new SkinInfo(name, "https://example.com/" + name + ".png", "slim", "Mojang"))
+            };
+
+            SkinViewModel vm = new SkinViewModel(skins);
+            vm.SetAccount(new Account("UniverseYYZH", "uuid", AccountType.Microsoft));
+            vm.MuaSearchMode = "正版玩家";
+            vm.MuaSearchText = "Notch";
+
+            await vm.SearchLibraryCommand.ExecuteAsync(null);
+
+            Assert.True(vm.HasPlayerSkinResult);
+            Assert.Equal("Notch", vm.PlayerSkinName);
+            Assert.Contains("Mojang", vm.PlayerSkinStatus);
+            Assert.Contains("Notch.png", vm.PlayerSkinTextureUrl);
         }
 
         [Fact]

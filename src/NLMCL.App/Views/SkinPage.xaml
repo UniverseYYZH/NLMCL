@@ -81,6 +81,44 @@
                             </Grid>
                             <TextBlock Text="{Binding LocalSkinStatusText}" FontSize="9.5"
                                        Foreground="{DynamicResource Muted}" Margin="0,7,0,0" TextWrapping="Wrap" />
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="84" />
+                                    <ColumnDefinition Width="104" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Text="{Binding LocalSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="按本地皮肤名称搜索" Padding="7,5" FontSize="10"
+                                         Background="{DynamicResource Surface}"
+                                         BorderBrush="{DynamicResource BorderColor}" />
+                                <ComboBox Grid.Column="1" Margin="6,0,0,0" Padding="6,4" FontSize="10"
+                                          ItemsSource="{Binding LocalTypeFilters}"
+                                          SelectedItem="{Binding LocalTypeFilter}" />
+                                <ComboBox Grid.Column="2" Margin="6,0,0,0" Padding="6,4" FontSize="10"
+                                          ItemsSource="{Binding LocalUsageFilters}"
+                                          SelectedItem="{Binding LocalUsageFilter}" />
+                            </Grid>
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="排序" FontSize="9.5" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Faint}" />
+                                <ComboBox Grid.Column="1" Width="112" Margin="6,0,0,0" Padding="6,4" FontSize="10"
+                                          ItemsSource="{Binding LocalSortOptions}"
+                                          SelectedItem="{Binding LocalSortOption}" />
+                                <Button Grid.Column="2" Content="{Binding LocalSortDirectionLabel}"
+                                        Style="{StaticResource GhostButton}" Padding="9,4" FontSize="10"
+                                        HorizontalAlignment="Left" Margin="6,0,0,0"
+                                        Command="{Binding ToggleLocalSortDirectionCommand}"
+                                        ToolTip="切换升序 / 降序" />
+                                <Button Grid.Column="3" Content="清除筛选" Style="{StaticResource GhostButton}"
+                                        Padding="9,4" FontSize="9.5"
+                                        Click="ClearLocalFilters_Click" />
+                            </Grid>
                             <ScrollViewer MaxHeight="182" Margin="0,8,0,0"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled">
@@ -148,27 +186,74 @@
                                         Command="{Binding RefreshLibraryCommand}"
                                         IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
                             </Grid>
-                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
-                                        Visibility="{Binding HasLibrarySkins, Converter={StaticResource BoolToVisibility}}">
-                                <Button Content="‹ 上一页" Style="{StaticResource GhostButton}"
-                                        Padding="10,5" FontSize="10"
-                                        Command="{Binding PrevLibraryPageCommand}"
+                            <Grid Margin="0,8,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="88" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <ComboBox Grid.Column="0" Padding="5,4" FontSize="9.5"
+                                          ItemsSource="{Binding MuaSearchModes}"
+                                          SelectedItem="{Binding MuaSearchMode}" />
+                                <TextBox Grid.Column="1" Margin="6,0,0,0" Padding="7,5" FontSize="10"
+                                         Text="{Binding MuaSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         ToolTip="{Binding MuaSearchHint}"
+                                         Background="{DynamicResource Surface}"
+                                         BorderBrush="{DynamicResource BorderColor}" />
+                                <Button Grid.Column="2" Content="搜索" Style="{StaticResource GhostButton}"
+                                        Padding="10,4" FontSize="9.5" Margin="6,0,0,0"
+                                        Command="{Binding SearchLibraryCommand}"
                                         IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
-                                <TextBlock VerticalAlignment="Center" Margin="9,0,0,0"
-                                           FontSize="9" Foreground="{DynamicResource Muted}">
-                                    <Run Text="第 " /><Run Text="{Binding LibraryPage, Mode=OneWay}" />
-                                    <Run Text=" / " /><Run Text="{Binding LibraryLastPage, Mode=OneWay}" />
-                                    <Run Text=" 页" />
-                                </TextBlock>
-                                <Button Content="下一页 ›" Style="{StaticResource GhostButton}"
-                                        Margin="9,0,0,0" Padding="10,5" FontSize="10"
-                                        Command="{Binding NextLibraryPageCommand}"
-                                        IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
-                            </StackPanel>
+                                <Button Grid.Column="3" Content="清除" Style="{StaticResource GhostButton}"
+                                        Padding="8,4" FontSize="9" Margin="4,0,0,0"
+                                        Command="{Binding ClearLibrarySearchCommand}" />
+                            </Grid>
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="96" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="112" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="筛选" FontSize="9.5" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource Faint}" />
+                                <ComboBox Grid.Column="1" Margin="6,0,0,0" Padding="5,4" FontSize="9.5"
+                                          ItemsSource="{Binding MuaTypeFilters}"
+                                          SelectedItem="{Binding MuaTypeFilter}" />
+                                <TextBlock Grid.Column="2" Text="排序" FontSize="9.5" VerticalAlignment="Center"
+                                           Margin="10,0,0,0" Foreground="{DynamicResource Faint}" />
+                                <ComboBox Grid.Column="3" Margin="6,0,0,0" Padding="5,4" FontSize="9.5"
+                                          ItemsSource="{Binding MuaSortOptions}"
+                                          SelectedItem="{Binding MuaSortOption}" />
+                                <Button Grid.Column="4" Content="{Binding MuaSortDirectionLabel}"
+                                        Style="{StaticResource GhostButton}" Padding="9,4" FontSize="10"
+                                        HorizontalAlignment="Left" Margin="6,0,0,0"
+                                        Command="{Binding ToggleMuaSortDirectionCommand}"
+                                        ToolTip="切换升序 / 降序" />
+                            </Grid>
+                            <Border Background="{DynamicResource Surface}"
+                                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                                    CornerRadius="8" Padding="10,8" Margin="0,8,0,0"
+                                    Visibility="{Binding HasPlayerSkinResult, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding PlayerSkinName}" FontSize="11.5"
+                                               FontWeight="SemiBold" Foreground="{DynamicResource Text}" />
+                                    <TextBlock Text="{Binding PlayerSkinStatus}" FontSize="9.5"
+                                               Foreground="{DynamicResource Muted}" TextWrapping="Wrap"
+                                               Margin="0,2,0,0" />
+                                    <Button Content="在 3D 中查看" Style="{StaticResource GhostButton}"
+                                            Padding="10,4" FontSize="9.5" Margin="0,6,0,0"
+                                            HorizontalAlignment="Left"
+                                            Command="{Binding PreviewPlayerSkinCommand}"
+                                            IsEnabled="{Binding IsPlayerSkinBusy, Converter={StaticResource InverseBool}}" />
+                                </StackPanel>
+                            </Border>
                             <Border Background="{DynamicResource Surface}"
                                     BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                     CornerRadius="9" Padding="16,14" Margin="0,8,0,0" MinHeight="138"
-                                    Visibility="{Binding HasLibrarySkins, Converter={StaticResource InverseBoolToVisibility}}">
+                                    Visibility="{Binding ShowMuaEmptyState, Converter={StaticResource BoolToVisibility}}">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
                                     <TextBlock Text="&#xE8B9;" FontFamily="Segoe MDL2 Assets" FontSize="30"
                                                Foreground="{DynamicResource Primary}" HorizontalAlignment="Center" />
@@ -196,19 +281,37 @@
                                                     BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
                                                     CornerRadius="8" Padding="5" Margin="0,0,6,6" Width="112">
                                                 <StackPanel>
-                                                    <Button Style="{StaticResource GhostButton}" Padding="3"
-                                                            Click="PreviewLibrarySkin_Click"
-                                                            ToolTip="下载并 3D 预览这张 MUA 皮肤">
-                                                        <Image Source="{Binding PreviewUrl}" Height="56" Width="56"
-                                                               Stretch="Uniform"
-                                                               RenderOptions.BitmapScalingMode="HighQuality" />
-                                                    </Button>
+                                                    <Grid>
+                                                        <Button Style="{StaticResource GhostButton}" Padding="3"
+                                                                Click="PreviewLibrarySkin_Click"
+                                                                ToolTip="下载并 3D 预览这张 MUA 皮肤">
+                                                            <Image Source="{Binding PreviewUrl}" Height="56" Width="56"
+                                                                   Stretch="Uniform"
+                                                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                                                        </Button>
+                                                        <Border Background="{DynamicResource Amber}" CornerRadius="6"
+                                                                Padding="5,1" Margin="0,3,3,0"
+                                                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                                                ToolTip="收藏数">
+                                                            <TextBlock Text="{Binding LikesText}" FontSize="8.5"
+                                                                       FontWeight="SemiBold" Foreground="#FFF8EC" />
+                                                        </Border>
+                                                    </Grid>
                                                     <TextBlock Text="{Binding Name}" FontSize="9.5"
                                                                Foreground="{DynamicResource Text}"
                                                                TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
-                                                    <TextBlock Text="{Binding UploaderText}" FontSize="8"
-                                                               Foreground="{DynamicResource Faint}"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                    <Grid Margin="0,1,0,0">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Text="{Binding UploaderText}" FontSize="8"
+                                                                   Foreground="{DynamicResource Faint}"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding LikesText}"
+                                                                   FontSize="8" FontWeight="SemiBold"
+                                                                   Foreground="{DynamicResource Amber}" />
+                                                    </Grid>
                                                     <Button Content="装配" Style="{StaticResource GhostButton}"
                                                             Padding="6,3" FontSize="9" Margin="0,4,0,0"
                                                             HorizontalAlignment="Stretch"
@@ -223,6 +326,23 @@
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                             </ScrollViewer>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0"
+                                        Visibility="{Binding HasLibrarySkins, Converter={StaticResource BoolToVisibility}}">
+                                <Button Content="‹ 上一页" Style="{StaticResource GhostButton}"
+                                        Padding="10,5" FontSize="10"
+                                        Command="{Binding PrevLibraryPageCommand}"
+                                        IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
+                                <TextBlock VerticalAlignment="Center" Margin="9,0,0,0"
+                                           FontSize="9" Foreground="{DynamicResource Muted}">
+                                    <Run Text="第 " /><Run Text="{Binding LibraryPage, Mode=OneWay}" />
+                                    <Run Text=" / " /><Run Text="{Binding LibraryLastPage, Mode=OneWay}" />
+                                    <Run Text=" 页" />
+                                </TextBlock>
+                                <Button Content="下一页 ›" Style="{StaticResource GhostButton}"
+                                        Margin="9,0,0,0" Padding="10,5" FontSize="10"
+                                        Command="{Binding NextLibraryPageCommand}"
+                                        IsEnabled="{Binding IsLibraryBusy, Converter={StaticResource InverseBool}}" />
+                            </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>

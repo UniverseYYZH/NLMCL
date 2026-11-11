@@ -127,6 +127,16 @@ namespace NLMCL.App.Views
             vm.RotateBy(delta * 0.8);
         }
 
+        private void ClearLocalFilters_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is SkinViewModel vm)
+            {
+                vm.LocalSearchText = string.Empty;
+                vm.LocalTypeFilter = "全部类型";
+                vm.LocalUsageFilter = "全部";
+            }
+        }
+
         /// <summary>
         /// 卡片里的预览按钮用 Click 兜底一次：ItemsControl 里的
         /// RelativeSource 命令偶发解析不到时，仍然能下载并切到 3D。
