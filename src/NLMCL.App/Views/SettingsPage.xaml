@@ -620,7 +620,7 @@
                                        HorizontalAlignment="Right"
                                        Foreground="{DynamicResource Text}" />
                         </Grid>
-                        <Slider Minimum="80" Maximum="150" TickFrequency="5"
+                        <Slider Minimum="80" Maximum="160" TickFrequency="5"
                                 IsSnapToTickEnabled="True" Margin="0,8,0,0"
                                 Value="{Binding UiScalePercent, Mode=TwoWay}" />
                     </StackPanel>
@@ -634,7 +634,7 @@
                                    HorizontalAlignment="Right"
                                    Foreground="{DynamicResource Text}" />
                     </Grid>
-                    <Slider Minimum="100" Maximum="200" TickFrequency="5"
+                    <Slider Minimum="100" Maximum="160" TickFrequency="5"
                             IsSnapToTickEnabled="True" Margin="0,8,0,0"
                             Value="{Binding UiScaleMaximizedPercent, Mode=TwoWay}" />
                 </StackPanel>

@@ -142,7 +142,7 @@ namespace NLMCL.App.Services
                 return;
             }
 
-            double clamped = Math.Max(0.7, Math.Min(1.6, scale));
+            double clamped = Math.Max(0.8, Math.Min(1.6, scale));
 
             if (Math.Abs(clamped - 1.0) < 0.001)
             {
