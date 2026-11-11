@@ -91,6 +91,9 @@
                         ToolTip="多开时一次停掉所有游戏"
                         Command="{Binding StopAllCommand}"
                         IsEnabled="{Binding IsRunning}" />
+                <Button Content="复制日志" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                        ToolTip="复制当前显示的全部日志"
+                        Click="CopyLog_Click" />
                 <Button Content="清空" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
                         Command="{Binding ClearCommand}" />
                 <Button Content="崩溃分析" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
@@ -213,6 +216,7 @@
                          HorizontalContentAlignment="Stretch"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         ScrollViewer.ScrollChanged="LogList_ScrollChanged"
                          VirtualizingStackPanel.IsVirtualizing="True"
                          VirtualizingStackPanel.VirtualizationMode="Recycling" />
 

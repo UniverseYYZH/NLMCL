@@ -683,6 +683,8 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private string _settingsReadOnlyWarning = string.Empty;
 
+        private bool _settingsFileReadOnly;
+
         public bool HasSettingsReadOnlyWarning => !string.IsNullOrEmpty(SettingsReadOnlyWarning);
 
         partial void OnSettingsReadOnlyWarningChanged(string value)
@@ -1562,8 +1564,8 @@ namespace NLMCL.App.ViewModels
 
                 // 更高版本的 settings.json 会被视为只读：SaveAsync 会安全地跳过写入，
                 // 此时不能仍然告诉用户“设置已保存”，否则重启后全部复原。
-                AppSettings persisted = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
-                StatusText = persisted.IsReadOnly
+                // 只读状态在启动加载时已缓存，避免每次拖动滑块都重新读一遍 JSON。
+                StatusText = _settingsFileReadOnly
                     ? "设置文件由更新版本创建，本次修改不会保存；请升级启动器后重试"
                     : "设置已保存";
             }
@@ -3454,6 +3456,7 @@ namespace NLMCL.App.ViewModels
             {
                 AppSettings settings = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
 
+                _settingsFileReadOnly = settings.IsReadOnly;
                 SettingsReadOnlyWarning = settings.IsReadOnly
                     ? settings.ReadOnlyReason ?? "设置文件来自更高版本，当前版本不会覆盖它。"
                     : string.Empty;

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -511,8 +511,10 @@ namespace NLMCL.App.ViewModels
             }
             catch (OperationCanceledException)
             {
+                HasProgress = false;
+                Progress = 0;
                 ProgressDetails = string.Empty;
-                StatusText = "已取消安装（已下载的文件会保留，下次接着用）";
+                StatusText = "已取消安装；已下载的文件会保留，可点“安装”重试";
             }
             catch (Exception ex)
             {

@@ -1,4 +1,7 @@
+using System;
 using System.Collections.Specialized;
+using System.Linq;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace NLMCL.App.Views
@@ -8,6 +11,8 @@ namespace NLMCL.App.Views
     /// </summary>
     public partial class LaunchConsolePage : UserControl
     {
+        private bool _followTail = true;
+
         public LaunchConsolePage()
         {
             InitializeComponent();
@@ -24,13 +29,14 @@ namespace NLMCL.App.Views
 
             if (e.NewValue is ViewModels.LaunchConsoleViewModel vm)
             {
+                _followTail = true;
                 ((INotifyCollectionChanged)vm.Lines).CollectionChanged += OnLinesChanged;
             }
         }
 
         private void OnLinesChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
-            if (e.Action != NotifyCollectionChangedAction.Add)
+            if (e.Action != NotifyCollectionChangedAction.Add || !_followTail)
             {
                 return;
             }
@@ -46,6 +52,35 @@ namespace NLMCL.App.Views
                     LogList.ScrollIntoView(LogList.Items[LogList.Items.Count - 1]);
                 }),
                 System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void LogList_ScrollChanged(object sender, ScrollChangedEventArgs e)
+        {
+            // 只在用户自己滚动时更新跟随状态；内容变高导致的 Extent 变化不改变用户意图。
+            if (e.ExtentHeightChange != 0)
+            {
+                return;
+            }
+
+            _followTail = e.VerticalOffset + e.ViewportHeight >= e.ExtentHeight - 8;
+        }
+
+        private void CopyLog_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not ViewModels.LaunchConsoleViewModel vm || vm.Lines.Count == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                Clipboard.SetText(string.Join(System.Environment.NewLine, vm.Lines.Select(line => line.Text)));
+                vm.StatusText = "已复制 " + vm.Lines.Count + " 行日志";
+            }
+            catch (Exception ex)
+            {
+                vm.StatusText = "复制日志失败：" + ex.Message;
+            }
         }
     }
 }
