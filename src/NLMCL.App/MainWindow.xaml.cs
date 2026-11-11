@@ -35,6 +35,13 @@ namespace NLMCL.App
 
         private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
         {
+            if (e.Key == Key.Escape && _viewModel.IsAccountPopupOpen)
+            {
+                _viewModel.IsAccountPopupOpen = false;
+                e.Handled = true;
+                return;
+            }
+
             if (_viewModel.IsSettingsSection
                 && e.Key == Key.F
                 && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
@@ -134,7 +141,7 @@ namespace NLMCL.App
         }
 
         /// <summary>账号卡整块可点：子元素（头像/文字）上的点击也要能冒泡到这里。</summary>
-        private void AccountCardClicked(object sender, MouseButtonEventArgs e)
+        private void AccountCardClicked(object sender, RoutedEventArgs e)
         {
             _viewModel.ToggleAccountPopup();
             e.Handled = true;

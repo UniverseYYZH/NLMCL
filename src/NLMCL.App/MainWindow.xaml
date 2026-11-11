@@ -324,11 +324,23 @@
                                    Foreground="{DynamicResource Muted}" />
                     </StackPanel>
                 </Border>
-                <Border Grid.Column="2" Height="50" MinWidth="204" Background="{DynamicResource Surface}"
-                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10"
-                        Padding="7,0,13,0" Cursor="Hand" MouseLeftButtonUp="AccountCardClicked"
+                <Button Grid.Column="2" Height="50" MinWidth="204" Background="{DynamicResource Surface}"
+                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                        Padding="7,0,13,0" Cursor="Hand" Click="AccountCardClicked"
+                        HorizontalContentAlignment="Stretch"
                         AutomationProperties.Name="账号与切换"
                         AutomationProperties.HelpText="打开账号列表，切换或移除账号">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="10" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Stretch"
+                                                  VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Button.Template>
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -357,7 +369,7 @@
                         <TextBlock Grid.Column="2" Text="›" FontSize="16"
                                    Foreground="{DynamicResource Faint}" VerticalAlignment="Center" />
                     </Grid>
-                </Border>
+                </Button>
             </Grid>
         </Border>
 
