@@ -748,8 +748,11 @@
                 </Grid>
             </Grid>
             <!-- 世界实例详情 -->
-            <views:WorldPage Margin="26,18,26,12"
-                             Visibility="{Binding IsWorldSection, Converter={StaticResource BoolToVisibility}}" />
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          Visibility="{Binding IsWorldSection, Converter={StaticResource BoolToVisibility}}">
+                <views:WorldPage Margin="26,18,26,12" />
+            </ScrollViewer>
 
             <!-- 设置页：页头由 SettingsPage 自己负责，避免重复 -->
             <views:SettingsPage x:Name="SettingsView" Margin="26,18,26,12"
