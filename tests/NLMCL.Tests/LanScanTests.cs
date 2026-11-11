@@ -124,6 +124,35 @@ namespace NLMCL.Tests
             }
         }
 
+        [Fact]
+        public async Task Ping_times_out_when_the_server_never_replies()
+        {
+            TcpListener listener = new TcpListener(IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+            Task server = Task.Run(async () =>
+            {
+                using TcpClient client = await listener.AcceptTcpClientAsync().ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromSeconds(6)).ConfigureAwait(false);
+            });
+
+            try
+            {
+                System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
+
+                await Assert.ThrowsAsync<TimeoutException>(() =>
+                    new ServerListPing().PingAsync("127.0.0.1", port, CancellationToken.None));
+
+                Assert.InRange(watch.Elapsed.TotalSeconds, 2.0, 6.0);
+            }
+            finally
+            {
+                listener.Stop();
+                _ = server.ContinueWith(task => { _ = task.Exception; }, TaskScheduler.Default);
+            }
+        }
+
         private static void ReadPacket(NetworkStream stream)
         {
             int length = ServerListPing.ReadVarInt(stream);

@@ -176,12 +176,13 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        [ObservableProperty]
         private bool _isCheckingUpdates;
 
         [RelayCommand]
         public async Task CheckUpdatesAsync()
         {
-            if (_isCheckingUpdates)
+            if (IsCheckingUpdates)
             {
                 return;
             }
@@ -198,7 +199,10 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            _isCheckingUpdates = true;
+            IsCheckingUpdates = true;
+
+            try
+            {
             StatusText = "正在并发检查 Mod 更新…";
 
             List<ModEntry> snapshot = Mods.ToList();
@@ -267,7 +271,11 @@ namespace NLMCL.App.ViewModels
             {
                 StatusText = found == 0 ? "没有发现新版本。" : "发现 " + found + " 个模组有新版本。";
             }
-            _isCheckingUpdates = false;
+            }
+            finally
+            {
+                IsCheckingUpdates = false;
+            }
         }
     }
 }

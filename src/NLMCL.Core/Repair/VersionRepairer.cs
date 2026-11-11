@@ -53,14 +53,25 @@ namespace NLMCL.Core.Repair
             string minecraftDirectory, string instanceFolder,
             IProgress<InstallProgress>? progress, CancellationToken cancellationToken)
         {
-            List<NeededFile> needed = Collect(minecraftDirectory, instanceFolder, out string? error);
-
-            if (error != null)
+            // 哈希校验要读完整文件，不能放在 UI 线程上；Collect 本身也可能读多个 JSON。
+            (string? Error, List<NeededFile>? Missing) plan = await Task.Run(() =>
             {
-                return new RepairReport(0, 0, 1, new[] { error });
+                List<NeededFile> collected = Collect(minecraftDirectory, instanceFolder, out string? error);
+
+                if (error != null)
+                {
+                    return (error, (List<NeededFile>?)null);
+                }
+
+                return ((string?)null, collected.Where(file => !IsHealthy(file)).ToList());
+            }, cancellationToken).ConfigureAwait(false);
+
+            if (plan.Error != null)
+            {
+                return new RepairReport(0, 0, 1, new[] { plan.Error });
             }
 
-            List<NeededFile> missing = needed.Where(file => !IsHealthy(file)).ToList();
+            List<NeededFile> missing = plan.Missing!;
 
             if (missing.Count == 0)
             {

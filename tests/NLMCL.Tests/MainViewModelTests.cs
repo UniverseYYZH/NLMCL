@@ -116,6 +116,23 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Refresh_rebinds_selection_to_the_new_version_item()
+        {
+            FakeCatalog catalog = new FakeCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            MainViewModel vm = TestSupport.CreateMain(catalog, new AppPaths(@"C:\Temp\roaming"));
+
+            await vm.RefreshAsync();
+            VersionItem old = vm.SelectedVersion!;
+
+            await vm.RefreshAsync();
+
+            Assert.NotSame(old, vm.SelectedVersion);
+            Assert.Same(vm.Versions[0], vm.SelectedVersion);
+            Assert.True(vm.SelectedVersion!.IsSelected);
+        }
+
+        [Fact]
         public async Task Summary_splits_versions_by_kind()
         {
             MainViewModel vm = Create(

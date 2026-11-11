@@ -96,14 +96,33 @@ namespace NLMCL.Tests
 
                     if (!string.Equals(context.Request.HttpMethod, "HEAD", StringComparison.OrdinalIgnoreCase))
                     {
+                        bool truncated = context.Request.Url != null
+                            && context.Request.Url.AbsolutePath.Contains("truncated");
+                        int count = truncated ? _payload.Length / 2 : _payload.Length;
+
                         await context.Response.OutputStream
-                            .WriteAsync(_payload, 0, _payload.Length)
+                            .WriteAsync(_payload, 0, count)
                             .ConfigureAwait(false);
+
+                        if (truncated)
+                        {
+                            context.Response.Abort();
+                            continue;
+                        }
                     }
                 }
                 finally
                 {
-                    context.Response.Close();
+                    try
+                    {
+                        context.Response.Close();
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                    catch (HttpListenerException)
+                    {
+                    }
                 }
             }
         }
@@ -144,6 +163,22 @@ namespace NLMCL.Tests
 
             Assert.NotEmpty(reports);
             Assert.Equal(0, reports[reports.Count - 1].Received);
+        }
+
+        [Fact]
+        public async Task Truncated_download_never_replaces_the_target_file()
+        {
+            HttpFileDownloader downloader = new HttpFileDownloader();
+            string target = Path.Combine(_workDir, "truncated.bin");
+            File.WriteAllText(target, "old");
+
+            await Assert.ThrowsAnyAsync<Exception>(() => downloader.DownloadAsync(
+                _baseUrl + "truncated.bin",
+                target,
+                CancellationToken.None));
+
+            Assert.Equal("old", File.ReadAllText(target));
+            Assert.False(File.Exists(target + ".nlmcl-tmp"));
         }
 
         private sealed class InlineProgress : IProgress<FileDownloadProgress>

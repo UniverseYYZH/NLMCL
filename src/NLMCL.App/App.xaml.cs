@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Threading;
 using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
@@ -47,11 +49,16 @@ namespace NLMCL.App
 
             if (!_ownsSingleInstance)
             {
-                MessageBox.Show(
-                    "NLMCL 已经在运行。请先关闭另一个窗口，再重新打开。",
-                    "NLMCL",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
+                // 最小化/隐藏到托盘时，第二个实例必须把已有窗口叫回来，而不是无声退出。
+                if (!TryActivateExistingInstance())
+                {
+                    MessageBox.Show(
+                        "NLMCL 已经在运行，但没有找到可显示的窗口。请在任务管理器中结束 NLMCL 后重试。",
+                        "NLMCL",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+                }
+
                 Shutdown();
                 return;
             }
@@ -313,6 +320,57 @@ namespace NLMCL.App
 
             return MicrosoftAuthenticator.DefaultClientId;
         }
+
+        /// <summary>把已经在运行的 NLMCL 窗口恢复并置前；找不到窗口时返回 false。</summary>
+        private static bool TryActivateExistingInstance()
+        {
+            try
+            {
+                Process current = Process.GetCurrentProcess();
+
+                foreach (Process process in Process.GetProcessesByName(current.ProcessName))
+                {
+                    if (process.Id == current.Id)
+                    {
+                        continue;
+                    }
+
+                    IntPtr handle = process.MainWindowHandle;
+
+                    if (handle == IntPtr.Zero)
+                    {
+                        process.Refresh();
+                        handle = process.MainWindowHandle;
+                    }
+
+                    if (handle == IntPtr.Zero)
+                    {
+                        continue;
+                    }
+
+                    ShowWindow(handle, SwRestore);
+                    SetForegroundWindow(handle);
+                    return true;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // 进程刚好退出：交给下面的提示。
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+            }
+
+            return false;
+        }
+
+        private const int SwRestore = 9;
+
+        [DllImport("user32.dll")]
+        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+        [DllImport("user32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr hWnd);
 
         protected override void OnExit(ExitEventArgs e)
         {

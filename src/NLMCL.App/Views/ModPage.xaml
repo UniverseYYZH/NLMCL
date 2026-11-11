@@ -45,7 +45,8 @@
                         Command="{Binding RefreshCommand}"
                         IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
                 <Button Content="检查更新" Style="{StaticResource GhostButton}" Padding="14,7"
-                        Margin="8,0,0,0" Command="{Binding CheckUpdatesCommand}" />
+                        Margin="8,0,0,0" Command="{Binding CheckUpdatesCommand}"
+                        IsEnabled="{Binding IsCheckingUpdates, Converter={StaticResource InverseBool}}" />
                 <Button Content="打开 mods 目录" Style="{StaticResource GhostButton}" Padding="14,7"
                         Margin="8,0,0,0" Command="{Binding OpenModsFolderCommand}" />
                 <TextBlock Text="{Binding ModsDirectoryText}" FontSize="9.5"

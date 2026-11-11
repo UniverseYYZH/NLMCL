@@ -4684,15 +4684,14 @@ namespace NLMCL.App.ViewModels
                 // 否则用户点「启动游戏」会被"请先选一个版本"挡住，而那句提示在最底部，很容易漏看。
                 if (Versions.Count > 0)
                 {
-                    bool previousStillExists = SelectedVersion != null &&
-                        Versions.Any(item =>
+                    VersionItem? previous = SelectedVersion == null
+                        ? null
+                        : Versions.FirstOrDefault(item =>
                             string.Equals(item.FolderName, SelectedVersion.FolderName, StringComparison.Ordinal)
                             && string.Equals(item.GameDirectory, SelectedVersion.GameDirectory, StringComparison.OrdinalIgnoreCase));
 
-                    if (!previousStillExists)
-                    {
-                        SelectVersion(Versions[0]);
-                    }
+                    // 刷新会重建 VersionItem；必须重新指向列表里的新对象，否则列表没有高亮。
+                    SelectVersion(previous ?? Versions[0]);
                 }
                 else
                 {

@@ -219,7 +219,14 @@ namespace NLMCL.Core.Installing
         {
             long done = 0;
 
-            if (File.Exists(targetPath))
+            // 下载先写同目录临时文件，完成后才原子替换目标文件；进度优先读临时文件。
+            string partialPath = PartialPath(targetPath);
+
+            if (File.Exists(partialPath))
+            {
+                done += new FileInfo(partialPath).Length;
+            }
+            else if (File.Exists(targetPath))
             {
                 done += new FileInfo(targetPath).Length;
             }
@@ -276,7 +283,7 @@ namespace NLMCL.Core.Installing
                 catch (Exception ex)
                 {
                     last = ex;
-                    TryDelete(targetPath);
+                    TryDelete(PartialPath(targetPath));
 
                     if (attempt < Attempts)
                     {
@@ -410,10 +417,12 @@ namespace NLMCL.Core.Installing
                 }
             }
 
+            string partialPath = PartialPath(targetPath);
+
             try
             {
                 using (FileStream merged = new FileStream(
-                    targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                    partialPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
                 {
                     for (int i = 0; i < chunks.Count; i++)
                     {
@@ -427,12 +436,14 @@ namespace NLMCL.Core.Installing
                     }
                 }
 
-                if (new FileInfo(targetPath).Length != length)
+                if (new FileInfo(partialPath).Length != length)
                 {
                     Trace("合并后大小不符：" + targetPath);
-                    TryDelete(targetPath);
+                    TryDelete(partialPath);
                     return false;
                 }
+
+                CommitPartial(partialPath, targetPath);
 
                 foreach (string part in Directory.GetFiles(partsDirectory, "*.part"))
                 {
@@ -445,7 +456,7 @@ namespace NLMCL.Core.Installing
             catch (Exception ex)
             {
                 Trace("合并失败：" + ex.GetType().Name + " " + ex.Message);
-                TryDelete(targetPath);
+                TryDelete(partialPath);
                 return false;
             }
         }
@@ -631,13 +642,34 @@ namespace NLMCL.Core.Installing
                             Directory.CreateDirectory(directory!);
                         }
 
-                        using (Stream remote = await response.Content
-                            .ReadAsStreamAsync()
-                            .ConfigureAwait(false))
-                        using (FileStream local = new FileStream(
-                            targetPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                        string partialPath = PartialPath(targetPath);
+
+                        try
                         {
-                            await remote.CopyToAsync(local, 81920, timeout.Token).ConfigureAwait(false);
+                            long written;
+
+                            using (Stream remote = await response.Content
+                                .ReadAsStreamAsync()
+                                .ConfigureAwait(false))
+                            using (FileStream local = new FileStream(
+                                partialPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                            {
+                                await remote.CopyToAsync(local, 81920, timeout.Token).ConfigureAwait(false);
+                                written = local.Length;
+                            }
+
+                            if (expectedLength.HasValue && written != expectedLength.Value)
+                            {
+                                throw new IOException(
+                                    "下载不完整：期望 " + expectedLength.Value + " 字节，实际 " + written + " 字节。");
+                            }
+
+                            CommitPartial(partialPath, targetPath);
+                        }
+                        catch
+                        {
+                            TryDelete(partialPath);
+                            throw;
                         }
                     }
                 }
@@ -690,6 +722,36 @@ namespace NLMCL.Core.Installing
             }
 
             throw new InvalidOperationException("下载文本失败：" + url + " —— " + last?.Message, last);
+        }
+
+        private static string PartialPath(string targetPath)
+        {
+            return targetPath + ".nlmcl-tmp";
+        }
+
+        /// <summary>只有完整下载/合并成功后才把临时文件替换到目标位置，取消或失败不会留下半截 jar。</summary>
+        private static void CommitPartial(string partialPath, string targetPath)
+        {
+            if (File.Exists(targetPath))
+            {
+                try
+                {
+                    File.Replace(partialPath, targetPath, destinationBackupFileName: null);
+                    return;
+                }
+                catch (PlatformNotSupportedException)
+                {
+                }
+                catch (IOException)
+                {
+                }
+
+                File.Copy(partialPath, targetPath, overwrite: true);
+                TryDelete(partialPath);
+                return;
+            }
+
+            File.Move(partialPath, targetPath);
         }
 
         private static void TryDelete(string path)

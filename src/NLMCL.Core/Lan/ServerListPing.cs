@@ -52,22 +52,8 @@ namespace NLMCL.Core.Lan
                     byte[] request = BuildStatusRequest();
                     await stream.WriteAsync(request, 0, request.Length, cancellationToken).ConfigureAwait(false);
 
-                    string json;
-                    using (CancellationTokenSource readTimeout =
-                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-                    {
-                        readTimeout.CancelAfter(TimeSpan.FromSeconds(3));
-
-                        try
-                        {
-                            json = await ReadStatusAsync(stream, readTimeout.Token).ConfigureAwait(false);
-                        }
-                        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-                        {
-                            throw new TimeoutException(
-                                "服务器接受了连接，但 3 秒内没有返回状态：" + host + ":" + port);
-                        }
-                    }
+                    string json = await ReadStatusWithDeadlineAsync(
+                        stream, host, port, cancellationToken).ConfigureAwait(false);
 
                     watch.Stop();
 
@@ -78,6 +64,38 @@ namespace NLMCL.Core.Lan
             }
 
             return room;
+        }
+
+        /// <summary>
+        /// net48 的 NetworkStream.ReadAsync 不响应 CancellationToken；必须用 Task.WhenAny 抢跑，
+        /// 否则“端口通但不回包”会永久卡在正在连接。
+        /// </summary>
+        private static async Task<string> ReadStatusWithDeadlineAsync(
+            NetworkStream stream, string host, int port, CancellationToken cancellationToken)
+        {
+            using (CancellationTokenSource timeout =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                timeout.CancelAfter(TimeSpan.FromSeconds(3));
+
+                Task<string> read = ReadStatusAsync(stream, timeout.Token);
+                Task delay = Task.Delay(TimeSpan.FromSeconds(3), cancellationToken);
+                Task completed = await Task.WhenAny(read, delay).ConfigureAwait(false);
+
+                if (completed != read)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    timeout.Cancel();
+
+                    // 观察被放弃的读任务，避免未观察异常。
+                    _ = read.ContinueWith(task => { _ = task.Exception; }, TaskScheduler.Default);
+
+                    throw new TimeoutException(
+                        "服务器接受了连接，但 3 秒内没有返回状态：" + host + ":" + port);
+                }
+
+                return await read.ConfigureAwait(false);
+            }
         }
 
         /// <summary>把状态 JSON 里的版本/人数/MOTD 填进房间对象。</summary>
