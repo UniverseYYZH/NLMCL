@@ -132,10 +132,18 @@
                                         <DataTemplate>
                                             <Button Style="{StaticResource GhostButton}" Width="104"
                                                     Margin="0,0,6,6" Padding="5"
-                                                    ToolTip="点击预览并使用这张本地皮肤"
                                                     Command="{Binding DataContext.UseLocalSkinCommand,
                                                               RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
+                                                <Button.ToolTip>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                        <TextBlock Text="{Binding AcquiredLabel}" />
+                                                        <TextBlock Text="{Binding LastUsedLabel}" />
+                                                        <TextBlock Text="{Binding UsageLabel}" />
+                                                        <TextBlock Text="{Binding ModelLabel}" />
+                                                    </StackPanel>
+                                                </Button.ToolTip>
                                                 <StackPanel>
                                                     <Grid Height="54">
                                                         <Image Source="{Binding Path}" Stretch="Uniform"

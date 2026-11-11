@@ -28,6 +28,10 @@ namespace NLMCL.App
     {
         private ServiceProvider? _services;
 
+        /// <summary>页面代码后置需要从组合根取窗口/服务时使用。</summary>
+        public IServiceProvider RootServices =>
+            _services ?? throw new InvalidOperationException("应用尚未完成初始化。");
+
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);

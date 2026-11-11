@@ -1,6 +1,8 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Microsoft.Extensions.DependencyInjection;
 using NLMCL.App.ViewModels;
 
 namespace NLMCL.App.Views
@@ -47,6 +49,30 @@ namespace NLMCL.App.Views
         private void OnSearchLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
         {
             SearchBorder.SetResourceReference(Border.BorderBrushProperty, "BorderColor");
+        }
+
+        private void FirstRun_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(Application.Current is App app))
+            {
+                return;
+            }
+
+            try
+            {
+                WizardWindow wizard = app.RootServices.GetRequiredService<WizardWindow>();
+                wizard.Owner = Window.GetWindow(this);
+                wizard.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    Window.GetWindow(this),
+                    "无法打开首次引导：" + ex.Message,
+                    "NLMCL",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            }
         }
     }
 }

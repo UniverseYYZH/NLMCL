@@ -71,7 +71,11 @@ namespace NLMCL.Tests
         {
             StubDownload download = new StubDownload
             {
-                Response = "<html><title>Saber - Example</title>\"nickname\":\"alice\"</html>"
+                Resolver = url => url.Contains("/skinlib/show/6165")
+                    ? "<html><title>Saber - Example</title>\"nickname\":\"alice\"</html>"
+                    : "{\"data\":[{\"tid\":6165,\"name\":\"Saber\",\"type\":\"alex\","
+                      + "\"uploader\":10445,\"likes\":9,\"nickname\":\"alice\"}],"
+                      + "\"last_page\":1,\"total\":1}"
             };
             MuaSkinLibraryService service = new MuaSkinLibraryService(download);
 
@@ -84,7 +88,11 @@ namespace NLMCL.Tests
             Assert.Equal(6165, page.Items[0].Tid);
             Assert.Equal("Saber", page.Items[0].Name);
             Assert.Equal("alice", page.Items[0].Uploader);
-            Assert.EndsWith("/skinlib/show/6165", download.LastUrl);
+            Assert.Equal(9, page.Items[0].Likes);
+            Assert.Equal("slim", page.Items[0].Model);
+            Assert.Equal(10445, page.Items[0].UploaderId);
+            Assert.Contains("/skinlib/list", download.LastUrl);
+            Assert.Contains("keyword=Saber", download.LastUrl);
         }
 
         [Fact]

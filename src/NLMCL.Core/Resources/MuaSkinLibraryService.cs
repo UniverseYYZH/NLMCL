@@ -220,21 +220,41 @@ namespace NLMCL.Core.Resources
                 uploader = System.Net.WebUtility.HtmlDecode(nickname.Groups[1].Value);
             }
 
-            return new MuaSkinPage(
-                new[]
+            MuaSkin fallback = new MuaSkin(
+                tid,
+                name,
+                "default",
+                uploader,
+                0,
+                root + "/raw/" + tid,
+                root + "/avatar/" + tid);
+
+            // show 页面不含收藏数/类型/作者 ID。再用名称搜一次列表，按 tid 取回完整字段；
+            // 找不到或网络失败时仍返回 show 页面解析出的结果。
+            try
+            {
+                MuaSkinPage search = await FetchPageAsync(
+                    root, 1, new MuaSkinQuery { Keyword = name }, cancellationToken)
+                    .ConfigureAwait(false);
+
+                foreach (MuaSkin item in search.Items)
                 {
-                    new MuaSkin(
-                        tid,
-                        name,
-                        "default",
-                        uploader,
-                        0,
-                        root + "/raw/" + tid,
-                        root + "/avatar/" + tid)
-                },
-                1,
-                1,
-                1);
+                    if (item.Tid == tid)
+                    {
+                        return new MuaSkinPage(new[] { item }, 1, 1, 1);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 列表补全失败不影响按 ID 查看皮肤。
+            }
+
+            return new MuaSkinPage(new[] { fallback }, 1, 1, 1);
         }
 
         private async Task<string> GetStringWithFallbackAsync(
