@@ -7,9 +7,9 @@ namespace NLMCL.Core
 {
     /// <summary>
     /// <see cref="IAppPaths"/> 的默认实现，只依赖 .NET Framework 基础类库。
-    /// 普通模式优先使用 %APPDATA%\NLMCL；如果该位置不可写，回退到 exe 目录下的
-    /// NLMCL-data、%LOCALAPPDATA%\NLMCL 或 %TEMP%\NLMCL，避免受限进程把整个界面卡死。
-    /// 便携模式仍使用 exe\data。
+    /// 普通模式优先使用 %APPDATA%\NLMCL；如果该位置不可写，回退到构建输出/安装目录
+    /// 之外稳定的 NLMCL-data、%LOCALAPPDATA%\NLMCL 或 %TEMP%\NLMCL，避免受限进程
+    /// 把整个界面卡死，也避免 dotnet clean 删掉账号和皮肤。便携模式仍使用 exe\data。
     /// </summary>
     public sealed class AppPaths : IAppPaths
     {
@@ -39,7 +39,11 @@ namespace NLMCL.Core
             RoamingRoot = roaming;
 
             string preferred = Path.Combine(roaming, AppFolderName);
-            string fallback = Path.Combine(AppContext.BaseDirectory, FallbackFolderName);
+
+            // 不要把回退数据放在 bin\Debug\net48 里：dotnet clean / 重新发布会把整个
+            // 输出目录删掉，账号、设置和本地皮肤会一起消失。构建输出向上找到 bin
+            // 的父目录，普通安装则使用 exe 的同级目录。
+            string fallback = FindStableFallbackDirectory(AppContext.BaseDirectory);
             string local = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 AppFolderName);
@@ -47,6 +51,39 @@ namespace NLMCL.Core
 
             DataRoot = SelectDataRoot(preferred, fallback, local, temp, out bool isFallback);
             IsDataRootFallback = isFallback;
+
+            // 兼容旧版本把回退数据放在 exe 目录里的情况；只复制缺失内容，不删除旧数据。
+            string legacyFallback = Path.Combine(AppContext.BaseDirectory, FallbackFolderName);
+            if (isFallback && !PathsEqual(DataRoot, legacyFallback))
+            {
+                TryMigrateLegacyData(legacyFallback, DataRoot);
+            }
+        }
+
+        /// <summary>
+        /// 选一个不会被 dotnet clean / 重新发布覆盖的回退目录。
+        /// 对 ...\bin\Debug\net48 这样的输出路径，向上找到 bin，使用其父目录下的
+        /// NLMCL-data；其它安装形态使用 exe 的同级目录。
+        /// </summary>
+        internal static string FindStableFallbackDirectory(string baseDirectory)
+        {
+            string current = Path.GetFullPath(baseDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            DirectoryInfo? cursor = new DirectoryInfo(current);
+
+            while (cursor != null)
+            {
+                if (string.Equals(cursor.Name, "bin", StringComparison.OrdinalIgnoreCase))
+                {
+                    string parent = cursor.Parent?.FullName ?? current;
+                    return Path.Combine(parent, FallbackFolderName);
+                }
+
+                cursor = cursor.Parent;
+            }
+
+            string? siblingParent = Directory.GetParent(current)?.FullName;
+            return Path.Combine(siblingParent ?? current, FallbackFolderName);
         }
 
         private static bool DefaultPortable()

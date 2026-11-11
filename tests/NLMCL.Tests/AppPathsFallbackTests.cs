@@ -67,6 +67,28 @@ namespace NLMCL.Tests
             }
         }
 
+        [Fact]
+        public void Build_output_fallback_is_not_inside_bin()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-paths-build-" + Guid.NewGuid().ToString("N"));
+            string output = Path.Combine(root, "src", "NLMCL.App", "bin", "Debug", "net48");
+            Directory.CreateDirectory(output);
+
+            try
+            {
+                string fallback = AppPaths.FindStableFallbackDirectory(output);
+
+                Assert.Equal(
+                    Path.Combine(root, "src", "NLMCL.App", "NLMCL-data"),
+                    fallback);
+                Assert.DoesNotContain(Path.DirectorySeparatorChar + "bin" + Path.DirectorySeparatorChar, fallback);
+            }
+            finally
+            {
+                TryDelete(root);
+            }
+        }
+
         private static void TryDelete(string directory)
         {
             try

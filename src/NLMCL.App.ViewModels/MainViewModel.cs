@@ -1588,7 +1588,7 @@ namespace NLMCL.App.ViewModels
             }
 
             // 「实例快照」是独立页面：切过去时加载列表。
-            if (item.Section == ShellSection.Snapshot)
+            if (item.Section == ShellSection.Snapshot || item.Section == ShellSection.World)
             {
                 _ = LoadSnapshotPageAsync();
             }

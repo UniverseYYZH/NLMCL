@@ -164,6 +164,30 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Selecting_world_loads_the_current_instance_snapshots()
+        {
+            FakeSnapshots snapshots = new FakeSnapshots();
+            snapshots.Items.Add(new SnapshotInfo(
+                "s1", "1.20.1", "1.20.1", "世界页可见", DateTimeOffset.Now, 1024, 1, new[] { "saves" }));
+
+            MainViewModel vm = TestSupport.CreateMain(
+                new OneVersionCatalog(), new AppPaths(@"C:\Temp\roaming"), snapshotService: snapshots);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            vm.SelectSection(ShellSection.World);
+
+            for (int i = 0; i < 40 && vm.Snapshots.Count == 0; i++)
+            {
+                await Task.Delay(50);
+            }
+
+            Assert.True(vm.IsWorldSection);
+            Assert.Single(vm.Snapshots);
+            Assert.Equal("世界页可见", vm.Snapshots[0].Note);
+        }
+
+        [Fact]
         public async Task Leaving_snapshot_page_hides_it()
         {
             FakeSnapshots snapshots = new FakeSnapshots();

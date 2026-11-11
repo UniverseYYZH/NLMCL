@@ -31,3 +31,6 @@ artifacts/
 项目现状/
 *.lnk
 README-启动说明.txt
+
+## Runtime fallback data (created inside source tree when AppData is not writable)
+NLMCL-data/
