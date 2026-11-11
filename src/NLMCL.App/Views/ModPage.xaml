@@ -10,7 +10,22 @@
                 <ResourceDictionary Source="/NLMCL;component/Themes/Design.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <local:InverseBooleanConverter x:Key="InverseBool" />
-        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+
+            <Style x:Key="ModListItemStyle" TargetType="ListBoxItem">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="IsTabStop" Value="False" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <ContentPresenter />
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -41,9 +56,15 @@
         </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="8" Margin="0,16,0,0">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding Mods}">
-                    <ItemsControl.ItemTemplate>
+                <ListBox ItemsSource="{Binding Mods}"
+                         ItemContainerStyle="{StaticResource ModListItemStyle}"
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         HorizontalContentAlignment="Stretch"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         VirtualizingStackPanel.IsVirtualizing="True"
+                         VirtualizingStackPanel.VirtualizationMode="Recycling">
+                    <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Border Padding="12,10" Margin="0,0,0,6" CornerRadius="8"
                                     Background="{DynamicResource Surface}"
@@ -60,13 +81,14 @@
                                                    TextTrimming="CharacterEllipsis" />
                                         <TextBlock FontSize="10.5" Foreground="{DynamicResource Muted}"
                                                    Margin="0,3,0,0" TextWrapping="Wrap">
-                                            <Run Text="{Binding Version, Mode=OneWay}" />
-                                            <Run Text=" · " />
-                                            <Run Text="{Binding Loader, Mode=OneWay}" />
-                                            <Run Text=" · " />
-                                            <Run Text="{Binding SizeText, Mode=OneWay}" />
-                                            <Run Text=" · " />
-                                            <Run Text="{Binding StateText, Mode=OneWay}" />
+                                            <TextBlock.Text>
+                                                <MultiBinding StringFormat="{}{0} · {1} · {2} · {3}">
+                                                    <Binding Path="Version" />
+                                                    <Binding Path="Loader" />
+                                                    <Binding Path="SizeText" />
+                                                    <Binding Path="StateText" />
+                                                </MultiBinding>
+                                            </TextBlock.Text>
                                         </TextBlock>
                                         <TextBlock Text="{Binding UpdateText}" FontSize="10.5"
                                                    Foreground="{DynamicResource Primary}" Margin="0,2,0,0" />
@@ -90,9 +112,8 @@
                                 </Grid>
                             </Border>
                         </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+                    </ListBox.ItemTemplate>
+                </ListBox>
         </Border>
 
         <TextBlock Grid.Row="2" Text="{Binding StatusText}" FontSize="11"

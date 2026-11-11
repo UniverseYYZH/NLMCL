@@ -1,4 +1,4 @@
-﻿using System.Windows;
+using System.Windows;
 using System.Windows.Controls;
 using NLMCL.App.ViewModels;
 
@@ -19,6 +19,9 @@ namespace NLMCL.App.Views
 
         /// <summary>供截图/冒烟测试直接打开资源标签。</summary>
         public void OpenResourceTab() => ShowTab("resource");
+
+        /// <summary>供截图/冒烟测试直接打开 Mod 标签。</summary>
+        public void OpenModsTab() => ShowTab("mods");
 
         private void DownloadTab_Click(object sender, RoutedEventArgs e) => ShowTab("download");
 
