@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NLMCL.Abstractions;
@@ -113,6 +114,39 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class TwoVersionCatalog : IVersionCatalog
+        {
+            public Task<System.Collections.Generic.IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
+                string minecraftDirectory, CancellationToken cancellationToken)
+            {
+                return Task.FromResult<System.Collections.Generic.IReadOnlyList<MinecraftVersion>>(
+                    new[]
+                    {
+                        new MinecraftVersion("slow", "slow", VersionKind.Release, null),
+                        new MinecraftVersion("fast", "fast", VersionKind.Release, null),
+                    });
+            }
+        }
+
+        private sealed class DelayedSettingsStore : IInstanceSettingsStore
+        {
+            public TaskCompletionSource<InstanceSettings> Slow { get; } =
+                new TaskCompletionSource<InstanceSettings>();
+
+            public Task<InstanceSettings> LoadAsync(string minecraftDirectory, string versionId,
+                CancellationToken cancellationToken)
+            {
+                return versionId == "slow"
+                    ? Slow.Task
+                    : Task.FromResult(new InstanceSettings { MemoryMb = 2048 });
+            }
+
+            public Task SaveAsync(string minecraftDirectory, string versionId, InstanceSettings settings,
+                CancellationToken cancellationToken) => Task.CompletedTask;
+
+            public bool Exists(string minecraftDirectory, string versionId) => true;
+        }
+
         private sealed class RecordingLauncher : IGameLauncher
         {
             public LaunchRequest? LastRequest { get; private set; }
@@ -137,11 +171,12 @@ namespace NLMCL.Tests
         }
 
         private static MainViewModel Create(
-            RecordingLauncher launcher, TestSupport.MemoryInstanceSettingsStore store)
+            RecordingLauncher launcher, IInstanceSettingsStore store,
+            IVersionCatalog? catalog = null)
         {
             AppPaths paths = new AppPaths(@"C:\Temp\roaming");
             return new MainViewModel(
-                new OneVersionCatalog(), paths,
+                catalog ?? new OneVersionCatalog(), paths,
                 TestSupport.CreateDownload(paths),
                 TestSupport.CreateConsole(paths),
                 launcher, new AnyJava(),
@@ -210,6 +245,27 @@ namespace NLMCL.Tests
 
             Assert.Empty(store.Items);
             Assert.Contains("请先选择", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Slow_settings_load_does_not_overwrite_the_new_selection()
+        {
+            DelayedSettingsStore store = new DelayedSettingsStore();
+            MainViewModel vm = Create(new RecordingLauncher(), store, new TwoVersionCatalog());
+
+            await vm.RefreshAsync();
+            VersionItem slow = vm.Versions.First(v => v.FolderName == "slow");
+            VersionItem fast = vm.Versions.First(v => v.FolderName == "fast");
+
+            vm.SelectVersion(slow);
+            vm.SelectVersion(fast);
+            await Task.Delay(30);
+
+            store.Slow.SetResult(new InstanceSettings { MemoryMb = 6144 });
+            await Task.Delay(30);
+
+            Assert.Same(fast, vm.SelectedVersion);
+            Assert.Equal(2048, vm.MemoryMb);
         }
     }
 }

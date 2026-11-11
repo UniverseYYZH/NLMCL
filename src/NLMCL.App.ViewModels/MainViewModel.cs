@@ -2877,6 +2877,12 @@ namespace NLMCL.App.ViewModels
                     .LoadAsync(CurrentGameDirectory, item.FolderName, CancellationToken.None)
                     .ConfigureAwait(true);
 
+                // 用户可能在 IO 期间又点了别的实例；晚到的旧结果不能覆盖新选择。
+                if (!ReferenceEquals(SelectedVersion, item))
+                {
+                    return;
+                }
+
                 // 新实例还没有设置文件：用设置页里的"默认内存"
                 bool fresh = !_instanceSettings.Exists(CurrentGameDirectory, item.FolderName);
 
@@ -2983,11 +2989,13 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            VersionItem version = SelectedVersion;
+
             try
             {
                 await _instanceSettings.SaveAsync(
                     CurrentGameDirectory,
-                    SelectedVersion.FolderName,
+                    version.FolderName,
                     new InstanceSettings
                     {
                         MemoryMb = MemoryMb,
@@ -2999,7 +3007,7 @@ namespace NLMCL.App.ViewModels
                     },
                     CancellationToken.None).ConfigureAwait(true);
 
-                StatusText = "已保存 " + SelectedVersion.Name + " 的启动设置";
+                StatusText = "已保存 " + version.Name + " 的启动设置";
             }
             catch (Exception ex)
             {
