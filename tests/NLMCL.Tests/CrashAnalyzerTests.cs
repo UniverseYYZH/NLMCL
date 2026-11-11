@@ -106,6 +106,33 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Instance_crash_report_wins_over_a_newer_global_one()
+        {
+            string root = NewRoot();
+
+            try
+            {
+                string ownDir = Path.Combine(root, "versions", "1.20.1", "crash-reports");
+                string globalDir = Path.Combine(root, "crash-reports");
+                Directory.CreateDirectory(ownDir);
+                Directory.CreateDirectory(globalDir);
+
+                string own = Path.Combine(ownDir, "crash-own.txt");
+                string global = Path.Combine(globalDir, "crash-global.txt");
+                File.WriteAllText(own, "own");
+                File.WriteAllText(global, "global");
+                File.SetLastWriteTime(own, DateTime.Now.AddHours(-2));
+                File.SetLastWriteTime(global, DateTime.Now);
+
+                Assert.Equal(own, CrashAnalyzer.FindNewestCrashReport(root, "1.20.1"));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public async Task Prefers_crash_report_over_latest_log()
         {
             string root = NewRoot();

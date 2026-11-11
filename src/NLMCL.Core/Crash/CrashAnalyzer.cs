@@ -182,15 +182,28 @@ namespace NLMCL.Core.Crash
 
         internal static string? FindNewestCrashReport(string minecraftDirectory, string versionFolder)
         {
-            string[] roots =
-            {
-                Path.Combine(minecraftDirectory, "versions", versionFolder, "crash-reports"),
-                Path.Combine(minecraftDirectory, "crash-reports")
-            };
+            // 实例自己的崩溃报告优先：全局 crash-reports 里可能是另一个实例的旧崩溃，
+            // 直接按时间混选会把别人的错误算到当前实例头上。
+            string instanceRoot = Path.Combine(
+                minecraftDirectory, "versions", versionFolder, "crash-reports");
 
-            return roots
-                .Where(Directory.Exists)
-                .SelectMany(root => Directory.GetFiles(root, "crash-*.txt"))
+            string? own = NewestCrashReportIn(instanceRoot);
+            if (own != null)
+            {
+                return own;
+            }
+
+            return NewestCrashReportIn(Path.Combine(minecraftDirectory, "crash-reports"));
+        }
+
+        private static string? NewestCrashReportIn(string root)
+        {
+            if (!Directory.Exists(root))
+            {
+                return null;
+            }
+
+            return Directory.GetFiles(root, "crash-*.txt")
                 .OrderByDescending(File.GetLastWriteTime)
                 .FirstOrDefault();
         }
