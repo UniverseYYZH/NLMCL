@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
@@ -16,14 +18,16 @@ namespace NLMCL.Tests
         {
             public int Downloads { get; private set; }
 
-        public Task DownloadAsync(string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
-            => DownloadAsync(url, targetPath, cancellationToken);
+            public string Content { get; set; } = "fake:";
+
+            public Task DownloadAsync(string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+                => DownloadAsync(url, targetPath, cancellationToken);
 
             public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
             {
                 Downloads++;
                 Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
-                File.WriteAllText(targetPath, "fake:" + url);
+                File.WriteAllText(targetPath, Content == "fake:" ? "fake:" + url : Content);
                 return Task.CompletedTask;
             }
 
@@ -98,6 +102,60 @@ namespace NLMCL.Tests
                 Assert.True(File.Exists(Path.Combine(root, "versions", "1.20.1", "1.20.1.jar")));
 
                 // 第二次检查应该干净
+                RepairReport again = await repairer.InspectAsync(root, "Test", CancellationToken.None);
+                Assert.Equal(0, again.Missing);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Repair_replaces_a_corrupted_library_with_a_matching_sha1()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-repair-" + Guid.NewGuid().ToString("N"));
+            string versions = Path.Combine(root, "versions", "Test");
+            Directory.CreateDirectory(versions);
+
+            const string expected = "expected-library-content";
+            string sha1;
+            using (SHA1 algorithm = SHA1.Create())
+            {
+                sha1 = BitConverter.ToString(
+                    algorithm.ComputeHash(Encoding.UTF8.GetBytes(expected)))
+                    .Replace("-", string.Empty)
+                    .ToLowerInvariant();
+            }
+
+            File.WriteAllText(
+                Path.Combine(versions, "Test.json"),
+                @"{
+                    ""id"": ""Test"",
+                    ""libraries"": [
+                        { ""downloads"": { ""artifact"": {
+                            ""path"": ""com/example/lib/1.0/lib-1.0.jar"",
+                            ""url"": ""https://example.invalid/lib.jar"",
+                            ""sha1"": """ + sha1 + @"""
+                        } } }
+                    ]
+                }");
+
+            string target = Path.Combine(root, "libraries", "com", "example", "lib", "1.0", "lib-1.0.jar");
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            File.WriteAllText(target, "corrupted");
+
+            try
+            {
+                VersionRepairer repairer = new VersionRepairer(new FakeFiles { Content = expected });
+
+                RepairReport inspected = await repairer.InspectAsync(root, "Test", CancellationToken.None);
+                Assert.Equal(1, inspected.Missing);
+
+                RepairReport repaired = await repairer.RepairAsync(root, "Test", null, CancellationToken.None);
+                Assert.Equal(1, repaired.Repaired);
+                Assert.Equal(expected, File.ReadAllText(target));
+
                 RepairReport again = await repairer.InspectAsync(root, "Test", CancellationToken.None);
                 Assert.Equal(0, again.Missing);
             }

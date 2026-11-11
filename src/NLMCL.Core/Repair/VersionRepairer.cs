@@ -30,19 +30,23 @@ namespace NLMCL.Core.Repair
         public Task<RepairReport> InspectAsync(
             string minecraftDirectory, string instanceFolder, CancellationToken cancellationToken)
         {
-            List<NeededFile> needed = Collect(minecraftDirectory, instanceFolder, out string? error);
-
-            if (error != null)
+            // 校验 SHA1 要读完整文件，不能放在 UI 线程上做。
+            return Task.Run(() =>
             {
-                return Task.FromResult(new RepairReport(0, 0, 0, new[] { error }));
-            }
+                List<NeededFile> needed = Collect(minecraftDirectory, instanceFolder, out string? error);
 
-            List<string> missing = needed
-                .Where(file => !File.Exists(file.Target))
-                .Select(file => file.RelativePath)
-                .ToList();
+                if (error != null)
+                {
+                    return new RepairReport(0, 0, 0, new[] { error });
+                }
 
-            return Task.FromResult(new RepairReport(missing.Count, 0, 0, missing.Take(20).ToList()));
+                List<string> missing = needed
+                    .Where(file => !IsHealthy(file))
+                    .Select(file => file.RelativePath)
+                    .ToList();
+
+                return new RepairReport(missing.Count, 0, 0, missing.Take(20).ToList());
+            }, cancellationToken);
         }
 
         public async Task<RepairReport> RepairAsync(
@@ -56,7 +60,7 @@ namespace NLMCL.Core.Repair
                 return new RepairReport(0, 0, 1, new[] { error });
             }
 
-            List<NeededFile> missing = needed.Where(file => !File.Exists(file.Target)).ToList();
+            List<NeededFile> missing = needed.Where(file => !IsHealthy(file)).ToList();
 
             if (missing.Count == 0)
             {
@@ -83,6 +87,12 @@ namespace NLMCL.Core.Repair
                     if (!string.IsNullOrEmpty(directory))
                     {
                         Directory.CreateDirectory(directory!);
+                    }
+
+                    // 文件存在但哈希不符时不能断点续传，否则会继续拼在坏文件后面。
+                    if (File.Exists(file.Target))
+                    {
+                        File.Delete(file.Target);
                     }
 
                     await DownloadAsync(file, cancellationToken).ConfigureAwait(false);
@@ -136,6 +146,36 @@ namespace NLMCL.Core.Repair
             }
         }
 
+        /// <summary>文件存在还不够；元数据给了 SHA1 时，内容也必须对得上。</summary>
+        internal static bool IsHealthy(NeededFile file)
+        {
+            if (!File.Exists(file.Target))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(file.Sha1))
+            {
+                return true;
+            }
+
+            try
+            {
+                using FileStream stream = File.OpenRead(file.Target);
+                using System.Security.Cryptography.SHA1 sha1 =
+                    System.Security.Cryptography.SHA1.Create();
+                string actual = BitConverter
+                    .ToString(sha1.ComputeHash(stream))
+                    .Replace("-", string.Empty);
+
+                return string.Equals(actual, file.Sha1, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+        }
+
         /// <summary>沿 inheritsFrom 链收集需要的文件。</summary>
         internal static List<NeededFile> Collect(
             string minecraftDirectory, string instanceFolder, out string? error)
@@ -181,6 +221,8 @@ namespace NLMCL.Core.Repair
 
                     string? url = json
                         .SelectToken("downloads.client.url")?.Value<string>();
+                    string? sha1 = json
+                        .SelectToken("downloads.client.sha1")?.Value<string>();
 
                     if (string.IsNullOrEmpty(url))
                     {
@@ -190,8 +232,9 @@ namespace NLMCL.Core.Repair
                         {
                             try
                             {
-                                url = JObject.Parse(File.ReadAllText(jarJson))
-                                    .SelectToken("downloads.client.url")?.Value<string>();
+                                JObject baseJson = JObject.Parse(File.ReadAllText(jarJson));
+                                url = baseJson.SelectToken("downloads.client.url")?.Value<string>();
+                                sha1 = baseJson.SelectToken("downloads.client.sha1")?.Value<string>();
                             }
                             catch (Exception)
                             {
@@ -202,7 +245,8 @@ namespace NLMCL.Core.Repair
 
                     if (!string.IsNullOrEmpty(url))
                     {
-                        result.Add(new NeededFile(jarPath, url!, "versions/" + jarName + "/" + jarName + ".jar"));
+                        result.Add(new NeededFile(
+                            jarPath, url!, "versions/" + jarName + "/" + jarName + ".jar", sha1));
                     }
                 }
 
@@ -229,6 +273,7 @@ namespace NLMCL.Core.Repair
 
                 string? path = library.SelectToken("downloads.artifact.path")?.Value<string>();
                 string? url = library.SelectToken("downloads.artifact.url")?.Value<string>();
+                string? sha1 = library.SelectToken("downloads.artifact.sha1")?.Value<string>();
 
                 if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(url))
                 {
@@ -240,7 +285,7 @@ namespace NLMCL.Core.Repair
 
                 if (seen.Add(target))
                 {
-                    result.Add(new NeededFile(target, url!, "libraries/" + path));
+                    result.Add(new NeededFile(target, url!, "libraries/" + path, sha1));
                 }
             }
         }
@@ -274,11 +319,12 @@ namespace NLMCL.Core.Repair
         /// <summary>一个待检查/待下载的文件。</summary>
         internal sealed class NeededFile
         {
-            public NeededFile(string target, string url, string relativePath)
+            public NeededFile(string target, string url, string relativePath, string? sha1 = null)
             {
                 Target = target;
                 Url = url;
                 RelativePath = relativePath;
+                Sha1 = sha1;
             }
 
             public string Target { get; }
@@ -286,6 +332,8 @@ namespace NLMCL.Core.Repair
             public string Url { get; }
 
             public string RelativePath { get; }
+
+            public string? Sha1 { get; }
         }
     }
 }
