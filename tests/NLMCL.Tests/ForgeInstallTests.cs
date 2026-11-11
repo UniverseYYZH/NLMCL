@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using NLMCL.Abstractions;
@@ -89,9 +90,20 @@ namespace NLMCL.Tests
         {
             public string? LastUrl { get; private set; }
 
+            public bool FailBmcl { get; set; }
+
+            public List<string> RequestedUrls { get; } = new List<string>();
+
             public override Task DownloadFileAsync(string url, string localPath, CancellationToken cancellationToken)
             {
                 LastUrl = url;
+                RequestedUrls.Add(url);
+
+                if (FailBmcl && url.Contains("bmclapi"))
+                {
+                    throw new HttpRequestException("mirror down");
+                }
+
                 Directory.CreateDirectory(Path.GetDirectoryName(localPath)!);
 
                 // 安装器要求 > 1MB 且是合法 jar（PK 魔数），这里造一个 2MB 的假 jar
@@ -152,6 +164,38 @@ namespace NLMCL.Tests
                 Assert.Contains("--installClient", process.Arguments);
                 Assert.Contains("forge-1.20.1-47.9.9-installer.jar", download.LastUrl);
                 Assert.True(File.Exists(Path.Combine(root, "launcher_profiles.json")));
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Installer_falls_back_to_official_maven_when_mirror_fails()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-forge-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+
+            try
+            {
+                FakeDownload download = new FakeDownload { FailBmcl = true };
+                ForgeLoaderInstaller installer = new ForgeLoaderInstaller(
+                    download, new FakeProcess(), Path.Combine(root, "cache"));
+
+                string id = await installer.InstallForgeAsync(
+                    "1.20.1", "47.9.9", root, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
+
+                Assert.Equal("1.20.1-forge-47.9.9", id);
+                Assert.Equal(2, download.RequestedUrls.Count);
+                Assert.Contains("bmclapi", download.RequestedUrls[0]);
+                Assert.StartsWith("https://maven.minecraftforge.net/", download.RequestedUrls[1]);
             }
             finally
             {

@@ -25,6 +25,12 @@ namespace NLMCL.Core.Installing
 
         public const string NeoForgeMavenBase = "https://bmclapi2.bangbang93.com/maven/net/neoforged/neoforge";
 
+        public const string ForgeOfficialMavenBase =
+            "https://maven.minecraftforge.net/net/minecraftforge/forge";
+
+        public const string NeoForgeOfficialMavenBase =
+            "https://maven.neoforged.net/releases/net/neoforged/neoforge";
+
         private readonly IDownloadService _download;
         private readonly IProcessRunner _process;
         private readonly string _cacheDirectory;
@@ -58,8 +64,10 @@ namespace NLMCL.Core.Installing
             string id = minecraftVersion.Trim() + "-forge-" + loaderVersion.Trim();
             string artifact = minecraftVersion.Trim() + "-" + loaderVersion.Trim();
             string url = ForgeMavenBase + "/" + artifact + "/forge-" + artifact + "-installer.jar";
+            string fallback = ForgeOfficialMavenBase + "/" + artifact + "/forge-" + artifact + "-installer.jar";
 
-            return InstallCoreAsync(id, url, "Forge", minecraftDirectory, javaExecutable, progress, cancellationToken);
+            return InstallCoreAsync(
+                id, url, fallback, "Forge", minecraftDirectory, javaExecutable, progress, cancellationToken);
         }
 
         public Task<string> InstallNeoForgeAsync(
@@ -74,13 +82,17 @@ namespace NLMCL.Core.Installing
             string version = loaderVersion.Trim();
             string id = "neoforge-" + version;
             string url = NeoForgeMavenBase + "/" + version + "/neoforge-" + version + "-installer.jar";
+            string fallback = NeoForgeOfficialMavenBase + "/" + version
+                + "/neoforge-" + version + "-installer.jar";
 
-            return InstallCoreAsync(id, url, "NeoForge", minecraftDirectory, javaExecutable, progress, cancellationToken);
+            return InstallCoreAsync(
+                id, url, fallback, "NeoForge", minecraftDirectory, javaExecutable, progress, cancellationToken);
         }
 
         private async Task<string> InstallCoreAsync(
             string id,
             string installerUrl,
+            string fallbackInstallerUrl,
             string displayName,
             string minecraftDirectory,
             string javaExecutable,
@@ -94,7 +106,8 @@ namespace NLMCL.Core.Installing
 
             progress?.Report(new InstallProgress("准备 " + displayName + " " + id, 2, 0));
 
-            string jar = await EnsureInstallerAsync(id, installerUrl, cancellationToken).ConfigureAwait(false);
+            string jar = await EnsureInstallerAsync(
+                id, installerUrl, fallbackInstallerUrl, cancellationToken).ConfigureAwait(false);
 
             Directory.CreateDirectory(minecraftDirectory);
             EnsureLauncherProfiles(minecraftDirectory);
@@ -162,7 +175,8 @@ namespace NLMCL.Core.Installing
 
         /// <summary>安装器 jar 下载到缓存目录；缓存必须是真正的 jar（PK 头）才复用。</summary>
         private async Task<string> EnsureInstallerAsync(
-            string id, string installerUrl, CancellationToken cancellationToken)
+            string id, string installerUrl, string fallbackInstallerUrl,
+            CancellationToken cancellationToken)
         {
             Directory.CreateDirectory(_cacheDirectory);
 
@@ -173,18 +187,39 @@ namespace NLMCL.Core.Installing
                 return path;
             }
 
-            // 缓存损坏（半截下载、被别的程序写坏、测试桩写入）时删掉重下，
-            // 只校验体积是不够的：一个 2MB 的全零文件同样能通过 ">1MB" 检查。
-            TryDelete(path);
+            Exception? firstError = null;
+            string[] candidates = { installerUrl, fallbackInstallerUrl };
 
-            await _download.DownloadFileAsync(installerUrl, path, cancellationToken).ConfigureAwait(false);
-
-            if (!IsValidJar(path))
+            foreach (string url in candidates.Where(value => !string.IsNullOrWhiteSpace(value)))
             {
-                throw new InvalidOperationException("下载到的安装器不是有效 jar：" + installerUrl);
+                try
+                {
+                    // 缓存损坏（半截下载、被别的程序写坏、测试桩写入）时删掉重下，
+                    // 只校验体积是不够的：一个 2MB 的全零文件同样能通过 ">1MB" 检查。
+                    TryDelete(path);
+
+                    await _download.DownloadFileAsync(url, path, cancellationToken).ConfigureAwait(false);
+
+                    if (IsValidJar(path))
+                    {
+                        return path;
+                    }
+
+                    firstError ??= new InvalidOperationException("下载到的安装器不是有效 jar：" + url);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    firstError ??= ex;
+                    TryDelete(path);
+                }
             }
 
-            return path;
+            throw new InvalidOperationException(
+                "安装器下载失败，镜像与官方地址都不可用：" + id, firstError);
         }
 
         /// <summary>真正的 jar 以 PK\003\004 开头；体积也要够（安装器约 8MB）。</summary>
