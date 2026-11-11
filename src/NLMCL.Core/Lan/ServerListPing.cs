@@ -51,7 +51,22 @@ namespace NLMCL.Core.Lan
                     byte[] request = BuildStatusRequest();
                     await stream.WriteAsync(request, 0, request.Length, cancellationToken).ConfigureAwait(false);
 
-                    string json = await ReadStatusAsync(stream, cancellationToken).ConfigureAwait(false);
+                    string json;
+                    using (CancellationTokenSource readTimeout =
+                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                    {
+                        readTimeout.CancelAfter(TimeSpan.FromSeconds(3));
+
+                        try
+                        {
+                            json = await ReadStatusAsync(stream, readTimeout.Token).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                        {
+                            throw new TimeoutException(
+                                "服务器接受了连接，但 3 秒内没有返回状态：" + host + ":" + port);
+                        }
+                    }
 
                     watch.Stop();
 

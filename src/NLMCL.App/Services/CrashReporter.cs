@@ -13,14 +13,19 @@ namespace NLMCL.App.Services
     /// </summary>
     internal static class CrashReporter
     {
+        /// <summary>由组合根统一指向 IAppPaths.LogDirectory；便携/回退模式不再写死 AppData。</summary>
+        internal static string? LogDirectory { get; set; }
+
         internal static string Write(string source, Exception? exception)
         {
             try
             {
-                string folder = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "NLMCL",
-                    "logs");
+                string folder = string.IsNullOrWhiteSpace(LogDirectory)
+                    ? Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "NLMCL",
+                        "logs")
+                    : LogDirectory!;
                 Directory.CreateDirectory(folder);
 
                 string path = Path.Combine(

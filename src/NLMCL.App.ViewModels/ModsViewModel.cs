@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -176,9 +176,16 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        private bool _isCheckingUpdates;
+
         [RelayCommand]
         public async Task CheckUpdatesAsync()
         {
+            if (_isCheckingUpdates)
+            {
+                return;
+            }
+
             if (_updates == null)
             {
                 StatusText = "更新检查不可用。";
@@ -191,10 +198,12 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            _isCheckingUpdates = true;
             StatusText = "正在并发检查 Mod 更新…";
 
             List<ModEntry> snapshot = Mods.ToList();
             List<(ModEntry Mod, ModUpdateInfo? Update)> results = new List<(ModEntry, ModUpdateInfo?)>();
+            int failures = 0;
             object gate = new object();
             using SemaphoreSlim slots = new SemaphoreSlim(4);
 
@@ -215,7 +224,11 @@ namespace NLMCL.App.ViewModels
                 }
                 catch (Exception)
                 {
-                    // 单个 mod 查询失败不影响其它。
+                    // 单个 mod 查询失败不影响其它，但必须让用户知道这不是“没有更新”。
+                    lock (gate)
+                    {
+                        failures++;
+                    }
                 }
                 finally
                 {
@@ -243,7 +256,18 @@ namespace NLMCL.App.ViewModels
             }
 
             OnPropertyChanged(nameof(Mods));
-            StatusText = found == 0 ? "没有发现新版本。" : "发现 " + found + " 个模组有新版本。";
+            if (failures > 0)
+            {
+                StatusText = found == 0
+                    ? "更新检查失败：" + failures + " 个模组未返回结果，请检查网络后重试。"
+                    : "发现 " + found + " 个模组有新版本；另有 " + failures
+                      + " 个模组检查失败，请稍后重试。";
+            }
+            else
+            {
+                StatusText = found == 0 ? "没有发现新版本。" : "发现 " + found + " 个模组有新版本。";
+            }
+            _isCheckingUpdates = false;
         }
     }
 }

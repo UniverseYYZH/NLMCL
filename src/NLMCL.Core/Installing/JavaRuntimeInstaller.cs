@@ -239,12 +239,45 @@ namespace NLMCL.Core.Installing
                     }
                 }
 
-                if (File.Exists(target))
-                {
-                    File.Delete(target);
-                }
+                // 不能先删旧文件：javaw.exe 可能正被另一个实例占用。
+                // 先把旧文件改名留退路，新文件放好后再删；失败则回滚。
+                string retired = target + ".old-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+                bool movedOld = false;
 
-                File.Move(temp, target);
+                try
+                {
+                    if (File.Exists(target))
+                    {
+                        File.Move(target, retired);
+                        movedOld = true;
+                    }
+
+                    File.Move(temp, target);
+
+                    if (movedOld && File.Exists(retired))
+                    {
+                        try
+                        {
+                            File.Delete(retired);
+                        }
+                        catch (IOException)
+                        {
+                            // 旧 exe 仍被其他实例占用：保留 .old-*，不阻断本次更新。
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                        }
+                    }
+                }
+                catch
+                {
+                    if (movedOld && !File.Exists(target) && File.Exists(retired))
+                    {
+                        File.Move(retired, target);
+                    }
+
+                    throw;
+                }
             }
             finally
             {

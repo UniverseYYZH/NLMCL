@@ -45,7 +45,7 @@ namespace NLMCL.Core.Resources
             IProgress<double>? progress,
             CancellationToken cancellationToken)
         {
-            string safeName = string.IsNullOrWhiteSpace(fileName) ? "curseforge-file.jar" : fileName;
+            string safeName = SanitizeFileName(fileName, "curseforge-file.jar");
 
             // mcim 返回的是 edge.forgecdn.net，换成 mediafilez 才能直连下载 + 分块
             if (url.IndexOf("edge.forgecdn.net", StringComparison.OrdinalIgnoreCase) >= 0)
@@ -55,12 +55,54 @@ namespace NLMCL.Core.Resources
             string dir = Path.Combine(minecraftDirectory, "versions", versionFolder, SubDirectoryOf(kind));
             Directory.CreateDirectory(dir);
 
-            string target = Path.Combine(dir, safeName);
+            string target = SafeTarget(dir, safeName);
             string temp = target + ".nlmcl-tmp";
 
-            await _files.DownloadAsync(url, temp, progress, cancellationToken).ConfigureAwait(false);
-            File.Copy(temp, target, overwrite: true);
-            File.Delete(temp);
+            try
+            {
+                await _files.DownloadAsync(url, temp, progress, cancellationToken).ConfigureAwait(false);
+                File.Copy(temp, target, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(temp))
+                {
+                    File.Delete(temp);
+                }
+            }
+
+            return target;
+        }
+
+        /// <summary>只保留文件名本身；远程 JSON 里的 ../ 不能决定落盘位置。</summary>
+        private static string SanitizeFileName(string? name, string fallback)
+        {
+            string file = Path.GetFileName((name ?? string.Empty).Trim());
+
+            if (string.IsNullOrWhiteSpace(file) || file == "." || file == "..")
+            {
+                return fallback;
+            }
+
+            foreach (char invalid in Path.GetInvalidFileNameChars())
+            {
+                file = file.Replace(invalid, '_');
+            }
+
+            return file;
+        }
+
+        private static string SafeTarget(string directory, string fileName)
+        {
+            string root = Path.GetFullPath(directory);
+            string target = Path.GetFullPath(Path.Combine(root, fileName));
+
+            if (!target.StartsWith(
+                    root.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("非法的 CurseForge 文件名：" + fileName);
+            }
 
             return target;
         }
@@ -115,7 +157,8 @@ namespace NLMCL.Core.Resources
             }
 
             long id = picked.Value<long>("id");
-            string name = picked.Value<string>("name") ?? ("curseforge-" + id + ".jar");
+            string name = SanitizeFileName(
+                picked.Value<string>("name"), "curseforge-" + id + ".jar");
             long size = picked.Value<long?>("filesize") ?? 0;
 
             string url = BuildDownloadUrl(id, name);
@@ -123,7 +166,7 @@ namespace NLMCL.Core.Resources
             string mods = Path.Combine(minecraftDirectory, "versions", versionFolder, "mods");
             Directory.CreateDirectory(mods);
 
-            string target = Path.Combine(mods, name);
+            string target = SafeTarget(mods, name);
 
             await _downloads.DownloadFileAsync(url, target, cancellationToken).ConfigureAwait(false);
 

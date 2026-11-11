@@ -39,6 +39,15 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Rejects_plain_http_api_root()
+        {
+            InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+                () => YggdrasilAuthenticator.NormalizeRoot("http://skin.example.cn/api/yggdrasil"));
+
+            Assert.Contains("https", error.Message);
+        }
+
+        [Fact]
         public async Task Logs_in_and_maps_profile()
         {
             FakeServer server = new FakeServer(@"{

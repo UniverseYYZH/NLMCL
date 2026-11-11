@@ -181,10 +181,11 @@ namespace NLMCL.Core.Accounts
 
             string root = apiRoot.Trim().TrimEnd('/');
 
-            if (!root.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
-                !root.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            // 外置登录会发送用户名、口令和 accessToken；明文 HTTP 在公共网络可被直接嗅探。
+            // 不支持“警告后继续”，避免用户在不了解后果时点过。
+            if (!root.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("认证服务器地址必须以 http:// 或 https:// 开头。");
+                throw new InvalidOperationException("认证服务器地址必须以 https:// 开头，不能使用明文 HTTP。");
             }
 
             return root;

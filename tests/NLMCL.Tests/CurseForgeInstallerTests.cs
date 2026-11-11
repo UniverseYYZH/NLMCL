@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
@@ -83,6 +83,33 @@ namespace NLMCL.Tests
                 Assert.Equal(1, files.Calls);                       // 走自带下载器，不走 ModNet
                 Assert.Contains("mods", path);
                 Assert.EndsWith("a.jar", path);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
+        public async Task Remote_file_name_cannot_escape_the_mods_directory()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-cf-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+
+            try
+            {
+                CurseForgeInstaller installer = new CurseForgeInstaller(
+                    new NoopStrings(), new RecordingFiles());
+
+                string path = await installer.InstallFileAsync(
+                    "https://edge.forgecdn.net/files/1/2/a.jar",
+                    @"..\..\evil.jar",
+                    NLMCL.Abstractions.ResourceKind.Mod,
+                    root, "1.21.1", null, CancellationToken.None);
+
+                string mods = Path.Combine(root, "versions", "1.21.1", "mods");
+                Assert.Equal(Path.Combine(mods, "evil.jar"), path);
+                Assert.True(File.Exists(path));
             }
             finally
             {

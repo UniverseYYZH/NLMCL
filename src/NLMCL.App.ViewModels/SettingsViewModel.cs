@@ -599,14 +599,18 @@ namespace NLMCL.App.ViewModels
                 }
 
                 if (!string.IsNullOrWhiteSpace(DefaultJavaPath)
-                    && File.Exists(DefaultJavaPath)
                     && !JavaOptions.Any(option => option.Path != null
                         && string.Equals(option.Path, DefaultJavaPath, StringComparison.OrdinalIgnoreCase)))
                 {
+                    // 路径可能临时不可用（移动硬盘拔掉/被杀毒软件隔离）。
+                    // 仍然保留这一项，不能因为“打开设置页”就把用户手选的 Java 静默改回自动。
+                    bool exists = File.Exists(DefaultJavaPath);
                     JavaOptions.Add(new JavaOption(
                         DefaultJavaPath,
-                        "自定义 Java · " + Path.GetFileName(DefaultJavaPath),
-                        DefaultJavaPath));
+                        exists
+                            ? "自定义 Java · " + Path.GetFileName(DefaultJavaPath)
+                            : "未找到的 Java · " + Path.GetFileName(DefaultJavaPath),
+                        exists ? DefaultJavaPath : DefaultJavaPath + "（文件不存在）"));
                 }
 
                 string? configured = DefaultJavaPath;

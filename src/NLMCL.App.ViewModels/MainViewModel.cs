@@ -1560,7 +1560,12 @@ namespace NLMCL.App.ViewModels
                     _mirror.Enabled = UseMirror;
                 }
 
-                StatusText = "设置已保存";
+                // 更高版本的 settings.json 会被视为只读：SaveAsync 会安全地跳过写入，
+                // 此时不能仍然告诉用户“设置已保存”，否则重启后全部复原。
+                AppSettings persisted = await _appSettings.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+                StatusText = persisted.IsReadOnly
+                    ? "设置文件由更新版本创建，本次修改不会保存；请升级启动器后重试"
+                    : "设置已保存";
             }
             catch (Exception ex)
             {
@@ -2775,17 +2780,39 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            StatusText = "正在探测 " + host + ":" + port + " …";
+            string targetHost = host;
+            int targetPort = port;
 
-            bool open = await _network.IsPortOpenAsync(host, port, CancellationToken.None).ConfigureAwait(true);
+            // 域名可能把真实端口藏在 SRV 记录里；诊断页会查，直连入口也必须查，
+            // 否则客户端进得去、启动器却先判“端口未开放”。
+            if (_addressResolver != null)
+            {
+                try
+                {
+                    ServerEndpoint endpoint = await _addressResolver
+                        .ResolveAsync(host, port, CancellationToken.None).ConfigureAwait(true);
+                    targetHost = endpoint.Host;
+                    targetPort = endpoint.Port;
+                }
+                catch (Exception ex)
+                {
+                    StatusText = "解析服务器地址失败：" + ex.Message;
+                    return;
+                }
+            }
+
+            StatusText = "正在探测 " + targetHost + ":" + targetPort + " …";
+
+            bool open = await _network
+                .IsPortOpenAsync(targetHost, targetPort, CancellationToken.None).ConfigureAwait(true);
             if (!open)
             {
-                StatusText = "连不上 " + host + ":" + port +
+                StatusText = "连不上 " + targetHost + ":" + targetPort +
                              " —— 对方可能没开房、端口填错，或不在同一网段（校园网跨 VLAN 常被拦）";
                 return;
             }
 
-            await LaunchCoreAsync(host + ":" + port).ConfigureAwait(true);
+            await LaunchCoreAsync(targetHost + ":" + targetPort).ConfigureAwait(true);
         }
 
         /// <summary>
