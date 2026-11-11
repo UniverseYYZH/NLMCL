@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Newtonsoft.Json.Linq;
 using NLMCL.Abstractions;
 
@@ -22,6 +23,9 @@ namespace NLMCL.Core.Installing
     {
         public const string BuildListUrl = "https://bmclapi2.bangbang93.com/forge/minecraft/";
 
+        public const string OfficialMetadataUrl =
+            "https://maven.minecraftforge.net/net/minecraftforge/forge/maven-metadata.xml";
+
         private readonly IDownloadService _download;
 
         public ForgeCatalog(IDownloadService download)
@@ -37,10 +41,33 @@ namespace NLMCL.Core.Installing
                 throw new ArgumentException("游戏版本为空。", nameof(minecraftVersion));
             }
 
-            string url = BuildListUrl + Uri.EscapeDataString(minecraftVersion.Trim());
-            string json = await _download.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
+            string version = minecraftVersion.Trim();
+            string url = BuildListUrl + Uri.EscapeDataString(version);
 
-            return Parse(json, minecraftVersion.Trim());
+            try
+            {
+                string json = await _download.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
+                return Parse(json, version);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 镜像挂了不能连累整个下载页；官方 maven 的 metadata 仍能给出构建号。
+                string xml = await _download
+                    .GetStringAsync(OfficialMetadataUrl, cancellationToken).ConfigureAwait(false);
+
+                IReadOnlyList<LoaderBuild> official = ParseOfficialMetadata(xml, version);
+                if (official.Count == 0)
+                {
+                    throw new InvalidOperationException(
+                        "无法从镜像或官方源取得 Forge 构建列表：Minecraft " + version);
+                }
+
+                return official;
+            }
         }
 
         internal static IReadOnlyList<LoaderBuild> Parse(string json, string minecraftVersion)
@@ -76,6 +103,42 @@ namespace NLMCL.Core.Installing
             }
 
             // 新版本在前：版本号按 "47.4.27" 的数字段比较，避免 47.10 < 47.9 这类字符串误区
+            return builds
+                .OrderByDescending(build => VersionKey(build.Version))
+                .ToList();
+        }
+
+        /// <summary>解析官方 maven-metadata.xml；版本形如 1.20.1-47.10.2。</summary>
+        internal static IReadOnlyList<LoaderBuild> ParseOfficialMetadata(string xml, string minecraftVersion)
+        {
+            XDocument document;
+            try
+            {
+                document = XDocument.Parse(xml);
+            }
+            catch (Exception)
+            {
+                throw new InvalidOperationException("Forge 官方构建列表格式异常。");
+            }
+
+            string prefix = minecraftVersion.Trim() + "-";
+            List<LoaderBuild> builds = new List<LoaderBuild>();
+
+            foreach (XElement element in document.Descendants("version"))
+            {
+                string value = element.Value.Trim();
+                if (!value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string forge = value.Substring(prefix.Length);
+                if (forge.Length > 0)
+                {
+                    builds.Add(new LoaderBuild(forge, minecraftVersion.Trim(), null));
+                }
+            }
+
             return builds
                 .OrderByDescending(build => VersionKey(build.Version))
                 .ToList();

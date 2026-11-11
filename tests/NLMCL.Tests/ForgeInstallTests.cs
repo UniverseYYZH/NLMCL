@@ -31,6 +31,30 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Parses_official_maven_metadata_for_the_requested_minecraft_version()
+        {
+            const string xml = @"<metadata>
+  <versioning>
+    <versions>
+      <version>1.20.1-47.0.1</version>
+      <version>1.20.1-47.10.2</version>
+      <version>1.20.1-47.4.27</version>
+      <version>1.20.2-48.0.1</version>
+    </versions>
+  </versioning>
+</metadata>";
+
+            IReadOnlyList<LoaderBuild> builds =
+                ForgeCatalog.ParseOfficialMetadata(xml, "1.20.1");
+
+            Assert.Equal(3, builds.Count);
+            Assert.Equal("47.10.2", builds[0].Version);
+            Assert.Equal("47.4.27", builds[1].Version);
+            Assert.Equal("47.0.1", builds[2].Version);
+            Assert.All(builds, build => Assert.Equal("1.20.1", build.MinecraftVersion));
+        }
+
+        [Fact]
         public void Launcher_profiles_is_created_when_missing()
         {
             string root = Path.Combine(Path.GetTempPath(), "nlmcl-forge-" + Guid.NewGuid().ToString("N"));
