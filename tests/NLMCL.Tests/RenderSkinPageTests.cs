@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using NLMCL.App.ViewModels;
+using NLMCL.App.Views;
 using NLMCL.Core;
 using NLMCL.Core.Pcl;
 using NLMCL.Core.Skins;
@@ -66,6 +67,9 @@ namespace NLMCL.Tests
                         root.Measure(new Size(width, height));
                         root.Arrange(new Rect(0, 0, width, height));
                         root.UpdateLayout();
+
+                        NingliPage ningli = Assert.IsType<NingliPage>(window.FindName("NingliView"));
+                        Assert.Equal(Visibility.Collapsed, ningli.Visibility);
 
                         RenderTargetBitmap bitmap = new RenderTargetBitmap(width, height, 96, 96, PixelFormats.Pbgra32);
                         bitmap.Render(root);

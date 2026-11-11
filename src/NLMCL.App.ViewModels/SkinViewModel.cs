@@ -378,6 +378,7 @@ namespace NLMCL.App.ViewModels
                 }
 
                 string source = cache ?? GetLookupCachePath(account);
+                bool usedTempFallback = false;
 
                 try
                 {
@@ -391,7 +392,17 @@ namespace NLMCL.App.ViewModels
                         return;
                     }
 
-                    if (hasCache)
+                    // 缓存目录被宿主/安全软件拒绝时，退回临时根目录的单文件预览；
+                    // 不再因此把已经下载到的正版皮肤丢掉。
+                    string? tempSource = await TrySaveSkinToTempAsync(account, skin.SkinUrl)
+                        .ConfigureAwait(true);
+
+                    if (tempSource != null)
+                    {
+                        source = tempSource;
+                        usedTempFallback = true;
+                    }
+                    else if (hasCache)
                     {
                         _current = null;
                         _skinPng = cache;
@@ -404,6 +415,8 @@ namespace NLMCL.App.ViewModels
                             StatusText = "账号皮肤下载失败，继续显示上次缓存；点「刷新」重试：" +
                                          downloadError.Message;
                         }
+
+                        return;
                     }
                     else
                     {
@@ -411,9 +424,8 @@ namespace NLMCL.App.ViewModels
                             generation,
                             "账号皮肤下载失败，已显示默认皮肤；点「刷新」重试：" +
                             downloadError.Message).ConfigureAwait(true);
+                        return;
                     }
-
-                    return;
                 }
 
                 if (generation != _refreshGeneration)
@@ -433,7 +445,9 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
-                StatusText = "皮肤来源：" + skin.Source + " · 拖动图片可旋转";
+                StatusText = "皮肤来源：" + skin.Source +
+                             (usedTempFallback ? " · 临时预览" : "") +
+                             " · 拖动图片可旋转";
             }
             catch (Exception ex)
             {
@@ -553,6 +567,25 @@ namespace NLMCL.App.ViewModels
             }
 
             return Path.Combine(Path.GetTempPath(), file);
+        }
+
+        private async Task<string?> TrySaveSkinToTempAsync(Account account, string url)
+        {
+            try
+            {
+                string path = Path.Combine(
+                    Path.GetTempPath(),
+                    "nlmcl-skin-live-" + SafeCacheKey(account) + ".png");
+
+                await _skins.SavePreviewAsync(url, path, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                return IsUsablePng(path) ? path : null;
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         private static string SafeCacheKey(Account account)

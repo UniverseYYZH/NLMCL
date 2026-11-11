@@ -315,6 +315,39 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Cache_write_failure_still_previews_online_skin_from_temp()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-skinfallback-");
+            AppPaths paths = new AppPaths(root);
+            string source = Path.Combine(AppContext.BaseDirectory, "assets", "steve.png");
+
+            FakeSkinService skins = new FakeSkinService
+            {
+                GetHandler = _ => Task.FromResult<SkinInfo?>(
+                    new SkinInfo("Alpha", "https://example.com/custom.png", "default", "src")),
+                SavePreviewHandler = (_, target) =>
+                {
+                    if (target.IndexOf("cache", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        throw new UnauthorizedAccessException("cache 不可写");
+                    }
+
+                    File.Copy(source, target, true);
+                    return Task.CompletedTask;
+                }
+            };
+
+            SkinViewModel vm = new SkinViewModel(skins, paths: paths);
+            vm.SetAccount(new Account("Alpha", "uuid-alpha", AccountType.Microsoft));
+
+            await Task.Delay(500);
+
+            Assert.NotNull(vm.PreviewPng);
+            Assert.NotEmpty(vm.PreviewPng!);
+            Assert.Contains("临时预览", vm.StatusText);
+        }
+
+        [Fact]
         public async Task Skin_refresh_ignores_stale_account_result()
         {
             FakeSkinService skins = new FakeSkinService
@@ -374,6 +407,8 @@ namespace NLMCL.Tests
         {
             public Func<Account, Task<SkinInfo?>>? GetHandler { get; set; }
 
+            public Func<string, string, Task>? SavePreviewHandler { get; set; }
+
             public Task<SkinInfo?> GetAsync(Account account, CancellationToken cancellationToken)
                 => GetHandler == null
                     ? Task.FromResult<SkinInfo?>(null)
@@ -383,7 +418,9 @@ namespace NLMCL.Tests
                 => Task.FromResult("saved.png");
 
             public Task SavePreviewAsync(string url, string targetPath, CancellationToken cancellationToken)
-                => Task.CompletedTask;
+                => SavePreviewHandler == null
+                    ? Task.CompletedTask
+                    : SavePreviewHandler(url, targetPath);
 
             public Task<string> ImportLocalAsync(
                 string sourcePath, string playerName, CancellationToken cancellationToken)
