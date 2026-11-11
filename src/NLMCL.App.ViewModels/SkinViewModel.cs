@@ -153,8 +153,28 @@ namespace NLMCL.App.ViewModels
 
                 if (Directory.Exists(_paths.SkinDirectory))
                 {
-                    foreach (string file in Directory.GetFiles(_paths.SkinDirectory, "*.png")
-                        .Take(300))
+                    List<string> files = Directory.GetFiles(_paths.SkinDirectory, "*.png")
+                        .Take(300)
+                        .ToList();
+
+                    string? currentPath = null;
+                    if (!string.IsNullOrEmpty(_skinPng))
+                    {
+                        string activeSkin = Path.GetFullPath(_skinPng);
+                        currentPath = files.FirstOrDefault(file =>
+                            string.Equals(
+                                Path.GetFullPath(file),
+                                activeSkin,
+                                StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    if (currentPath != null && _activeUsagePath == null)
+                    {
+                        // 启动时已经装配的本地皮肤也应计入使用时长，而不是等用户再点一次。
+                        BeginUsage(currentPath);
+                    }
+
+                    foreach (string file in files)
                     {
                         SkinUsageRecord? usage = _usage.Get(file);
                         DateTime acquired;
@@ -170,8 +190,7 @@ namespace NLMCL.App.ViewModels
 
                         _allLocalSkins.Add(new LocalSkinItem(
                             file,
-                            !string.IsNullOrEmpty(_skinPng)
-                            && string.Equals(Path.GetFullPath(file), Path.GetFullPath(_skinPng), StringComparison.OrdinalIgnoreCase),
+                            string.Equals(file, currentPath, StringComparison.OrdinalIgnoreCase),
                             RenderLocalThumbnail(file),
                             new DateTimeOffset(acquired, TimeSpan.Zero),
                             usage?.LastUsedAt,
@@ -768,6 +787,8 @@ namespace NLMCL.App.ViewModels
                 // 旧请求不能把新请求的 busy 状态提前关掉。
                 if (generation == _refreshGeneration)
                 {
+                    // 账号皮肤变化后同步本地库的“已装配”标记与使用计时。
+                    RefreshLocalSkins();
                     IsBusy = false;
 
                     // 皮肤请求完成后才拉皮肤库，避免和皮肤下载并发抢 PCL 传输。

@@ -480,6 +480,38 @@ namespace NLMCL.Tests
             }
         }
 
+        [Fact]
+        public async Task Current_local_skin_starts_usage_tracking_at_startup()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-usage-" + Guid.NewGuid().ToString("N"));
+            AppPaths paths = new AppPaths(root);
+            Directory.CreateDirectory(paths.SkinDirectory);
+            string skin = Path.Combine(paths.SkinDirectory, "current.png");
+            File.WriteAllBytes(skin, new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+
+            try
+            {
+                FakeSkinService skins = new FakeSkinService
+                {
+                    LocalSkinHandler = _ => Task.FromResult<string?>(skin)
+                };
+                SkinViewModel vm = new SkinViewModel(skins, paths: paths);
+                vm.SetAccount(new Account("Alpha", "uuid-alpha", AccountType.Offline));
+
+                for (int i = 0; i < 50 && !vm.LocalSkins.Any(item => item.IsCurrent); i++)
+                {
+                    await Task.Delay(40);
+                }
+
+                LocalSkinItem current = Assert.Single(vm.LocalSkins, item => item.IsCurrent);
+                Assert.True(current.LastUsedAt.HasValue);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
         private sealed class FakeSkinService : ISkinService
         {
             public Func<Account, Task<SkinInfo?>>? GetHandler { get; set; }
@@ -487,6 +519,8 @@ namespace NLMCL.Tests
             public Func<string, string, Task>? SavePreviewHandler { get; set; }
 
             public Func<string, Task<SkinInfo?>>? LookupHandler { get; set; }
+
+            public Func<Account, Task<string?>>? LocalSkinHandler { get; set; }
 
             public Task<SkinInfo?> GetAsync(Account account, CancellationToken cancellationToken)
                 => GetHandler == null
@@ -511,7 +545,9 @@ namespace NLMCL.Tests
 
             public Task<string?> GetLocalSkinPathAsync(
                 Account account, CancellationToken cancellationToken)
-                => Task.FromResult<string?>(null);
+                => LocalSkinHandler == null
+                    ? Task.FromResult<string?>(null)
+                    : LocalSkinHandler(account);
 
             public Task<byte[]> Create3DPreviewAsync(
                 string skinPngPath, double yawDegrees, double pitchDegrees, bool slim,

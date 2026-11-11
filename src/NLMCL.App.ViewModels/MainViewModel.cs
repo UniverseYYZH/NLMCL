@@ -4637,6 +4637,11 @@ namespace NLMCL.App.ViewModels
                         SelectVersion(Versions[0]);
                     }
                 }
+                else
+                {
+                    // 删除最后一个实例或目录被清空后，不能继续指向已不存在的版本。
+                    SelectedVersion = null;
+                }
 
                 // 扫描成功说明目录列表可用，记下来下次直接用
                 await SaveGameDirectoryAsync().ConfigureAwait(true);

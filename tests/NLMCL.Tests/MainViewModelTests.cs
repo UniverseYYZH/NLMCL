@@ -13,18 +13,18 @@ namespace NLMCL.Tests
     {
         private sealed class FakeCatalog : IVersionCatalog
         {
-            private readonly IReadOnlyList<MinecraftVersion> _items;
+            public IReadOnlyList<MinecraftVersion> Items { get; set; }
 
             public FakeCatalog(params MinecraftVersion[] items)
             {
-                _items = items;
+                Items = items;
             }
 
             public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
                 string minecraftDirectory,
                 CancellationToken cancellationToken)
             {
-                return Task.FromResult(_items);
+                return Task.FromResult(Items);
             }
         }
 
@@ -96,6 +96,23 @@ namespace NLMCL.Tests
 
             Assert.Empty(vm.Versions);
             Assert.True(vm.IsEmpty);
+        }
+
+        [Fact]
+        public async Task Refresh_clears_selection_when_all_versions_disappear()
+        {
+            FakeCatalog catalog = new FakeCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            MainViewModel vm = TestSupport.CreateMain(catalog, new AppPaths(@"C:\Temp\roaming"));
+
+            await vm.RefreshAsync();
+            Assert.NotNull(vm.SelectedVersion);
+
+            catalog.Items = new MinecraftVersion[0];
+            await vm.RefreshAsync();
+
+            Assert.True(vm.IsEmpty);
+            Assert.Null(vm.SelectedVersion);
         }
 
         [Fact]
