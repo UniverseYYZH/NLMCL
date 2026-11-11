@@ -11,6 +11,20 @@ namespace NLMCL.Tests
     public sealed class SettingsDiagnosticsTests
     {
         [Fact]
+        public void Selecting_a_settings_group_keeps_its_cards_visible()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-set-");
+            MainViewModel vm = TestSupport.CreateMain(
+                new TestSupport.EmptyCatalog(), new AppPaths(root));
+
+            vm.Settings.SelectSettingsGroupCommand.Execute("game");
+
+            Assert.Equal("游戏", vm.Settings.SettingsSearchText);
+            Assert.True(vm.Settings.IsGameGroupActive);
+            Assert.False(vm.Settings.HasNoSettingsSearchResults);
+        }
+
+        [Fact]
         public void Game_directory_summary_reports_existence_and_disk_space()
         {
             string root = Path.Combine(Path.GetTempPath(), "nlmcl-disk-" + Guid.NewGuid().ToString("N"));

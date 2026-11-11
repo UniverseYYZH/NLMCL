@@ -115,7 +115,7 @@
                     </StackPanel>
                 </Border>
             </Grid>
-            <TextBlock Text="服务器档案、局域网开房与扫描、地址二维码都在这里。连不上时先看检查项。"
+            <TextBlock Text="直连、局域网开房/加入、扫描与地址二维码都在这里。连不上时先看诊断。"
                        FontSize="11.5" Foreground="{DynamicResource Muted}" Margin="0,5,0,0"
                        TextWrapping="Wrap" />
 
@@ -130,8 +130,8 @@
                     </Grid.ColumnDefinitions>
                     <Button x:Name="ServersTab" Grid.Column="0"
                             Style="{StaticResource HubModeCard}" Tag="active"
-                            AutomationProperties.Name="服务器房间模式"
-                            AutomationProperties.HelpText="查看收藏的服务器、开房与直连"
+                            AutomationProperties.Name="局域网联机模式"
+                            AutomationProperties.HelpText="直连地址、局域网开房/加入与常用线路"
                             Click="ServersTab_Click">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -146,9 +146,9 @@
                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
                             </Border>
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
-                                <TextBlock Text="服务器房间" FontSize="13.5" FontWeight="SemiBold"
+                                <TextBlock Text="局域网联机" FontSize="13.5" FontWeight="SemiBold"
                                            Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
-                                <TextBlock Text="收藏的服务器、开房与直连" FontSize="9.5"
+                                <TextBlock Text="直连、开房/加入与常用线路" FontSize="9.5"
                                            Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
                             </StackPanel>
                         </Grid>

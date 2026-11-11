@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -175,9 +175,12 @@ namespace NLMCL.App.ViewModels
 
             try
             {
+                // 分组只取关键词里的第一个词作为过滤词。
+                // 之前把整串关键词（"游戏 目录 Java ..."）塞进搜索框，
+                // 卡片 Tag 不可能包含整串，于是设置页会显示“没有匹配的设置”。
                 string keywords = string.IsNullOrEmpty(_activeSettingsGroup)
                     ? string.Empty
-                    : match.Keywords;
+                    : match.Keywords.Split(' ')[0];
                 SearchInput = keywords;
                 SettingsSearchText = keywords;
             }

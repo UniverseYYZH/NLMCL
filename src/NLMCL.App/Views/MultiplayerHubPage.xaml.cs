@@ -4,7 +4,7 @@ using NLMCL.App.ViewModels;
 
 namespace NLMCL.App.Views
 {
-    /// <summary>「联机」页：服务器房间与局域网扫描共用一个入口。</summary>
+    /// <summary>「联机」页：局域网联机与局域网扫描共用一个入口。</summary>
     public partial class MultiplayerHubPage : UserControl
     {
         public MultiplayerHubPage()

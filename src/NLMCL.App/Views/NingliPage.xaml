@@ -124,6 +124,32 @@
                 </StackPanel>
             </Border>
 
+            <!-- ===== 进服须知（默认收起） ===== -->
+            <Expander Margin="0,8,0,0" IsExpanded="False">
+                <Expander.Header>
+                    <TextBlock Text="进服须知（首次进服 / 子服准入）" FontSize="12"
+                               FontWeight="SemiBold" Foreground="{DynamicResource Text}" />
+                </Expander.Header>
+
+                <Border Style="{StaticResource CardStyle}" Padding="14,12" Margin="0,10,0,0">
+                    <TextBlock FontSize="10.5" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" LineHeight="19">
+                        <Run Text="· 子服准入：宝可梦服 → 模组端；还原服等其它 → 纯净端；大厅 → 任意版本。" />
+                        <LineBreak />
+                        <Run Text="· 首次进宝可梦服会出现两个红色确认框，属正常：" />
+                        <LineBreak />
+                        <Run Text="  ① Certificate Verification → 点 Skip → 输入 I accept the risk" />
+                        <LineBreak />
+                        <Run Text="  ② MODPACK INSTALL（服主自制 mod）→ 勾选 → Load these unverified JARs" />
+                        <LineBreak />
+                        <Run Text="· 之后同步约 1 GB 整合包（网速不同，10 分钟到数小时），完成提示重启时用启动器的「重启游戏」。" />
+                        <LineBreak />
+                        <Run Text="· 聊天栏出现「AutoModpack mod for fabric modloader is required」= 客户端类型不对。" />
+                        <LineBreak />
+                        <Run Text="· 学生专线 mua.nxist.top 与 mc2/mc4 同一套导航，人少时更稳。" />
+                    </TextBlock>
+                </Border>
+            </Expander>
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>
