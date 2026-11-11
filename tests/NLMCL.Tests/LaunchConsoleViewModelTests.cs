@@ -63,6 +63,18 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class MultiSessionLauncher : IGameSessionLauncher
+        {
+            public List<FakeSession> Sessions { get; } = new List<FakeSession>();
+
+            public Task<IGameSession> StartAsync(LaunchRequest request, CancellationToken cancellationToken)
+            {
+                FakeSession session = new FakeSession();
+                Sessions.Add(session);
+                return Task.FromResult<IGameSession>(session);
+            }
+        }
+
         private sealed class FixedJavaLocator : IJavaLocator
         {
             private readonly IReadOnlyList<JavaRuntime> _javas;
@@ -79,7 +91,7 @@ namespace NLMCL.Tests
         }
 
         private static LaunchConsoleViewModel Create(
-            FakeSessionLauncher launcher, IJavaLocator javas, IUiDispatcher? dispatcher = null)
+            IGameSessionLauncher launcher, IJavaLocator javas, IUiDispatcher? dispatcher = null)
         {
             return new LaunchConsoleViewModel(
                 launcher, javas, new AppPaths(@"C:\Temp\roaming"), dispatcher ?? new ImmediateDispatcher());
@@ -141,6 +153,25 @@ namespace NLMCL.Tests
             // 普通行不显示标签，否则整屏都是"正常信息"
             Assert.False(vm.Lines[0].ShowTag);
             Assert.True(vm.Lines[1].ShowTag);
+        }
+
+        [Fact]
+        public async Task Starting_another_instance_keeps_the_first_session_running()
+        {
+            MultiSessionLauncher launcher = new MultiSessionLauncher();
+            LaunchConsoleViewModel vm = Create(launcher, new FixedJavaLocator(
+                TestSupport.CreateJava(21)));
+            vm.VersionId = "1.21.1";
+
+            await vm.StartAsync();
+            vm.VersionId = "1.20.1";
+            await vm.StartAsync();
+
+            Assert.Equal(2, launcher.Sessions.Count);
+            Assert.Equal(2, vm.Sessions.Count);
+            Assert.True(vm.IsRunning);
+            Assert.Contains("共 2 个", vm.StatusText);
+            Assert.All(vm.Sessions, item => Assert.True(item.IsRunning));
         }
 
         [Fact]

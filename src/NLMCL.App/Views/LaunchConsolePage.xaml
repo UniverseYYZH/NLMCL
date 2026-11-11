@@ -68,7 +68,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
                 <Button Content="▶  启动" Style="{StaticResource PrimaryButton}" Padding="16,8"
                         Command="{Binding StartCommand}"
-                        IsEnabled="{Binding IsRunning, Converter={StaticResource InverseBool}}" />
+                        IsEnabled="{Binding IsStarting, Converter={StaticResource InverseBool}}" />
                 <Button Content="■  停止" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
                         Command="{Binding StopCommand}"
                         IsEnabled="{Binding IsRunning}" />

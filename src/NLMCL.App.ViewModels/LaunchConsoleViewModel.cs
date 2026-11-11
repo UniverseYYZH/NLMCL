@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -219,6 +219,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isRunning;
 
+        /// <summary>正在执行一次启动（防止连点启动出两个会话）。</summary>
+        [ObservableProperty]
+        private bool _isStarting;
+
         /// <summary>超过这个行数就丢掉最旧的，避免长时间运行把内存吃满。</summary>
         public int MaxLines { get; set; } = 2000;
 
@@ -230,7 +234,7 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task StartAsync()
         {
-            if (IsRunning)
+            if (IsStarting)
             {
                 return;
             }
@@ -241,6 +245,7 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            IsStarting = true;
             StatusText = "正在查找 Java…";
 
             try
@@ -312,6 +317,10 @@ namespace NLMCL.App.ViewModels
             catch (Exception ex)
             {
                 StatusText = "启动失败：" + ex.Message;
+            }
+            finally
+            {
+                IsStarting = false;
             }
         }
 

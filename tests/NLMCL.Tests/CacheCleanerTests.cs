@@ -60,6 +60,7 @@ namespace NLMCL.Tests
 
                 string broken = paths.SettingsFile + ".broken";
                 File.WriteAllText(broken, "{ broken");
+                File.SetLastWriteTimeUtc(broken, DateTime.UtcNow.AddDays(-8));
 
                 string diag = Path.Combine(temp, "nlmcl-diag-test");
                 Directory.CreateDirectory(diag);
@@ -175,6 +176,47 @@ namespace NLMCL.Tests
 
                 Assert.True(File.Exists(keep));
                 Assert.True(File.Exists(stable));
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Fresh_broken_settings_backup_is_kept()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-cache-" + Guid.NewGuid().ToString("N"));
+            AppPaths paths = new AppPaths(Path.Combine(root, "roaming"));
+            string game = Path.Combine(root, ".minecraft");
+            string temp = Path.Combine(root, "temp");
+
+            try
+            {
+                Directory.CreateDirectory(paths.DataRoot);
+                Directory.CreateDirectory(game);
+                Directory.CreateDirectory(temp);
+
+                string broken = paths.SettingsFile + ".broken";
+                File.WriteAllText(broken, "{ broken");
+
+                CacheCleaner cleaner = new CacheCleaner(paths, temp);
+                IReadOnlyList<CacheCategory> categories = await cleaner.ScanAsync(game, CancellationToken.None);
+
+                Assert.DoesNotContain(
+                    categories, item => item.Id == CacheCleaner.BrokenSettingsId);
+
+                CacheCleanupResult result = await cleaner.CleanAsync(
+                    game, new[] { CacheCleaner.BrokenSettingsId }, CancellationToken.None);
+
+                Assert.Equal(0, result.DeletedCount);
+                Assert.True(File.Exists(broken));
             }
             finally
             {

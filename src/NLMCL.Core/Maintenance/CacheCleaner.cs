@@ -31,6 +31,7 @@ namespace NLMCL.Core.Maintenance
 
         private static readonly TimeSpan DownloadPartsMinAge = TimeSpan.FromHours(6);
         private static readonly TimeSpan OldLogMinAge = TimeSpan.FromDays(14);
+        private static readonly TimeSpan BrokenSettingsMinAge = TimeSpan.FromDays(7);
 
         private readonly IAppPaths _paths;
         private readonly string _tempRoot;
@@ -365,7 +366,10 @@ namespace NLMCL.Core.Maintenance
 
             string broken = _paths.SettingsFile + ".broken";
 
-            if (File.Exists(broken))
+            // 刚损坏的设置备份可能正是用户接下来要找回的内容；
+            // 只清理放置超过 7 天的旧备份，避免“首次启动即删掉证据”。
+            if (File.Exists(broken)
+                && DateTime.UtcNow - File.GetLastWriteTimeUtc(broken) >= BrokenSettingsMinAge)
             {
                 category.Entries.Add(new CacheEntry(
                     broken, false, FileSize(broken), _paths.DataRoot));
