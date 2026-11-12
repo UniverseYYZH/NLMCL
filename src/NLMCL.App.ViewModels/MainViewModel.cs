@@ -2364,9 +2364,37 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            StatusText = "下载 AutoModpack " + (file.VersionName ?? file.Name) + " …";
+            string downloadLabel = file.VersionName ?? file.Name;
+            StatusText = "下载 AutoModpack " + downloadLabel + " … 0%";
 
-            await _fileDownloader.DownloadAsync(file.Url, target, CancellationToken.None).ConfigureAwait(true);
+            bool downloading = true;
+            var downloadProgress = new Progress<double>(value =>
+            {
+                if (!downloading)
+                {
+                    return;
+                }
+
+                int percent = (int)Math.Round(Math.Min(1, Math.Max(0, value)) * 100);
+                if (percent < 100 && percent % 10 != 0)
+                {
+                    return;
+                }
+
+                StatusText = "下载 AutoModpack " + downloadLabel + " … " + percent + "%";
+            });
+
+            try
+            {
+                await _fileDownloader
+                    .DownloadAsync(file.Url, target, downloadProgress, CancellationToken.None)
+                    .ConfigureAwait(true);
+            }
+            finally
+            {
+                // Progress<T> 的回调可能比下载任务晚一步排队；完成后不再让 100% 覆盖后续状态。
+                downloading = false;
+            }
 
             // 同目录里如果还留着别的 automodpack 版本（例如上次误装的 v5），一并删掉，
             // 否则两个 AutoModpack 同时加载会冲突。

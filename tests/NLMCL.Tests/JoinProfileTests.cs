@@ -129,6 +129,46 @@ namespace NLMCL.Tests
                 => throw new InvalidOperationException("不应请求");
         }
 
+        private sealed class MatchingAutoModpackCatalog : IResourceCatalog
+        {
+            public Task<IReadOnlyList<ResourceSummary>> SearchAsync(
+                ResourceQuery query, CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ResourceSummary>>(Array.Empty<ResourceSummary>());
+
+            public Task<IReadOnlyList<ResourceFile>> GetFilesAsync(
+                string projectId, ResourceKind kind, string? gameVersion, string? loader,
+                CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ResourceFile>>(new[]
+                {
+                    new ResourceFile(
+                        "automodpack-4.0.6.jar",
+                        "https://example.com/automodpack-4.0.6.jar",
+                        1,
+                        "4.0.6",
+                        new[] { "1.21.1" },
+                        "fabric")
+                });
+        }
+
+        private sealed class ProgressRecordingDownloader : IFileDownloader
+        {
+            public double? LastProgress { get; private set; }
+
+            public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
+                => throw new InvalidOperationException("应使用带进度的重载");
+
+            public Task DownloadAsync(
+                string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+            {
+                LastProgress = 0.42;
+                progress?.Report(0.42);
+                throw new InvalidOperationException("测试中止下载");
+            }
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+                => throw new InvalidOperationException("不应请求");
+        }
+
         private sealed class CountingLauncher : IGameLauncher
         {
             public int Calls { get; private set; }
@@ -187,6 +227,50 @@ namespace NLMCL.Tests
             finally
             {
                 try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
+        public async Task Modded_join_downloads_automodpack_with_progress()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-progress-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                ProgressRecordingDownloader downloader = new ProgressRecordingDownloader();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new MatchingAutoModpackCatalog(),
+                    fileDownloader: downloader);
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                Assert.Equal(0.42, downloader.LastProgress);
+                Assert.Equal(0, launcher.Calls);
+                Assert.Contains("进模组服失败", vm.StatusText);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
             }
         }
 
