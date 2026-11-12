@@ -2049,7 +2049,7 @@ namespace NLMCL.App.ViewModels
 
                 StatusText = "进入大厅：" + target + "（" + chosen.Players + "/" + chosen.MaxPlayers + " 在线）";
 
-                await LaunchCoreAsync(target).ConfigureAwait(true);
+                await LaunchCoreAsync(target, fromJoin: true).ConfigureAwait(true);
 
                 RefreshJoinChecks();
             }
@@ -2157,7 +2157,7 @@ namespace NLMCL.App.ViewModels
                     await SelectVersionForLaunchAsync(vanillaInstance).ConfigureAwait(true);
                     StatusText = "启动 " + vanillaInstance.Name + " 并连接 " + target + " …";
                     JoinTrace("纯净分支：启动 " + vanillaInstance.FolderName + " → " + target);
-                    await LaunchCoreAsync(target).ConfigureAwait(true);
+                    await LaunchCoreAsync(target, fromJoin: true).ConfigureAwait(true);
 
                 RefreshJoinChecks();
                     return;
@@ -2243,7 +2243,7 @@ namespace NLMCL.App.ViewModels
                 JoinTrace("模组分支：启动 " + instance.FolderName + " → " + target);
                 StatusText = "启动 " + instance.Name + " 并连接 " + target + " …";
 
-                await LaunchCoreAsync(target).ConfigureAwait(true);
+                await LaunchCoreAsync(target, fromJoin: true).ConfigureAwait(true);
 
                 RefreshJoinChecks();
             }
@@ -4541,8 +4541,16 @@ namespace NLMCL.App.ViewModels
         }
 
         /// <summary>启动的统一入口：普通启动传 null，联机启动传对方地址。</summary>
-        private async Task LaunchCoreAsync(string? serverAddress)
+        private async Task LaunchCoreAsync(string? serverAddress, bool fromJoin = false)
         {
+            // 进服准备（挑入口/安装）已经从用户手里拿走了这次操作；此时再点普通启动
+            // 会把状态和游戏进程抢过去。进服流程自己的启动传 fromJoin=true。
+            if (!fromJoin && (IsJoiningProfile || Volatile.Read(ref _lobbyGate) != 0))
+            {
+                StatusText = "正在准备进入服务器，请稍候…";
+                return;
+            }
+
             if (Interlocked.CompareExchange(ref _launchGate, 1, 0) != 0)
             {
                 return;
