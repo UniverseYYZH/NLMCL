@@ -582,11 +582,32 @@
                             </StackPanel>
                         </Grid>
                         <Grid Grid.Row="1">
-                            <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                          Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}">
-                                <ItemsControl ItemsSource="{Binding Versions}"
-                                              ItemTemplate="{StaticResource VersionRowTemplate}" />
-                            </ScrollViewer>
+                            <ListBox ItemsSource="{Binding Versions}"
+                                     ItemTemplate="{StaticResource VersionRowTemplate}"
+                                     Visibility="{Binding IsEmpty, Converter={StaticResource InverseBoolToVisibility}}"
+                                     Background="Transparent" BorderThickness="0" Padding="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     ScrollViewer.CanContentScroll="True"
+                                     VirtualizingStackPanel.IsVirtualizing="True"
+                                     VirtualizingStackPanel.VirtualizationMode="Recycling">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Focusable" Value="False" />
+                                        <Setter Property="IsTabStop" Value="False" />
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Margin" Value="0" />
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <ContentPresenter />
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
                             <Border Style="{StaticResource CardStyle}" Padding="28"
                                     Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">

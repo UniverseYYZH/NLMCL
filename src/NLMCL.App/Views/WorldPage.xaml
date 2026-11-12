@@ -183,7 +183,8 @@
                 </Border>
                 <Border Style="{StaticResource CardStyle}" Padding="16,13" Margin="0,0,10,0">
                     <StackPanel>
-                        <TextBlock Text="LAST PLAYED  /  最后启动" Style="{StaticResource FactLabel}" />
+                        <TextBlock Text="最后启动" Style="{StaticResource FactLabel}"
+                                   ToolTip="LAST PLAYED" />
                         <TextBlock Text="{Binding SelectedVersion.LastLaunchLabel, TargetNullValue=从未启动}"
                                    Style="{StaticResource FactValue}" />
                     </StackPanel>
@@ -297,6 +298,19 @@
                                         FontSize="10.5" Margin="5,0,0,0" Command="{Binding RescanCommand}" />
                                 <Button Content="打开" Style="{StaticResource GhostButton}" Padding="10,6"
                                         FontSize="10.5" Margin="5,0,0,0" Command="{Binding OpenGameDirectoryCommand}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                <Button Content="存档" Style="{StaticResource GhostButton}" Padding="10,6"
+                                        FontSize="10.5" Tag="saves" Click="OpenInstanceSubfolder_Click"
+                                        ToolTip="打开当前实例的存档文件夹" />
+                                <Button Content="截图" Style="{StaticResource GhostButton}" Padding="10,6"
+                                        FontSize="10.5" Margin="5,0,0,0" Tag="screenshots"
+                                        Click="OpenInstanceSubfolder_Click"
+                                        ToolTip="打开当前实例的截图文件夹" />
+                                <Button Content="资源包" Style="{StaticResource GhostButton}" Padding="10,6"
+                                        FontSize="10.5" Margin="5,0,0,0" Tag="resourcepacks"
+                                        Click="OpenInstanceSubfolder_Click"
+                                        ToolTip="打开当前实例的资源包文件夹" />
                             </StackPanel>
                         </StackPanel>
                     </Border>

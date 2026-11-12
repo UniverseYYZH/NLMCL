@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using NLMCL.App.ViewModels;
@@ -34,6 +36,34 @@ namespace NLMCL.App.Views
             catch (Exception ex)
             {
                 vm.StatusText = "复制实例路径失败：" + ex.Message;
+            }
+        }
+
+        private void OpenInstanceSubfolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not MainViewModel vm ||
+                sender is not Button { Tag: string folder } ||
+                string.IsNullOrWhiteSpace(folder))
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(vm.CurrentGameDirectory))
+            {
+                vm.StatusText = "还没有可用的游戏目录。";
+                return;
+            }
+
+            try
+            {
+                string path = Path.Combine(vm.CurrentGameDirectory, folder);
+                Directory.CreateDirectory(path);
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                vm.StatusText = "已打开实例文件夹：" + path;
+            }
+            catch (Exception ex)
+            {
+                vm.StatusText = "打开实例文件夹失败：" + ex.Message;
             }
         }
 
