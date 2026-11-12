@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -2652,12 +2653,64 @@ namespace NLMCL.App.ViewModels
         /// <summary>实例目录里是否已有客户端 jar（判断"能否直接启动、不必重装"）。</summary>
         private bool HasClientJar(VersionItem instance)
         {
+            return HasClientJar(instance.FolderName);
+        }
+
+        private bool HasClientJar(string folderName)
+        {
+            return HasClientJar(folderName, 0);
+        }
+
+        /// <summary>
+        /// 加载器实例自身通常没有客户端 jar，jar 在 inheritsFrom 的父版本目录里。
+        /// 这里沿版本 JSON 向上查找，避免进服检查在异步版本列表尚未填充时误报。
+        /// </summary>
+        private bool HasClientJar(string folderName, int depth)
+        {
+            if (depth > 8 || string.IsNullOrWhiteSpace(folderName))
+            {
+                return false;
+            }
+
             try
             {
-                string jar = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, instance.FolderName + ".jar");
-                return File.Exists(jar) && new FileInfo(jar).Length > 1024 * 1024;
+                string directory = Path.Combine(CurrentGameDirectory, "versions", folderName);
+                string jar = Path.Combine(directory, folderName + ".jar");
+                if (File.Exists(jar) && new FileInfo(jar).Length > 1024 * 1024)
+                {
+                    return true;
+                }
+
+                string json = Path.Combine(directory, folderName + ".json");
+                if (!File.Exists(json))
+                {
+                    return false;
+                }
+
+                Match match = Regex.Match(
+                    File.ReadAllText(json),
+                    "\"inheritsFrom\"\\s*:\\s*\"([^\"]+)\"",
+                    RegexOptions.CultureInvariant);
+                if (!match.Success)
+                {
+                    return false;
+                }
+
+                string parentName = match.Groups[1].Value;
+                if (string.IsNullOrWhiteSpace(parentName)
+                    || parentName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+                    || parentName.Contains(".."))
+                {
+                    return false;
+                }
+
+                return HasClientJar(parentName, depth + 1);
             }
             catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
             {
                 return false;
             }
@@ -2707,9 +2760,23 @@ namespace NLMCL.App.ViewModels
 
             // ② 客户端实例：直接扫磁盘，不依赖异步扫描的集合（启动初期集合为空会误报"未安装"）
             string? folder = FindInstanceOnDisk(profile);
-            JoinChecks.Add(folder != null
-                ? new ServerJoinCheck("客户端", folder + " 已就绪", true)
-                : new ServerJoinCheck("客户端", "未安装（点按钮会自动装 " + profile.Minecraft + " + " + profile.Loader + "）", false));
+            VersionItem? folderItem = folder == null
+                ? null
+                : Versions.FirstOrDefault(item =>
+                    string.Equals(item.FolderName, folder, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.GameDirectory, CurrentGameDirectory, StringComparison.OrdinalIgnoreCase));
+            // Fabric/Forge 的 jar 在父版本目录里，必须用扫描结果的 HasWarning（内部会沿 inheritsFrom 找），
+            // 只看自己的目录会把正常的加载器实例误报成“客户端 JAR 缺失”。
+            bool clientReady = folder != null
+                && (folderItem != null ? !folderItem.HasWarning : HasClientJar(folder));
+            JoinChecks.Add(folder == null
+                ? new ServerJoinCheck("客户端", "未安装（点按钮会自动装 " + profile.Minecraft + " + " + profile.Loader + "）", false)
+                : new ServerJoinCheck(
+                    "客户端",
+                    clientReady
+                        ? folder + " 已就绪"
+                        : folder + " 客户端 JAR 缺失（点按钮会修复）",
+                    clientReady));
 
             if (folder == null)
             {
