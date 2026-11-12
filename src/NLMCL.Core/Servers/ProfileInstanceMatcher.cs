@@ -37,7 +37,11 @@ namespace NLMCL.Core.Servers
 
             if (kind.Length > 0)
             {
-                if (!folder.Contains(kind))
+                // 不能用 Contains：forge 会命中 neoforge，导致进 Forge 档案时
+                // 复用 NeoForge 实例并启动错误的加载器。要求加载器是独立目录段。
+                bool loaderMatches = folder.StartsWith(kind + "-", StringComparison.Ordinal)
+                    || folder.IndexOf("-" + kind + "-", StringComparison.Ordinal) >= 0;
+                if (!loaderMatches)
                 {
                     return false;
                 }

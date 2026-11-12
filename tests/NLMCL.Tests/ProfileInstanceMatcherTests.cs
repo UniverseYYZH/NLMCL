@@ -21,6 +21,16 @@ namespace NLMCL.Tests
             Assert.Equal(expected, ProfileInstanceMatcher.Matches(folder, minecraft, loader));
         }
 
+        [Theory]
+        [InlineData("forge-47.4.28-1.21.1", "1.21.1", "forge", true)]
+        [InlineData("neoforge-20.4.1-1.21.1", "1.21.1", "forge", false)]
+        [InlineData("neoforge-20.4.1-1.21.1", "1.21.1", "neoforge", true)]
+        public void Loader_name_must_be_a_separate_token(
+            string folder, string minecraft, string loader, bool expected)
+        {
+            Assert.Equal(expected, ProfileInstanceMatcher.Matches(folder, minecraft, loader));
+        }
+
         [Fact]
         public void Empty_inputs_do_not_match()
         {
