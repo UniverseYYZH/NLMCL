@@ -5,10 +5,13 @@ namespace NLMCL.Core.Servers
     /// <summary>
     /// 判断某个版本目录是否对应服务器档案要求的实例。
     ///
-    /// 为什么不能用 <c>Contains</c>：版本目录形如
-    /// <c>fabric-loader-0.20.1-1.21.1</c> 与 <c>fabric-loader-0.16.9-1.21.10</c>，
-    /// 用 <c>Contains("1.21.1")</c> 会把 1.21.10 也命中，导致进错实例。
-    /// 版本号永远在目录名末尾，因此用"结尾精确匹配"。
+    /// 各加载器的实际目录约定并不相同：
+    /// <list type="bullet">
+    /// <item>Fabric / Quilt：<c>fabric-loader-0.20.1-1.21.1</c>，版本在末尾。</item>
+    /// <item>Forge：<c>1.21.1-forge-47.4.28</c>，MC 在开头。</item>
+    /// <item>NeoForge：<c>neoforge-20.4.1</c>，目录名里没有 MC 版本。</item>
+    /// </list>
+    /// 因此不能用 <c>Contains</c> 或单一的“版本在末尾”规则。
     /// </summary>
     public static class ProfileInstanceMatcher
     {
@@ -21,49 +24,79 @@ namespace NLMCL.Core.Servers
             string folder = (folderName ?? string.Empty).ToLowerInvariant();
             string version = (minecraft ?? string.Empty).ToLowerInvariant();
             string kind = (loader ?? string.Empty).ToLowerInvariant();
+            string wantedLoader = (loaderVersion ?? string.Empty).Trim().ToLowerInvariant();
 
             if (folder.Length == 0 || version.Length == 0)
             {
                 return false;
             }
 
-            bool versionMatches = folder.Equals(version, StringComparison.Ordinal)
-                || folder.EndsWith("-" + version, StringComparison.Ordinal);
-
-            if (!versionMatches)
+            if (kind.Length == 0)
             {
-                return false;
+                // 纯净档案：<MC>，不能命中任何一个加载器实例。
+                return folder.Equals(version, StringComparison.Ordinal)
+                    || (folder.EndsWith("-" + version, StringComparison.Ordinal)
+                        && !HasLoaderToken(folder));
             }
 
-            if (kind.Length > 0)
+            if (kind == "neoforge")
             {
-                // 不能用 Contains：forge 会命中 neoforge，导致进 Forge 档案时
-                // 复用 NeoForge 实例并启动错误的加载器。要求加载器是独立目录段。
-                bool loaderMatches = folder.StartsWith(kind + "-", StringComparison.Ordinal)
-                    || folder.IndexOf("-" + kind + "-", StringComparison.Ordinal) >= 0;
-                if (!loaderMatches)
+                // NeoForge 安装器生成的 id 是 neoforge-<版本>，不含 MC；
+                // MC 归属由 JSON 的 inheritsFrom 另行校验。
+                string prefix = "neoforge-";
+                if (!folder.StartsWith(prefix, StringComparison.Ordinal))
                 {
                     return false;
                 }
 
-                string wantedLoader = (loaderVersion ?? string.Empty).Trim().ToLowerInvariant();
-                if (wantedLoader.Length == 0)
-                {
-                    return true;
-                }
-
-                // 目录约定是 <加载器>-<加载器版本>-<MC 版本>。
-                // 同一 MC 下可能装过多个加载器版本，必须用加载器版本再做一次边界匹配，
-                // 否则会随机命中旧实例并把 AutoModpack 装错地方。
-                string versionSuffix = "-" + version;
-                string prefix = folder.Substring(0, folder.Length - versionSuffix.Length);
-                return prefix.EndsWith("-" + wantedLoader, StringComparison.Ordinal);
+                string installed = folder.Substring(prefix.Length);
+                return wantedLoader.Length == 0
+                    || installed.Equals(wantedLoader, StringComparison.Ordinal);
             }
 
-            // 纯净档案（loader 为空）：必须排除"带加载器"的目录。
-            // 否则 fabric-loader-0.20.1-1.21.1 也会以 "-1.21.1" 结尾而被命中，
-            // 结果"进还原服"启动的是模组客户端 —— 服务器必然拒绝。
-            return !HasLoaderToken(folder);
+            if (kind == "forge")
+            {
+                // Forge 安装器的目录是 <MC>-forge-<加载器版本>。
+                string mcFirst = version + "-forge-";
+                if (folder.StartsWith(mcFirst, StringComparison.Ordinal))
+                {
+                    string installed = folder.Substring(mcFirst.Length);
+                    return wantedLoader.Length == 0
+                        || installed.Equals(wantedLoader, StringComparison.Ordinal);
+                }
+
+                // 兼容 <forge>-<加载器版本>-<MC> 的旧目录。
+                string loaderFirst = "forge-";
+                string suffix = "-" + version;
+                if (!folder.StartsWith(loaderFirst, StringComparison.Ordinal)
+                    || !folder.EndsWith(suffix, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                string middle = folder.Substring(
+                    loaderFirst.Length, folder.Length - loaderFirst.Length - suffix.Length);
+                return wantedLoader.Length == 0
+                    || middle.Equals(wantedLoader, StringComparison.Ordinal);
+            }
+
+            // Fabric / Quilt / 其他“加载器在前、MC 在末尾”的目录。
+            bool loaderMatches = folder.StartsWith(kind + "-", StringComparison.Ordinal)
+                || folder.IndexOf("-" + kind + "-", StringComparison.Ordinal) >= 0;
+            if (!loaderMatches
+                || !folder.EndsWith("-" + version, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (wantedLoader.Length == 0)
+            {
+                return true;
+            }
+
+            string versionSuffix = "-" + version;
+            string beforeVersion = folder.Substring(0, folder.Length - versionSuffix.Length);
+            return beforeVersion.EndsWith("-" + wantedLoader, StringComparison.Ordinal);
         }
 
         private static readonly string[] LoaderTokens =

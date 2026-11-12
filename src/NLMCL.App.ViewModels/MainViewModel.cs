@@ -2318,8 +2318,9 @@ namespace NLMCL.App.ViewModels
             {
                 // 版本目录命名约定是 <加载器>-<加载器版本>-<MC 版本>；
                 // 不能用 Contains，否则 1.21.1 会命中 1.21.10。
-                if (ProfileInstanceMatcher.Matches(
-                    item.FolderName, minecraft, profile.Loader, profile.LoaderVersion))
+                if (MatchesProfileVersion(item, profile)
+                    && ProfileInstanceMatcher.Matches(
+                        item.FolderName, minecraft, profile.Loader, profile.LoaderVersion))
                 {
                     return item;
                 }
@@ -2329,6 +2330,7 @@ namespace NLMCL.App.ViewModels
                 // 否则会把 AutoModpack 装进错误实例并启动错误加载器。
                 if (!pinnedLoader
                     && fallback == null
+                    && MatchesProfileVersion(item, profile)
                     && ProfileInstanceMatcher.Matches(item.FolderName, minecraft, profile.Loader))
                 {
                     fallback = item;
@@ -2336,6 +2338,53 @@ namespace NLMCL.App.ViewModels
             }
 
             return fallback;
+        }
+
+        /// <summary>
+        /// NeoForge 的目录名（neoforge-加载器版本）不含 MC 版本，
+        /// 必须用扫描结果里的父版本再确认一次，避免 1.21.1 档案复用到 1.20.1 的实例。
+        /// </summary>
+        private static bool MatchesProfileVersion(VersionItem item, ServerProfile profile)
+        {
+            if (!string.Equals(profile.Loader, "neoforge", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return string.IsNullOrWhiteSpace(item.MinecraftVersion)
+                || string.Equals(item.MinecraftVersion, profile.Minecraft, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>扫描磁盘时版本列表尚未加载，只能从版本 JSON 的 inheritsFrom 确认 NeoForge 的 MC 版本。</summary>
+        private static bool MatchesProfileJson(string versionsDirectory, string folder, ServerProfile profile)
+        {
+            if (!string.Equals(profile.Loader, "neoforge", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            try
+            {
+                string json = Path.Combine(versionsDirectory, folder, folder + ".json");
+                if (!File.Exists(json))
+                {
+                    return false;
+                }
+
+                Match match = Regex.Match(
+                    File.ReadAllText(json),
+                    "\"inheritsFrom\"\\s*:\\s*\"([^\"]+)\"");
+                return match.Success
+                    && string.Equals(match.Groups[1].Value, profile.Minecraft, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
         }
 
         /// <summary>把 AutoModpack 客户端 mod 放进实例的 mods 目录（已有且哈希一致就跳过）。</summary>
@@ -2861,14 +2910,16 @@ namespace NLMCL.App.ViewModels
                     string name = Path.GetFileName(dir);
 
                     if (ProfileInstanceMatcher.Matches(
-                        name, profile.Minecraft, profile.Loader, profile.LoaderVersion))
+                            name, profile.Minecraft, profile.Loader, profile.LoaderVersion)
+                        && MatchesProfileJson(versions, name, profile))
                     {
                         return name;
                     }
 
                     if (!pinnedLoader
                         && fallback == null
-                        && ProfileInstanceMatcher.Matches(name, profile.Minecraft, profile.Loader))
+                        && ProfileInstanceMatcher.Matches(name, profile.Minecraft, profile.Loader)
+                        && MatchesProfileJson(versions, name, profile))
                     {
                         fallback = name;
                     }

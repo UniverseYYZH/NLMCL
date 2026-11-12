@@ -390,6 +390,55 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Join_check_uses_neoforge_json_to_choose_the_matching_minecraft_version()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-check-neoforge-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                string versions = Path.Combine(paths.DefaultMinecraftDirectory, "versions");
+                string wrong = "neoforge-20.4.0";
+                string right = "neoforge-20.4.1";
+                Directory.CreateDirectory(Path.Combine(versions, wrong));
+                Directory.CreateDirectory(Path.Combine(versions, right));
+                File.WriteAllText(
+                    Path.Combine(versions, wrong, wrong + ".json"),
+                    "{\"id\":\"" + wrong + "\",\"inheritsFrom\":\"1.20.1\"}");
+                File.WriteAllText(
+                    Path.Combine(versions, right, right + ".json"),
+                    "{\"id\":\"" + right + "\",\"inheritsFrom\":\"1.21.1\"}");
+                Directory.CreateDirectory(Path.Combine(versions, "1.21.1"));
+                File.WriteAllBytes(
+                    Path.Combine(versions, "1.21.1", "1.21.1.jar"),
+                    new byte[1024 * 1024 + 1]);
+
+                MainViewModel vm = TestSupport.CreateMain(new FixedCatalog(), paths);
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Loader = "neoforge",
+                    AutoModpackVersion = "4.0.6",
+                    Mode = ServerProfileMode.Modded
+                };
+                profile.Addresses.Add("play.example.org:25565");
+                vm.Ningli.SetProfiles(new[] { profile });
+
+                vm.RefreshJoinChecks();
+
+                ServerJoinCheck? check = vm.JoinChecks.FirstOrDefault(item => item.Label == "客户端");
+                Assert.NotNull(check);
+                Assert.True(check!.IsOk, check.Detail);
+                Assert.Contains(right, check.Detail);
+                Assert.DoesNotContain(wrong, check.Detail);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
         public void Join_check_follows_inherits_from_when_version_list_is_empty()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-check-disk-inherited-");
