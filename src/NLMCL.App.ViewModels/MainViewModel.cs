@@ -3097,6 +3097,12 @@ namespace NLMCL.App.ViewModels
                     CancellationToken.None).ConfigureAwait(true);
 
                 StatusText = "已保存 " + version.Name + " 的启动设置";
+
+                // 代理开关/主机/端口都会进入启动参数，保存后立刻让世界页预检反映新配置。
+                if (ReferenceEquals(SelectedVersion, version))
+                {
+                    await RefreshLaunchPreflightAsync();
+                }
             }
             catch (Exception ex)
             {

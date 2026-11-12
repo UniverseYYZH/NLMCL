@@ -305,6 +305,27 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Saving_proxy_settings_refreshes_launch_preflight()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            MainViewModel vm = Create(catalog, new RecordingLauncher(), new FixedJavaLocator());
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.RefreshLaunchPreflightAsync();
+            Assert.False(vm.HasLaunchPreflightWarnings);
+
+            vm.UseProxy = true;
+            vm.ProxyHost = "bad host";
+            vm.ProxyPort = 0;
+            await vm.SaveSettingsAsync();
+
+            Assert.True(vm.HasLaunchPreflightWarnings);
+            Assert.Contains("代理设置不完整", string.Join("\n", vm.LaunchPreflightWarnings));
+        }
+
+        [Fact]
         public async Task Selecting_another_instance_clears_previous_preflight_immediately()
         {
             CountingCatalog catalog = new CountingCatalog(
