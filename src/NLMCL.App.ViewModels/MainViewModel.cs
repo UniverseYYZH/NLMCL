@@ -2293,9 +2293,18 @@ namespace NLMCL.App.ViewModels
             {
                 // 没有 AutoModpack 就启动，客户端登录后无法同步整合包，玩家只会看到
                 // “进服失败/被踢”。这里直接中止，让错误停在启动器中。
+                string wanted = string.IsNullOrWhiteSpace(profile.AutoModpackVersion)
+                    ? "（档案未指定版本）"
+                    : " " + profile.AutoModpackVersion!.Trim();
+                string available = files.Count == 0
+                    ? "源站没有返回可用版本"
+                    : string.Join("、", files.Take(4).Select(f => f.VersionName ?? f.Name))
+                      + (files.Count > 4 ? " 等" : string.Empty);
+
                 throw new InvalidOperationException(
                     "没找到适配 " + profile.Minecraft + " / " + profile.Loader
-                    + " 的 AutoModpack，已停止启动。请检查服务器档案或稍后重试。");
+                    + " 的 AutoModpack" + wanted + "，已停止启动。"
+                    + "可用版本：" + available + "。请检查服务器档案中的 AutoModpack 版本。");
             }
 
             string target = Path.Combine(mods, file.Name);

@@ -83,6 +83,27 @@ namespace NLMCL.Tests
                 => Task.FromResult<IReadOnlyList<ResourceFile>>(Array.Empty<ResourceFile>());
         }
 
+        private sealed class MismatchedAutoModpackCatalog : IResourceCatalog
+        {
+            public Task<IReadOnlyList<ResourceSummary>> SearchAsync(
+                ResourceQuery query, CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ResourceSummary>>(Array.Empty<ResourceSummary>());
+
+            public Task<IReadOnlyList<ResourceFile>> GetFilesAsync(
+                string projectId, ResourceKind kind, string? gameVersion, string? loader,
+                CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ResourceFile>>(new[]
+                {
+                    new ResourceFile(
+                        "automodpack-5.0.0.jar",
+                        "https://example.com/automodpack-5.0.0.jar",
+                        1,
+                        "5.0.0",
+                        new[] { "1.21.1" },
+                        "fabric")
+                });
+        }
+
         private sealed class UnusedDownloader : IFileDownloader
         {
             public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
@@ -304,6 +325,50 @@ namespace NLMCL.Tests
                 await vm.JoinProfileModdedAsync(profile);
 
                 Assert.Contains("没找到适配", vm.StatusText);
+                Assert.Contains("已停止启动", vm.StatusText);
+                Assert.Equal(0, launcher.Calls);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Modded_join_reports_the_pinned_automodpack_version_when_missing()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-version-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new MismatchedAutoModpackCatalog(),
+                    fileDownloader: new UnusedDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                Assert.Contains("4.0.6", vm.StatusText);
+                Assert.Contains("5.0.0", vm.StatusText);
                 Assert.Contains("已停止启动", vm.StatusText);
                 Assert.Equal(0, launcher.Calls);
             }
