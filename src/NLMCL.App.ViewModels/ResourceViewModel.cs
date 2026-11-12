@@ -522,6 +522,7 @@ namespace NLMCL.App.ViewModels
 
             IsBusy = true;
             StatusText = "正在获取「" + item.Title + "」的可用版本…";
+            int progressActive = 1;
 
             try
             {
@@ -562,6 +563,12 @@ namespace NLMCL.App.ViewModels
 
             Progress<double> installProgress = new Progress<double>(ratio =>
             {
+                // Progress<T> 会异步投递；下载结束/失败后迟到的 100% 回调不能覆盖最终状态。
+                if (Volatile.Read(ref progressActive) == 0)
+                {
+                    return;
+                }
+
                 Progress = ratio * 100;
                 HasProgress = true;
 
@@ -645,6 +652,7 @@ namespace NLMCL.App.ViewModels
                 }
             }, token).ConfigureAwait(true);
 
+            Volatile.Write(ref progressActive, 0);
             Trace("安装成功：" + path);
                 StatusText = "已安装到 " + path;
                 HasProgress = false;
@@ -653,16 +661,19 @@ namespace NLMCL.App.ViewModels
             }
             catch (OperationCanceledException)
             {
+                Volatile.Write(ref progressActive, 0);
                 ProgressDetails = string.Empty;
                 StatusText = "已取消下载（已下载的部分会保留）";
             }
             catch (Exception ex)
             {
+                Volatile.Write(ref progressActive, 0);
                 ProgressDetails = string.Empty;
                 StatusText = "安装失败：" + ex.Message;
             }
             finally
             {
+                Volatile.Write(ref progressActive, 0);
                 _installCts?.Dispose();
                 _installCts = null;
                 CanCancel = false;
