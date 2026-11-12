@@ -221,6 +221,23 @@ namespace NLMCL.Tests
                 => Task.FromResult(string.Empty);
         }
 
+        private sealed class FailingAutoModpackDownloader : IFileDownloader
+        {
+            public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
+                => DownloadAsync(url, targetPath, null, cancellationToken);
+
+            public Task DownloadAsync(
+                string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                File.WriteAllText(targetPath, "partial");
+                throw new IOException("网络中断");
+            }
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+                => Task.FromResult(string.Empty);
+        }
+
         [Fact]
         public void Join_check_reports_a_mismatched_automodpack_version()
         {
@@ -458,6 +475,56 @@ namespace NLMCL.Tests
                 Assert.Equal(1, downloader.Calls);
                 Assert.Equal("automodpack", File.ReadAllText(
                     Path.Combine(mods, "automodpack-4.0.6.jar")));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Failed_automodpack_download_leaves_no_partial_target()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-partial-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                string instance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.15.0-1.21.1");
+                string mods = Path.Combine(instance, "mods");
+                Directory.CreateDirectory(mods);
+                Directory.CreateDirectory(Path.Combine(root, "bin"));
+                File.WriteAllText(Path.Combine(root, "bin", "java.exe"), string.Empty);
+
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    javaLocator: new FixedJavaLocator(root),
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new MatchingAutoModpackCatalog(),
+                    fileDownloader: new FailingAutoModpackDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                Assert.Contains("进模组服失败", vm.StatusText);
+                Assert.Equal(0, launcher.Calls);
+                Assert.False(File.Exists(Path.Combine(mods, "automodpack-4.0.6.jar")));
+                Assert.False(File.Exists(Path.Combine(mods, "automodpack-4.0.6.jar.part")));
             }
             finally
             {

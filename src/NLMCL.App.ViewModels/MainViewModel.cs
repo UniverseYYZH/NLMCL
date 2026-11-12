@@ -2365,6 +2365,7 @@ namespace NLMCL.App.ViewModels
             }
 
             string downloadLabel = file.VersionName ?? file.Name;
+            string part = target + ".part";
             StatusText = "下载 AutoModpack " + downloadLabel + " … 0%";
 
             bool downloading = true;
@@ -2386,9 +2387,35 @@ namespace NLMCL.App.ViewModels
 
             try
             {
+                if (File.Exists(part))
+                {
+                    File.Delete(part);
+                }
+
                 await _fileDownloader
-                    .DownloadAsync(file.Url, target, downloadProgress, CancellationToken.None)
+                    .DownloadAsync(file.Url, part, downloadProgress, CancellationToken.None)
                     .ConfigureAwait(true);
+
+                if ((!string.IsNullOrEmpty(file.Sha1) || file.Size > 0)
+                    && !IsAutoModpackFileCurrent(part, file))
+                {
+                    throw new InvalidOperationException(
+                        string.IsNullOrEmpty(file.Sha1)
+                            ? "AutoModpack 校验失败（文件大小不一致），已删除临时文件"
+                            : "AutoModpack 校验失败（哈希不一致），已删除临时文件");
+                }
+
+                if (File.Exists(target))
+                {
+                    File.Delete(target);
+                }
+
+                File.Move(part, target);
+            }
+            catch
+            {
+                TryDeleteFile(part);
+                throw;
             }
             finally
             {
@@ -2399,19 +2426,24 @@ namespace NLMCL.App.ViewModels
             // 同目录里如果还留着别的 automodpack 版本（例如上次误装的 v5），一并删掉，
             // 否则两个 AutoModpack 同时加载会冲突。
             DeleteStaleAutoModpackJars(mods, file.Name);
+        }
 
-            if ((!string.IsNullOrEmpty(file.Sha1) || file.Size > 0)
-                && !IsAutoModpackFileCurrent(target, file))
+        private static void TryDeleteFile(string path)
+        {
+            try
             {
-                if (File.Exists(target))
+                if (File.Exists(path))
                 {
-                    File.Delete(target);
+                    File.Delete(path);
                 }
-
-                throw new InvalidOperationException(
-                    string.IsNullOrEmpty(file.Sha1)
-                        ? "AutoModpack 校验失败（文件大小不一致），已删除"
-                        : "AutoModpack 校验失败（哈希不一致），已删除");
+            }
+            catch (IOException)
+            {
+                // 下一次进服会重新清理，不覆盖原始下载错误。
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // 同上。
             }
         }
 
