@@ -43,7 +43,7 @@ namespace NLMCL.App.ViewModels
     /// 启动控制台：启动带输出捕获的游戏会话、逐行分类、停止与清空。
     /// 不引用 WPF 类型，可单测。
     /// </summary>
-    public sealed partial class LaunchConsoleViewModel : ObservableObject
+    public sealed partial class LaunchConsoleViewModel : ObservableObject, IDisposable
     {
         private readonly IGameSessionLauncher _launcher;
         private readonly IJavaLocator _javaLocator;
@@ -77,6 +77,15 @@ namespace NLMCL.App.ViewModels
         /// <summary>会话 → 列表项，事件回调时用它定位是哪个游戏。</summary>
         private readonly Dictionary<IGameSession, GameSessionItem> _items =
             new Dictionary<IGameSession, GameSessionItem>();
+
+        /// <summary>事件处理器必须留着引用，Dispose 时才能准确退订。</summary>
+        private readonly Dictionary<IGameSession, EventHandler<GameOutputLine>> _outputHandlers =
+            new Dictionary<IGameSession, EventHandler<GameOutputLine>>();
+
+        private readonly Dictionary<IGameSession, EventHandler<int>> _exitHandlers =
+            new Dictionary<IGameSession, EventHandler<int>>();
+
+        private bool _disposed;
 
         /// <summary>当前正在看哪个会话的日志。</summary>
         [ObservableProperty]
@@ -155,9 +164,13 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public void ClearExitedSessions()
         {
-            foreach (GameSessionItem item in Sessions.Where(s => !s.IsRunning).ToList())
+            foreach (KeyValuePair<IGameSession, GameSessionItem> pair in _items
+                .Where(p => !p.Value.IsRunning)
+                .ToList())
             {
-                Sessions.Remove(item);
+                DetachSession(pair.Key);
+                Sessions.Remove(pair.Value);
+                _items.Remove(pair.Key);
             }
 
             // 映射里也要清掉这些会话，否则事件还会路由到已删除的条目
@@ -348,8 +361,12 @@ namespace NLMCL.App.ViewModels
             Sessions.Add(item);
             SelectedSession = item;
 
-            session.Output += OnOutput;
-            session.Exited += (sender, code) => OnExited(session, code);
+            EventHandler<GameOutputLine> outputHandler = OnOutput;
+            EventHandler<int> exitHandler = (sender, code) => OnExited(session, code);
+            _outputHandlers[session] = outputHandler;
+            _exitHandlers[session] = exitHandler;
+            session.Output += outputHandler;
+            session.Exited += exitHandler;
 
             IsRunning = true;
             StatusText = "运行中（共 " + _sessions.Count + " 个，最新 PID " + session.ProcessId + "）";
@@ -523,6 +540,7 @@ namespace NLMCL.App.ViewModels
 
         private void HandleExit(IGameSession session, int exitCode)
         {
+            DetachSession(session);
             _sessions.Remove(session);
 
             if (_items.TryGetValue(session, out GameSessionItem? finished))
@@ -577,6 +595,40 @@ namespace NLMCL.App.ViewModels
             {
                 StatusText = "已退出（退出码 " + exitCode + "）";
             }
+        }
+
+        private void DetachSession(IGameSession session)
+        {
+            if (_outputHandlers.TryGetValue(session, out EventHandler<GameOutputLine>? outputHandler))
+            {
+                session.Output -= outputHandler;
+                _outputHandlers.Remove(session);
+            }
+
+            if (_exitHandlers.TryGetValue(session, out EventHandler<int>? exitHandler))
+            {
+                session.Exited -= exitHandler;
+                _exitHandlers.Remove(session);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_disposed)
+            {
+                return;
+            }
+
+            _disposed = true;
+
+            foreach (IGameSession session in _outputHandlers.Keys.Concat(_exitHandlers.Keys).Distinct().ToList())
+            {
+                DetachSession(session);
+            }
+
+            StopWatchdog();
+            _logWriter?.Dispose();
+            _logWriter = null;
         }
     }
 }

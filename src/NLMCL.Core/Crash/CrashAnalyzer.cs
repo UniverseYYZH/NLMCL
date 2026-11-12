@@ -235,6 +235,14 @@ namespace NLMCL.Core.Crash
 
         // ---------- 可疑模组 ----------
 
+        private static readonly HashSet<string> LoaderStems = new HashSet<string>(
+            new[]
+            {
+                "fabric", "fabric-loader", "forge", "neoforge", "neoforge-loader",
+                "quilt", "quilt-loader", "minecraft", "java"
+            },
+            StringComparer.OrdinalIgnoreCase);
+
         /// <summary>从日志里找提到的 mod id / 文件名，和实际 mods 目录比对。</summary>
         internal static IReadOnlyList<string> FindSuspects(
             string text, string minecraftDirectory, string versionFolder)
@@ -266,9 +274,25 @@ namespace NLMCL.Core.Crash
                 foreach (string file in Directory.GetFiles(root, "*.jar*"))
                 {
                     string name = Path.GetFileName(file);
-                    string stem = name.Split('-')[0];
 
-                    if (stem.Length >= 3 && text.IndexOf(stem, StringComparison.OrdinalIgnoreCase) >= 0)
+                    // 完整文件名出现在日志里，说明日志确实提到了这个 jar。
+                    if (text.IndexOf(name, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        Add(name);
+                        continue;
+                    }
+
+                    string stem = ModStem(name);
+
+                    if (stem.Length < 3 || IsLoaderStem(stem))
+                    {
+                        continue;
+                    }
+
+                    // 按完整词匹配，避免 fabric-api 被 "fabric" 误伤。
+                    string pattern = "(?<![A-Za-z0-9_])" + Regex.Escape(stem) + "(?![A-Za-z0-9_])";
+
+                    if (Regex.IsMatch(text, pattern, RegexOptions.IgnoreCase))
                     {
                         Add(name);
                     }
@@ -285,6 +309,30 @@ namespace NLMCL.Core.Crash
                 }
             }
         }
+
+        /// <summary>去掉 .jar/.jar.disabled 和版本段，得到 mod id/文件名主干。</summary>
+        private static string ModStem(string fileName)
+        {
+            string name = Regex.Replace(fileName, @"\.jar(?:\..*)?$", string.Empty, RegexOptions.IgnoreCase);
+            string[] parts = name.Split('-');
+            int cut = parts.Length;
+
+            for (int i = 1; i < parts.Length; i++)
+            {
+                string part = parts[i];
+
+                if (part.Length > 0 && (char.IsDigit(part[0])
+                    || ((part[0] == 'v' || part[0] == 'V') && part.Length > 1 && char.IsDigit(part[1]))))
+                {
+                    cut = i;
+                    break;
+                }
+            }
+
+            return string.Join("-", parts.Take(cut));
+        }
+
+        private static bool IsLoaderStem(string stem) => LoaderStems.Contains(stem);
 
         // ---------- 小工具 ----------
 

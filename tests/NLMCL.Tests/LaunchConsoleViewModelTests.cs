@@ -15,9 +15,24 @@ namespace NLMCL.Tests
     {
         private sealed class FakeSession : IGameSession
         {
-            public event EventHandler<GameOutputLine>? Output;
+            private EventHandler<GameOutputLine>? _output;
+            private EventHandler<int>? _exited;
 
-            public event EventHandler<int>? Exited;
+            public event EventHandler<GameOutputLine>? Output
+            {
+                add { _output += value; OutputSubscribers++; }
+                remove { _output -= value; OutputSubscribers--; }
+            }
+
+            public event EventHandler<int>? Exited
+            {
+                add { _exited += value; ExitedSubscribers++; }
+                remove { _exited -= value; ExitedSubscribers--; }
+            }
+
+            public int OutputSubscribers { get; private set; }
+
+            public int ExitedSubscribers { get; private set; }
 
             public int ProcessId => 999;
 
@@ -35,14 +50,14 @@ namespace NLMCL.Tests
 
             public void Emit(string text, bool isError = false)
             {
-                Output?.Invoke(this, new GameOutputLine(text, isError));
+                _output?.Invoke(this, new GameOutputLine(text, isError));
             }
 
             public void Exit(int code)
             {
                 IsRunning = false;
                 ExitCode = code;
-                Exited?.Invoke(this, code);
+                _exited?.Invoke(this, code);
             }
 
             public void Dispose()
@@ -305,6 +320,25 @@ namespace NLMCL.Tests
             // 修复前：会话已退出但事件没人听见，IsRunning 永远为 true、按钮从此点不动。
             Assert.False(vm.IsRunning);
             Assert.DoesNotContain("运行中", vm.StatusText);
+        }
+
+        [Fact]
+        public void Disposing_the_console_detaches_every_session_event()
+        {
+            FakeSessionLauncher launcher = new FakeSessionLauncher();
+            LaunchConsoleViewModel vm = Create(
+                launcher, new FixedJavaLocator(TestSupport.CreateJava(21)));
+
+            vm.Attach(launcher.Session);
+
+            Assert.Equal(1, launcher.Session.OutputSubscribers);
+            Assert.Equal(1, launcher.Session.ExitedSubscribers);
+
+            vm.Dispose();
+            vm.Dispose();
+
+            Assert.Equal(0, launcher.Session.OutputSubscribers);
+            Assert.Equal(0, launcher.Session.ExitedSubscribers);
         }
     }
 }

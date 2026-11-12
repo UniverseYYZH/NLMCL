@@ -386,6 +386,11 @@ namespace NLMCL.App
                     {
                         skin.FlushUsage();
                     }
+
+                    if (_services.GetService(typeof(LaunchConsoleViewModel)) is LaunchConsoleViewModel console)
+                    {
+                        console.Dispose();
+                    }
                 }
                 catch (Exception)
                 {

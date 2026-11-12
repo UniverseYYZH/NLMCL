@@ -158,5 +158,34 @@ namespace NLMCL.Tests
                 Directory.Delete(root, true);
             }
         }
+
+        [Fact]
+        public void Suspect_matching_uses_mod_ids_instead_of_the_first_hyphen_segment()
+        {
+            string root = NewRoot();
+
+            try
+            {
+                string mods = Path.Combine(root, "versions", "1.21.1-fabric", "mods");
+                Directory.CreateDirectory(mods);
+                File.WriteAllText(Path.Combine(mods, "fabric-api-0.92.0.jar"), string.Empty);
+                File.WriteAllText(Path.Combine(mods, "sodium-fabric-0.5.8.jar"), string.Empty);
+                File.WriteAllText(Path.Combine(mods, "create-0.5.1.jar"), string.Empty);
+
+                string text = "Loading Minecraft 1.21.1 with Fabric Loader 0.16.9\n"
+                    + "Mixin apply failed: sodium-fabric\n"
+                    + "Embedded jar: create-0.5.1.jar";
+
+                var suspects = CrashAnalyzer.FindSuspects(text, root, "1.21.1-fabric");
+
+                Assert.Contains("sodium-fabric-0.5.8.jar", suspects);
+                Assert.Contains("create-0.5.1.jar", suspects);
+                Assert.DoesNotContain("fabric-api-0.92.0.jar", suspects);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
     }
 }

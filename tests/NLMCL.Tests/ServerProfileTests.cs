@@ -31,24 +31,56 @@ namespace NLMCL.Tests
 
         private sealed class FakePinger : IServerPinger
         {
+            private int _active;
+
             public Dictionary<string, (bool ok, int online, int max, int latency)> Rooms { get; }
                 = new(StringComparer.OrdinalIgnoreCase);
 
-            public Task<LanRoom> PingAsync(string host, int port, CancellationToken cancellationToken)
-            {
-                if (!Rooms.TryGetValue(host, out var data) || !data.ok)
-                {
-                    throw new TimeoutException("连接超时：" + host + ":" + port);
-                }
+            public TimeSpan Delay { get; set; }
 
-                return Task.FromResult(new LanRoom(host, port)
+            public bool IgnoreCancellation { get; set; }
+
+            public HashSet<string> HangingHosts { get; } =
+                new(StringComparer.OrdinalIgnoreCase);
+
+            public int MaxConcurrent { get; private set; }
+
+            public async Task<LanRoom> PingAsync(string host, int port, CancellationToken cancellationToken)
+            {
+                int active = Interlocked.Increment(ref _active);
+                MaxConcurrent = Math.Max(MaxConcurrent, active);
+
+                try
                 {
-                    Pinged = true,
-                    Online = data.online,
-                    Max = data.max,
-                    LatencyMs = data.latency,
-                    VersionName = "Velocity 1.7.2-1.21.11"
-                });
+                    if (HangingHosts.Contains(host))
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(5), CancellationToken.None);
+                    }
+                    else if (Delay > TimeSpan.Zero)
+                    {
+                        await Task.Delay(Delay, IgnoreCancellation ? CancellationToken.None : cancellationToken);
+                    }
+
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (!Rooms.TryGetValue(host, out var data) || !data.ok)
+                    {
+                        throw new TimeoutException("连接超时：" + host + ":" + port);
+                    }
+
+                    return new LanRoom(host, port)
+                    {
+                        Pinged = true,
+                        Online = data.online,
+                        Max = data.max,
+                        LatencyMs = data.latency,
+                        VersionName = "Velocity 1.7.2-1.21.11"
+                    };
+                }
+                finally
+                {
+                    Interlocked.Decrement(ref _active);
+                }
             }
         }
 
@@ -128,7 +160,7 @@ namespace NLMCL.Tests
         }
 
         [Fact]
-        public async Task Picker_prefers_fewer_players()
+        public async Task Picker_prefers_lower_latency()
         {
             FakeResolver resolver = new FakeResolver();
             resolver.Ports["mc2.nxist.top"] = 46718;
@@ -144,9 +176,53 @@ namespace NLMCL.Tests
             ProfileEndpoint chosen = await picker.PickAsync(profile, CancellationToken.None);
 
             Assert.True(chosen.Online);
-            Assert.Equal("mc4.nxist.top", chosen.Address);
-            Assert.Equal(18491, chosen.Endpoint.Port);
-            Assert.Equal(3, chosen.Players);
+            Assert.Equal("mc2.nxist.top", chosen.Address);
+            Assert.Equal(46718, chosen.Endpoint.Port);
+            Assert.Equal(30, chosen.Players);
+        }
+
+        [Fact]
+        public async Task Picker_probes_all_endpoints_in_parallel()
+        {
+            FakeResolver resolver = new FakeResolver();
+            resolver.Ports["mc2.nxist.top"] = 46718;
+            resolver.Ports["mc4.nxist.top"] = 18491;
+
+            FakePinger pinger = new FakePinger { Delay = TimeSpan.FromMilliseconds(150) };
+            pinger.Rooms["mc2.nxist.top"] = (true, 30, 40, 20);
+            pinger.Rooms["mc4.nxist.top"] = (true, 3, 40, 45);
+
+            ServerProfilePicker picker = new ServerProfilePicker(
+                resolver, pinger, TimeSpan.FromSeconds(2));
+
+            await picker.PickAsync(ServerProfileStore.BuiltIn[0], CancellationToken.None);
+
+            Assert.Equal(2, pinger.MaxConcurrent);
+        }
+
+        [Fact]
+        public async Task Picker_respects_the_total_deadline()
+        {
+            FakeResolver resolver = new FakeResolver();
+            resolver.Ports["mc2.nxist.top"] = 46718;
+            resolver.Ports["mc4.nxist.top"] = 18491;
+
+            FakePinger pinger = new FakePinger();
+            pinger.Rooms["mc2.nxist.top"] = (true, 30, 40, 20);
+            pinger.Rooms["mc4.nxist.top"] = (true, 3, 40, 45);
+            pinger.HangingHosts.Add("mc4.nxist.top");
+
+            // mc2 立刻返回，mc4 永远不返回；总 deadline 应让 mc2 胜出。
+            ServerProfilePicker picker = new ServerProfilePicker(
+                resolver, pinger, TimeSpan.FromMilliseconds(150));
+
+            var started = DateTime.UtcNow;
+            ProfileEndpoint chosen = await picker.PickAsync(
+                ServerProfileStore.BuiltIn[0], CancellationToken.None);
+            TimeSpan elapsed = DateTime.UtcNow - started;
+
+            Assert.True(elapsed < TimeSpan.FromSeconds(2));
+            Assert.Equal("mc2.nxist.top", chosen.Address);
         }
 
         [Fact]
