@@ -2324,7 +2324,9 @@ namespace NLMCL.App.ViewModels
                     "AutoModpack 下载服务未就绪，已停止启动。请重启启动器后重试。");
             }
 
-            string mods = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "mods");
+            string gameDirectory = ResolveGameDirectory(
+                _instancePaths, CurrentGameDirectory, instance.FolderName);
+            string mods = Path.Combine(gameDirectory, "mods");
             Directory.CreateDirectory(mods);
 
             JoinTrace("模组分支：查询 AutoModpack 版本");
@@ -2703,7 +2705,8 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            string mods = Path.Combine(CurrentGameDirectory, "versions", folder, "mods");
+            string gameDirectory = ResolveGameDirectory(_instancePaths, CurrentGameDirectory, folder);
+            string mods = Path.Combine(gameDirectory, "mods");
             string[] autoModpackJars = Directory.Exists(mods)
                 ? Directory.GetFiles(mods, "automodpack*.jar")
                 : Array.Empty<string>();
@@ -2731,7 +2734,7 @@ namespace NLMCL.App.ViewModels
                 : new ServerJoinCheck("内存", memory + " MB（建议 6144，点按钮会自动改）", false));
 
             // ④ 整合包是否同步过
-            string packs = Path.Combine(CurrentGameDirectory, "versions", folder, "automodpack", "modpacks");
+            string packs = Path.Combine(gameDirectory, "automodpack", "modpacks");
             long size = 0;
 
             if (Directory.Exists(packs))

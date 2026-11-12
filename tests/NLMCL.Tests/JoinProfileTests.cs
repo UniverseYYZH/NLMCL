@@ -186,6 +186,19 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class FixedGameDirectoryResolver : IInstancePathResolver
+        {
+            private readonly string _gameDirectory;
+
+            public FixedGameDirectoryResolver(string gameDirectory)
+            {
+                _gameDirectory = gameDirectory;
+            }
+
+            public string GetGameDirectory(string minecraftDirectory, string versionId)
+                => _gameDirectory;
+        }
+
         private sealed class FixedJavaLocator : IJavaLocator
         {
             private readonly string _path;
@@ -331,6 +344,105 @@ namespace NLMCL.Tests
 
                 vm.RefreshJoinChecks();
                 check = vm.JoinChecks.FirstOrDefault(item => item.Label == "模组");
+                Assert.NotNull(check);
+                Assert.True(check!.IsOk);
+                Assert.Contains("已就位", check.Detail);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
+        public async Task Modded_join_installs_automodpack_in_the_resolved_instance_directory()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-isolated-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                string rawInstance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.15.0-1.21.1");
+                Directory.CreateDirectory(rawInstance);
+                Directory.CreateDirectory(Path.Combine(root, "bin"));
+                File.WriteAllText(Path.Combine(root, "bin", "java.exe"), string.Empty);
+
+                string isolated = Path.Combine(root, "isolated-game");
+                Directory.CreateDirectory(isolated);
+
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    javaLocator: new FixedJavaLocator(root),
+                    launcher: launcher,
+                    profilePicker: new ServerProfilePicker(
+                        new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1)),
+                    resourceCatalog: new MatchingAutoModpackCatalog(),
+                    fileDownloader: new WritingAutoModpackDownloader(),
+                    instancePaths: new FixedGameDirectoryResolver(isolated));
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                Assert.Equal(1, launcher.Calls);
+                Assert.True(File.Exists(Path.Combine(isolated, "mods", "automodpack-4.0.6.jar")));
+                Assert.False(File.Exists(Path.Combine(rawInstance, "mods", "automodpack-4.0.6.jar")));
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
+        public void Join_check_reads_mods_from_the_resolved_instance_directory()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-check-isolated-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                string rawInstance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.20.1-1.21.1");
+                Directory.CreateDirectory(rawInstance);
+
+                string isolated = Path.Combine(root, "isolated-game");
+                string mods = Path.Combine(isolated, "mods");
+                Directory.CreateDirectory(mods);
+                using (ZipArchive archive = ZipFile.Open(
+                    Path.Combine(mods, "automodpack-4.0.6.jar"), ZipArchiveMode.Create))
+                {
+                    archive.CreateEntry("fabric.mod.json");
+                }
+
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    instancePaths: new FixedGameDirectoryResolver(isolated));
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Loader = "fabric",
+                    AutoModpackVersion = "4.0.6",
+                    Mode = ServerProfileMode.Modded
+                };
+                profile.Addresses.Add("play.example.org:25565");
+                vm.Ningli.SetProfiles(new[] { profile });
+
+                vm.RefreshJoinChecks();
+
+                ServerJoinCheck? check = vm.JoinChecks.FirstOrDefault(item => item.Label == "模组");
                 Assert.NotNull(check);
                 Assert.True(check!.IsOk);
                 Assert.Contains("已就位", check.Detail);

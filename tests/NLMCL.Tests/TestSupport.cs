@@ -481,7 +481,8 @@ namespace NLMCL.Tests
             NLMCL.Core.Servers.ServerProfilePicker? profilePicker = null,
             IVersionInstaller? versionInstaller = null,
             IFileDownloader? fileDownloader = null,
-            IResourceCatalog? resourceCatalog = null)
+            IResourceCatalog? resourceCatalog = null,
+            IInstancePathResolver? instancePaths = null)
         {
             return new MainViewModel(
                 catalog,
@@ -513,7 +514,8 @@ namespace NLMCL.Tests
                 profilePicker: profilePicker,
                 versionInstaller: versionInstaller,
                 fileDownloader: fileDownloader,
-                resourceCatalog: resourceCatalog);
+                resourceCatalog: resourceCatalog,
+                instancePaths: instancePaths);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {
