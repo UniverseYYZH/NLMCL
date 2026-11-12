@@ -144,6 +144,25 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Connect_does_not_probe_while_join_is_preparing()
+        {
+            RecordingLauncher launcher = new RecordingLauncher();
+            TestSupport.FakeNetwork network = new TestSupport.FakeNetwork { PortOpen = true };
+            MainViewModel vm = Create(launcher, network, new TestSupport.FakeClipboard());
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            vm.ServerAddress = "10.21.3.9:54321";
+            vm.IsJoiningProfile = true;
+
+            await vm.ConnectToLanAsync();
+
+            Assert.Equal(0, network.ProbeCalls);
+            Assert.Equal(0, launcher.Calls);
+            Assert.Contains("正在准备进入服务器", vm.StatusText);
+        }
+
+        [Fact]
         public async Task Bad_address_reports_before_any_network_call()
         {
             RecordingLauncher launcher = new RecordingLauncher();

@@ -2909,11 +2909,31 @@ namespace NLMCL.App.ViewModels
                 // 头像失败就保留 "?"，不弹错误
             }
         }
+        /// <summary>
+        /// 进服准备期间不要再去解析地址/探测端口：真正启动会被 LaunchCore 拦下，
+        /// 提前探测只会白等一轮网络超时。
+        /// </summary>
+        private bool IsJoinPreparationInProgress()
+        {
+            if (!IsJoiningProfile && Volatile.Read(ref _lobbyGate) == 0)
+            {
+                return false;
+            }
+
+            StatusText = "正在准备进入服务器，请稍候…";
+            return true;
+        }
+
         /// <summary>快捷入口：填入地址并直接启动（不探测端口——公网服务器常挡住端口探测）。</summary>
         [RelayCommand]
         public async Task QuickJoinAsync(ServerBookmark? server)
         {
             if (server == null || IsLaunching)
+            {
+                return;
+            }
+
+            if (IsJoinPreparationInProgress())
             {
                 return;
             }
@@ -2938,6 +2958,11 @@ namespace NLMCL.App.ViewModels
         public async Task ConnectToLanAsync()
         {
             if (IsLaunching)
+            {
+                return;
+            }
+
+            if (IsJoinPreparationInProgress())
             {
                 return;
             }

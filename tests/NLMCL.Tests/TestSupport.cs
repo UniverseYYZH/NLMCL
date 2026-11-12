@@ -403,10 +403,13 @@ namespace NLMCL.Tests
 
             public bool PortOpen { get; set; } = true;
 
+            public int ProbeCalls { get; private set; }
+
             public string? GetLocalIPv4() => string.IsNullOrEmpty(Address) ? null : Address;
 
             public Task<bool> IsPortOpenAsync(string host, int port, CancellationToken cancellationToken)
             {
+                ProbeCalls++;
                 return Task.FromResult(PortOpen);
             }
         }
