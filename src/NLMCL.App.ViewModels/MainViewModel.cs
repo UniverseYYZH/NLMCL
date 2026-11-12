@@ -707,6 +707,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>启动入口的原子闸门：预检是异步的，只靠 IsLaunching 会放过双击。</summary>
         private int _launchGate;
 
+        /// <summary>大厅入口的原子闸门：连续点击不能重复挑入口。</summary>
+        private int _lobbyGate;
+
         [ObservableProperty]
         private string _currentGameDirectory = string.Empty;
 
@@ -1980,6 +1983,24 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            if (Interlocked.CompareExchange(ref _lobbyGate, 1, 0) != 0)
+            {
+                StatusText = "正在进入大厅，请稍候…";
+                return;
+            }
+
+            try
+            {
+                await JoinProfileLobbyCoreAsync(profile).ConfigureAwait(true);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _lobbyGate, 0);
+            }
+        }
+
+        private async Task JoinProfileLobbyCoreAsync(ServerProfile profile)
+        {
             // 模组服正在挑入口/安装时，大厅入口不能插进来抢状态。
             // 真正的重复启动由 LaunchCoreAsync 的原子闸门兜底，这里只做交互层拦截。
             if (IsJoiningProfile)
@@ -2053,6 +2074,12 @@ namespace NLMCL.App.ViewModels
             if (_isJoiningProfile)
             {
                 StatusText = "正在进服，请稍候…";
+                return;
+            }
+
+            if (Volatile.Read(ref _lobbyGate) != 0)
+            {
+                StatusText = "正在进入大厅，请稍候…";
                 return;
             }
 

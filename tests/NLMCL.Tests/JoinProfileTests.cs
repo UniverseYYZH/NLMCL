@@ -136,6 +136,54 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Lobby_join_ignores_a_second_click_while_preparing()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-lobby-guard-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                BlockingResolver resolver = new BlockingResolver();
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    resolver, new OnlinePinger(), TimeSpan.FromSeconds(1));
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    profilePicker: picker);
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+                await vm.RefreshAsync();
+                vm.SelectedVersion = vm.Versions[0];
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                Task first = vm.JoinProfileLobbyAsync(profile);
+                await resolver.Entered.Task;
+
+                Task second = vm.JoinProfileLobbyAsync(profile);
+                await second;
+
+                Assert.Contains("正在进入大厅", vm.StatusText);
+                Assert.Equal(1, resolver.Calls);
+
+                resolver.Release("example.com", 25565);
+                await first;
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public async Task Lobby_join_ignores_click_while_modded_join_is_preparing()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-lobby-guard-");
