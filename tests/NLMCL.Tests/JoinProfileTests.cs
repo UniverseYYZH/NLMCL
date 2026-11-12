@@ -109,6 +109,33 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Stale_automodpack_jars_are_removed_when_target_already_exists()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-stale-");
+            try
+            {
+                string mods = Path.Combine(root, "mods");
+                Directory.CreateDirectory(mods);
+                string target = Path.Combine(mods, "automodpack-4.0.7.jar");
+                string stale = Path.Combine(mods, "automodpack-5.0.0.jar");
+                string unrelated = Path.Combine(mods, "sodium.jar");
+                File.WriteAllText(target, "target");
+                File.WriteAllText(stale, "stale");
+                File.WriteAllText(unrelated, "keep");
+
+                MainViewModel.DeleteStaleAutoModpackJars(mods, Path.GetFileName(target));
+
+                Assert.True(File.Exists(target));
+                Assert.False(File.Exists(stale));
+                Assert.True(File.Exists(unrelated));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public async Task Lobby_join_ignores_click_while_modded_join_is_preparing()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-lobby-guard-");

@@ -2275,6 +2275,8 @@ namespace NLMCL.App.ViewModels
 
             if (File.Exists(target) && !string.IsNullOrEmpty(file.Sha1) && HasSha1(target, file.Sha1!))
             {
+                // 目标已正确也要清掉同目录的旧版本，否则两个 AutoModpack 会同时加载。
+                DeleteStaleAutoModpackJars(mods, file.Name);
                 return;
             }
 
@@ -2284,9 +2286,20 @@ namespace NLMCL.App.ViewModels
 
             // 同目录里如果还留着别的 automodpack 版本（例如上次误装的 v5），一并删掉，
             // 否则两个 AutoModpack 同时加载会冲突。
-            foreach (string stale in Directory.GetFiles(mods, "automodpack*.jar"))
+            DeleteStaleAutoModpackJars(mods, file.Name);
+
+            if (!string.IsNullOrEmpty(file.Sha1) && !HasSha1(target, file.Sha1!))
             {
-                if (!string.Equals(Path.GetFileName(stale), file.Name, StringComparison.OrdinalIgnoreCase))
+                File.Delete(target);
+                throw new InvalidOperationException("AutoModpack 校验失败（哈希不一致），已删除");
+            }
+        }
+
+        internal static void DeleteStaleAutoModpackJars(string modsDirectory, string keepFileName)
+        {
+            foreach (string stale in Directory.GetFiles(modsDirectory, "automodpack*.jar"))
+            {
+                if (!string.Equals(Path.GetFileName(stale), keepFileName, StringComparison.OrdinalIgnoreCase))
                 {
                     try
                     {
@@ -2297,12 +2310,6 @@ namespace NLMCL.App.ViewModels
                         // 被占用就算了，下一次再清
                     }
                 }
-            }
-
-            if (!string.IsNullOrEmpty(file.Sha1) && !HasSha1(target, file.Sha1!))
-            {
-                File.Delete(target);
-                throw new InvalidOperationException("AutoModpack 校验失败（哈希不一致），已删除");
             }
         }
 
