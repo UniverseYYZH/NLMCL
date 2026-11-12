@@ -2959,6 +2959,10 @@ namespace NLMCL.App.ViewModels
             catch (IOException)
             {
             }
+            catch (UnauthorizedAccessException)
+            {
+                // 与 FindInstanceOnDisk 同理：读不到就按默认内存显示，不能让检查面板整体崩掉。
+            }
 
             return 2048;
         }
