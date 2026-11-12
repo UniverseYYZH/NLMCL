@@ -93,6 +93,33 @@ namespace NLMCL.Tests
             Assert.Contains("已安装", vm.StatusText);
         }
 
+        [Fact]
+        public void Dependency_selection_prefers_the_newest_matching_version_and_honors_a_pinned_id()
+        {
+            ResourceFile older = new ResourceFile(
+                "fabric-api-old.jar", "https://example.com/old.jar", 50, "0.1",
+                new[] { "1.21.1" }, "fabric", versionId: "old",
+                publishedAt: new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero));
+            ResourceFile newer = new ResourceFile(
+                "fabric-api-new.jar", "https://example.com/new.jar", 60, "0.2",
+                new[] { "1.21.1" }, "fabric", versionId: "new",
+                publishedAt: new DateTimeOffset(2025, 6, 1, 0, 0, 0, TimeSpan.Zero));
+
+            ResourceFile? latest = ResourceViewModel.SelectDependencyFile(
+                new[] { older, newer },
+                new ResourceDependency("fabric-api", null, "required"),
+                "1.21.1",
+                "fabric");
+            Assert.Same(newer, latest);
+
+            ResourceFile? pinned = ResourceViewModel.SelectDependencyFile(
+                new[] { older, newer },
+                new ResourceDependency("fabric-api", "old", "required"),
+                "1.21.1",
+                "fabric");
+            Assert.Same(older, pinned);
+        }
+
         private sealed class DependencyCatalog : IResourceCatalog
         {
             public List<string> RequestedProjectIds { get; } = new List<string>();

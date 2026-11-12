@@ -115,7 +115,8 @@ namespace NLMCL.Abstractions
     {
         public ResourceFile(string name, string url, long size, string? versionName,
             IReadOnlyList<string> gameVersions, string? loader, string? sha1 = null,
-            IReadOnlyList<ResourceDependency>? dependencies = null)
+            IReadOnlyList<ResourceDependency>? dependencies = null,
+            string? versionId = null, DateTimeOffset? publishedAt = null)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Url = url ?? throw new ArgumentNullException(nameof(url));
@@ -125,6 +126,8 @@ namespace NLMCL.Abstractions
             Loader = loader;
             Sha1 = sha1;
             Dependencies = dependencies ?? Array.Empty<ResourceDependency>();
+            VersionId = versionId;
+            PublishedAt = publishedAt;
         }
 
         /// <summary>Modrinth 提供的 SHA1（可为空；有就必须校验）。</summary>
@@ -143,6 +146,12 @@ namespace NLMCL.Abstractions
         public string? Loader { get; }
 
         public IReadOnlyList<ResourceDependency> Dependencies { get; }
+
+        /// <summary>Modrinth 的版本 id；依赖声明可指定精确版本。</summary>
+        public string? VersionId { get; }
+
+        /// <summary>版本发布时间；用于未指定精确版本时选择最新兼容版。</summary>
+        public DateTimeOffset? PublishedAt { get; }
     }
 
     /// <summary>把下载好的资源文件放进实例目录（mods / resourcepacks / shaderpacks / datapacks）。</summary>

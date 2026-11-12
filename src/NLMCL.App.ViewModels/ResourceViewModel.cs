@@ -693,8 +693,12 @@ namespace NLMCL.App.ViewModels
                         cancellationToken)
                     .ConfigureAwait(true);
 
-                ResourceFile? dependencyFile = candidates.FirstOrDefault(candidate =>
-                    !string.IsNullOrWhiteSpace(candidate.Url));
+                ResourceFile? dependencyFile = SelectDependencyFile(
+                    candidates,
+                    dependency,
+                    string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim(),
+                    LoaderOf(SelectedLoader));
+
                 if (dependencyFile == null)
                 {
                     throw new InvalidOperationException(
@@ -936,6 +940,57 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+
+        /// <summary>
+        /// 依赖声明指定了版本 id 时严格按 id；否则优先当前游戏版本与加载器，再取最新发布版本。
+        /// </summary>
+        internal static ResourceFile? SelectDependencyFile(
+            IReadOnlyList<ResourceFile> candidates,
+            ResourceDependency dependency,
+            string? gameVersion,
+            string? loader)
+        {
+            List<ResourceFile> usable = candidates
+                .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Url))
+                .ToList();
+
+            if (usable.Count == 0)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(dependency.VersionId))
+            {
+                return usable.FirstOrDefault(candidate => string.Equals(
+                    candidate.VersionId,
+                    dependency.VersionId,
+                    StringComparison.OrdinalIgnoreCase));
+            }
+
+            List<ResourceFile> gameMatches = string.IsNullOrWhiteSpace(gameVersion)
+                ? usable
+                : usable.Where(candidate => candidate.GameVersions.Any(version =>
+                    string.Equals(version, gameVersion, StringComparison.OrdinalIgnoreCase))).ToList();
+
+            if (gameMatches.Count == 0)
+            {
+                gameMatches = usable;
+            }
+
+            List<ResourceFile> loaderMatches = string.IsNullOrWhiteSpace(loader)
+                ? gameMatches
+                : gameMatches.Where(candidate => string.Equals(
+                    candidate.Loader, loader, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (loaderMatches.Count > 0)
+            {
+                gameMatches = loaderMatches;
+            }
+
+            return gameMatches
+                .OrderByDescending(candidate => candidate.PublishedAt ?? DateTimeOffset.MinValue)
+                .First();
+        }
 
         internal static string? LoaderOf(string text)
         {

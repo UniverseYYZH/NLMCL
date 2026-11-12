@@ -272,6 +272,11 @@ namespace NLMCL.Core.Resources
                     .Where(dependency => !string.IsNullOrWhiteSpace(dependency.ProjectId))
                     .ToArray() ?? Array.Empty<ResourceDependency>();
 
+                DateTimeOffset? publishedAt = DateTimeOffset.TryParse(
+                    version.Value<string>("date_published"), out DateTimeOffset parsedPublishedAt)
+                    ? parsedPublishedAt
+                    : (DateTimeOffset?)null;
+
                 files.Add(new ResourceFile(
                     name!,
                     url!,
@@ -280,7 +285,9 @@ namespace NLMCL.Core.Resources
                     gameVersions,
                     loader,
                     primary.SelectToken("hashes.sha1")?.Value<string>(),
-                    dependencies));
+                    dependencies,
+                    version.Value<string>("id"),
+                    publishedAt));
             }
 
             return files;
