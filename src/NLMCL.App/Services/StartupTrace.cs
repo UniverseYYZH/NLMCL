@@ -7,14 +7,17 @@ using System.Text;
 namespace NLMCL.App.Services
 {
     /// <summary>
-    /// 启动自检：把"这个进程到底能不能写盘、写到哪里"落到多个位置。
+    /// 启动自检：把“这个进程到底能不能写盘、写到哪里”落盘。
     ///
-    /// 背景：出现过"标题栏是新构建、但 %APPDATA%\NLMCL 下什么新文件都没有"的情况，
-    /// 无法区分"代码没执行"和"进程被拦截写盘"。所以这里对三个候选位置各写一次，
-    /// 并把每一次的成功/失败原因都记下来——只要能读到其中任意一个文件就能定位。
+    /// 背景：出现过“标题栏是新构建、但 %APPDATA%\NLMCL 下什么新文件都没有”的情况，
+    /// 无法区分“代码没执行”和“进程被拦截写盘”。主日志写到数据目录的 logs，
+    /// 失败时再尝试 exe 同级 startup.log，避免同时在 Temp/AppData/exe 三处留副本。
     /// </summary>
     internal static class StartupTrace
     {
+        /// <summary>数据目录下的 logs；App 启动后设置。</summary>
+        internal static string? LogDirectory { get; set; }
+
         internal static string BuildStamp()
         {
             try
@@ -55,23 +58,31 @@ namespace NLMCL.App.Services
 
             List<string> targets = new List<string>();
 
-            try
+            if (!string.IsNullOrWhiteSpace(LogDirectory))
             {
-                targets.Add(Path.Combine(Path.GetTempPath(), "nlmcl-startup.log"));
+                targets.Add(Path.Combine(LogDirectory!, "startup.log"));
             }
-            catch (Exception)
+            else
             {
-            }
+                // 还未确定数据目录（例如 AppPaths 构造前就失败）才用系统位置兜底。
+                try
+                {
+                    targets.Add(Path.Combine(Path.GetTempPath(), "nlmcl-startup.log"));
+                }
+                catch (Exception)
+                {
+                }
 
-            try
-            {
-                targets.Add(Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "NLMCL",
-                    "startup.log"));
-            }
-            catch (Exception)
-            {
+                try
+                {
+                    targets.Add(Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                        "NLMCL",
+                        "startup.log"));
+                }
+                catch (Exception)
+                {
+                }
             }
 
             try
@@ -79,7 +90,12 @@ namespace NLMCL.App.Services
                 string? exeFolder = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                 if (!string.IsNullOrEmpty(exeFolder))
                 {
-                    targets.Add(Path.Combine(exeFolder!, "startup.log"));
+                    string fallback = Path.Combine(exeFolder!, "startup.log");
+                    if (!targets.Exists(target => string.Equals(
+                        Path.GetFullPath(target), Path.GetFullPath(fallback), StringComparison.OrdinalIgnoreCase)))
+                    {
+                        targets.Add(fallback);
+                    }
                 }
             }
             catch (Exception)

@@ -91,6 +91,8 @@ namespace NLMCL.App
                 paths.EnsureDirectories();
                 Services.CrashReporter.LogDirectory =
                     System.IO.Path.Combine(paths.DataRoot, "logs");
+                Services.StartupTrace.LogDirectory =
+                    System.IO.Path.Combine(paths.DataRoot, "logs");
 
                 // 把"哪个构建 / 谁 / 能不能写"落盘：用于区分"跑的是旧 exe"和"新 exe 写盘失败"
                 Services.StartupTrace.Write(null);
