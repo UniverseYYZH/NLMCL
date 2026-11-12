@@ -16,7 +16,8 @@ namespace NLMCL.Core.Servers
     /// 选择顺序：
     ///   1. 档案里钉的版本（如 4.0.6）——精确匹配 version_number 前缀或文件名；
     ///   2. 同主版本里最新的（4.x）——小版本升级通常兼容；
-    ///   3. 实在没有就取列表第一个（并让调用方提示"版本可能不匹配"）。
+    ///   3. 档案钉了版本但同主版本也没有——返回 null，由调用方中止启动；
+    ///      未钉版本才取列表第一个。
     /// </summary>
     public static class AutoModpackSelector
     {
@@ -39,20 +40,23 @@ namespace NLMCL.Core.Servers
                 }
 
                 int dot = wanted.IndexOf('.');
+                string majorPrefix = dot > 0
+                    ? wanted.Substring(0, dot + 1) // "4."
+                    : wanted + "."; // 只写了主版本 "4"
 
-                if (dot > 0)
+                ResourceFile? sameMajor = files.FirstOrDefault(file =>
+                    (file.VersionName ?? string.Empty).StartsWith(majorPrefix, StringComparison.OrdinalIgnoreCase)
+                    || file.Name.StartsWith("automodpack-" + majorPrefix, StringComparison.OrdinalIgnoreCase));
+
+                if (sameMajor != null)
                 {
-                    string majorPrefix = wanted.Substring(0, dot + 1); // "4."
-
-                    ResourceFile? sameMajor = files.FirstOrDefault(file =>
-                        (file.VersionName ?? string.Empty).StartsWith(majorPrefix, StringComparison.OrdinalIgnoreCase)
-                        || file.Name.StartsWith("automodpack-" + majorPrefix, StringComparison.OrdinalIgnoreCase));
-
-                    if (sameMajor != null)
-                    {
-                        return sameMajor;
-                    }
+                    return sameMajor;
                 }
+
+                // 档案钉了版本却找不到同主版本：不能退回最新版。
+                // v4 服务端配 v5 客户端会握手失败，表现为“进服了但没同步 mod”，
+                // 比直接报错更难排查，所以交给调用方中止启动。
+                return null;
             }
 
             return files[0];

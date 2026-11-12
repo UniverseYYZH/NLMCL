@@ -45,6 +45,20 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Pinned_major_absent_returns_null_instead_of_installing_latest()
+        {
+            List<ResourceFile> files = new List<ResourceFile>
+            {
+                File("5.0.0-rc.7", "automodpack-5.0.0-rc.7.jar"),
+                File("5.0.0-rc.6", "automodpack-5.0.0-rc.6.jar")
+            };
+
+            ResourceFile? picked = AutoModpackSelector.Pick(files, "4.0.6");
+
+            Assert.Null(picked);
+        }
+
+        [Fact]
         public void Latest_is_used_when_nothing_pinned()
         {
             ResourceFile? picked = AutoModpackSelector.Pick(LatestFirst(), null);

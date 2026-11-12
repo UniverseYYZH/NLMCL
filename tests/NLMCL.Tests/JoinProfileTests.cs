@@ -109,6 +109,46 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Modded_join_aborts_when_automodpack_services_are_missing()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-no-services-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    launcher: launcher,
+                    profilePicker: picker);
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                Assert.Contains("AutoModpack 下载服务未就绪", vm.StatusText);
+                Assert.Equal(0, launcher.Calls);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public async Task Modded_join_aborts_when_no_automodpack_is_available()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-");

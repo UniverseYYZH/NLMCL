@@ -2237,7 +2237,8 @@ namespace NLMCL.App.ViewModels
 
             if (_resourceCatalog == null || _fileDownloader == null)
             {
-                return;
+                throw new InvalidOperationException(
+                    "AutoModpack 下载服务未就绪，已停止启动。请重启启动器后重试。");
             }
 
             string mods = Path.Combine(CurrentGameDirectory, "versions", instance.FolderName, "mods");
