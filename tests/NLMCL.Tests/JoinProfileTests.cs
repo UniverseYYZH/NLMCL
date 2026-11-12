@@ -173,12 +173,49 @@ namespace NLMCL.Tests
         {
             public int Calls { get; private set; }
 
+            public LaunchRequest? LastRequest { get; private set; }
+
             public Task<LaunchResult> LaunchAsync(
                 LaunchRequest request, CancellationToken cancellationToken)
             {
                 Calls++;
+                LastRequest = request;
                 return Task.FromResult(new LaunchResult(1, true, "ok"));
             }
+        }
+
+        private sealed class FixedJavaLocator : IJavaLocator
+        {
+            private readonly string _path;
+
+            public FixedJavaLocator(string path)
+            {
+                _path = path;
+            }
+
+            public Task<IReadOnlyList<JavaRuntime>> FindInstalledAsync(CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<JavaRuntime>>(new[]
+                {
+                    new JavaRuntime(_path, new Version(21, 0))
+                });
+        }
+
+        private sealed class WritingAutoModpackDownloader : IFileDownloader
+        {
+            public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
+                => DownloadAsync(url, targetPath, null, cancellationToken);
+
+            public Task DownloadAsync(
+                string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                File.WriteAllText(targetPath, "automodpack");
+                progress?.Report(1);
+                return Task.CompletedTask;
+            }
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+                => Task.FromResult(string.Empty);
         }
 
         [Fact]
@@ -267,6 +304,55 @@ namespace NLMCL.Tests
                 Assert.Equal(0.42, downloader.LastProgress);
                 Assert.Equal(0, launcher.Calls);
                 Assert.Contains("进模组服失败", vm.StatusText);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Modded_join_downloads_automodpack_and_launches_with_server_address()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-success-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                string instance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.15.0-1.21.1");
+                Directory.CreateDirectory(instance);
+                Directory.CreateDirectory(Path.Combine(root, "bin"));
+                File.WriteAllText(Path.Combine(root, "bin", "java.exe"), string.Empty);
+
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    javaLocator: new FixedJavaLocator(root),
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new MatchingAutoModpackCatalog(),
+                    fileDownloader: new WritingAutoModpackDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                Assert.True(launcher.Calls == 1, vm.StatusText);
+                Assert.Equal("example.com:25565", launcher.LastRequest?.ServerAddress);
+                Assert.True(File.Exists(Path.Combine(instance, "mods", "automodpack-4.0.6.jar")));
+                Assert.Contains("已启动", vm.StatusText);
             }
             finally
             {
