@@ -169,6 +169,103 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Lobby_join_stops_if_a_game_starts_while_picking()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-lobby-launch-race-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                BlockingResolver resolver = new BlockingResolver();
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    resolver, new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    launcher: launcher,
+                    profilePicker: picker);
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+                await vm.RefreshAsync();
+                vm.SelectedVersion = vm.Versions[0];
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                Task lobby = vm.JoinProfileLobbyAsync(profile);
+                await resolver.Entered.Task;
+
+                vm.IsLaunching = true;
+                resolver.Release("example.com", 25565);
+                await lobby;
+
+                Assert.Contains("已停止进入大厅", vm.StatusText);
+                Assert.Equal(0, launcher.Calls);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Modded_join_stops_if_a_game_starts_while_picking()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-modded-launch-race-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                BlockingResolver resolver = new BlockingResolver();
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    resolver, new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new EmptyResourceCatalog(),
+                    fileDownloader: new UnusedDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                Task join = vm.JoinProfileModdedAsync(profile);
+                await resolver.Entered.Task;
+
+                vm.IsLaunching = true;
+                resolver.Release("example.com", 25565);
+                await join;
+
+                Assert.Contains("已停止进服准备", vm.StatusText);
+                Assert.Equal(0, launcher.Calls);
+                Assert.False(vm.IsJoiningProfile);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public async Task Launch_is_ignored_while_a_join_is_preparing()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-launch-join-guard-");

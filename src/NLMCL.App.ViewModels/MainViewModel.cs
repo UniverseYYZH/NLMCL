@@ -2045,6 +2045,14 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
+                // 挑入口期间用户可能从快捷入口/普通启动把游戏拉起来了。
+                // 这时再进大厅只会被 LaunchCore 的闸门静默吞掉，明确停下。
+                if (IsLaunching)
+                {
+                    StatusText = "游戏已开始启动，已停止进入大厅。";
+                    return;
+                }
+
                 string target = chosen.Endpoint.Host + ":" + chosen.Endpoint.Port;
 
                 StatusText = "进入大厅：" + target + "（" + chosen.Players + "/" + chosen.MaxPlayers + " 在线）";
@@ -2079,7 +2087,7 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            if (_isJoiningProfile)
+            if (IsJoiningProfile)
             {
                 StatusText = "正在进服，请稍候…";
                 return;
@@ -2112,6 +2120,13 @@ namespace NLMCL.App.ViewModels
                 if (!chosen.Online)
                 {
                     StatusText = "服务器连不上：" + profile.Name + "（" + (chosen.Error ?? "超时") + "）";
+                    return;
+                }
+
+                // 挑入口/安装期间如果游戏已经被别的入口启动，别再把文件改下去。
+                if (IsLaunching)
+                {
+                    StatusText = "游戏已开始启动，已停止进服准备。";
                     return;
                 }
 
@@ -2151,6 +2166,12 @@ namespace NLMCL.App.ViewModels
                     if (vanillaInstance == null)
                     {
                         StatusText = "安装完成，但没找到 " + profile.Minecraft + " 原版实例";
+                        return;
+                    }
+
+                    if (IsLaunching)
+                    {
+                        StatusText = "游戏已开始启动，已停止进服准备。";
                         return;
                     }
 
@@ -2219,6 +2240,13 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
+                // 安装可能持续几分钟；期间用户可能从别处启动了游戏。
+                if (IsLaunching)
+                {
+                    StatusText = "游戏已开始启动，已停止进服准备。";
+                    return;
+                }
+
                 await EnsureAutoModpackAsync(profile, instance).ConfigureAwait(true);
 
                 // 大型整合包给 2048 MB 会频繁 GC（表现为"一卡一卡"），按档案建议值写实例设置。
@@ -2236,6 +2264,12 @@ namespace NLMCL.App.ViewModels
                             .SaveAsync(CurrentGameDirectory, instance.FolderName, currentSettings, CancellationToken.None)
                             .ConfigureAwait(true);
                     }
+                }
+
+                if (IsLaunching)
+                {
+                    StatusText = "游戏已开始启动，已停止进服准备。";
+                    return;
                 }
 
                 await SelectVersionForLaunchAsync(instance).ConfigureAwait(true);
