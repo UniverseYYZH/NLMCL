@@ -9,6 +9,10 @@
     <ProjectReference Include="..\NLMCL.Core\NLMCL.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+  </ItemGroup>
+  <ItemGroup>
     <InternalsVisibleTo Include="NLMCL.Tests" />
   </ItemGroup>
   <ItemGroup>

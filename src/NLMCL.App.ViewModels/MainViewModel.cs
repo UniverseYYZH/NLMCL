@@ -2482,6 +2482,41 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        /// <summary>
+        /// 界面检查用的轻量完整性判断：文件非空且能作为 zip/jar 打开。
+        /// 不能替代 EnsureAutoModpackAsync 的 SHA1/大小校验，但能挡住下载中断留下的
+        /// 0 字节或截断 jar，避免进服前检查把坏文件显示成“已就位”。
+        /// </summary>
+        private static bool IsAutoModpackJarUsable(string path)
+        {
+            try
+            {
+                FileInfo info = new FileInfo(path);
+                if (!info.Exists || info.Length <= 0)
+                {
+                    return false;
+                }
+
+                using (System.IO.Compression.ZipArchive archive =
+                    System.IO.Compression.ZipFile.OpenRead(path))
+                {
+                    return archive.Entries.Count > 0;
+                }
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+            catch (InvalidDataException)
+            {
+                return false;
+            }
+        }
+
         internal static void DeleteStaleAutoModpackJars(string modsDirectory, string keepFileName)
         {
             foreach (string stale in Directory.GetFiles(modsDirectory, "automodpack*.jar"))
@@ -2673,17 +2708,21 @@ namespace NLMCL.App.ViewModels
                 ? Directory.GetFiles(mods, "automodpack*.jar")
                 : Array.Empty<string>();
             string wantedAutoModpack = (profile.AutoModpackVersion ?? string.Empty).Trim();
-            bool hasAutoModpack = wantedAutoModpack.Length == 0
-                ? autoModpackJars.Length > 0
-                : autoModpackJars.Any(file =>
-                    AutoModpackSelector.MatchesVersion(Path.GetFileName(file), wantedAutoModpack));
+            string[] matchingAutoModpackJars = wantedAutoModpack.Length == 0
+                ? autoModpackJars
+                : autoModpackJars.Where(file =>
+                    AutoModpackSelector.MatchesVersion(Path.GetFileName(file), wantedAutoModpack))
+                    .ToArray();
+            bool hasAutoModpack = matchingAutoModpackJars.Any(IsAutoModpackJarUsable);
 
             JoinChecks.Add(hasAutoModpack
                 ? new ServerJoinCheck("模组", "AutoModpack " + (wantedAutoModpack.Length == 0 ? "已就位" : wantedAutoModpack + " 已就位"), true)
-                : wantedAutoModpack.Length > 0 && autoModpackJars.Length > 0
-                    ? new ServerJoinCheck("模组", "AutoModpack 版本不匹配（需要 "
-                        + wantedAutoModpack + "，点按钮会重装）", false)
-                    : new ServerJoinCheck("模组", "缺 AutoModpack（点按钮会自动装）", false));
+                : matchingAutoModpackJars.Length > 0
+                    ? new ServerJoinCheck("模组", "AutoModpack 文件损坏或无法读取（点按钮会重装）", false)
+                    : wantedAutoModpack.Length > 0 && autoModpackJars.Length > 0
+                        ? new ServerJoinCheck("模组", "AutoModpack 版本不匹配（需要 "
+                            + wantedAutoModpack + "，点按钮会重装）", false)
+                        : new ServerJoinCheck("模组", "缺 AutoModpack（点按钮会自动装）", false));
 
             // ③ 内存（100+ mod 的整合包 2 GB 会频繁 GC）
             int memory = GetInstanceMemory(folder);

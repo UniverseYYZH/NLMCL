@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NLMCL.Abstractions;
@@ -280,6 +282,58 @@ namespace NLMCL.Tests
                 Assert.NotNull(check);
                 Assert.False(check!.IsOk);
                 Assert.Contains("版本不匹配", check.Detail);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
+        public void Join_check_reports_a_corrupted_automodpack_jar()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-check-corrupt-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+                string instance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.20.1-1.21.1");
+                string mods = Path.Combine(instance, "mods");
+                Directory.CreateDirectory(mods);
+                string jar = Path.Combine(mods, "automodpack-4.0.6.jar");
+                File.WriteAllText(jar, "not a zip");
+
+                MainViewModel vm = TestSupport.CreateMain(new FixedCatalog(), paths);
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Loader = "fabric",
+                    AutoModpackVersion = "4.0.6",
+                    Mode = ServerProfileMode.Modded
+                };
+                profile.Addresses.Add("play.example.org:25565");
+                vm.Ningli.SetProfiles(new[] { profile });
+
+                vm.RefreshJoinChecks();
+
+                ServerJoinCheck? check = vm.JoinChecks.FirstOrDefault(item => item.Label == "模组");
+                Assert.NotNull(check);
+                Assert.False(check!.IsOk);
+                Assert.Contains("文件损坏", check.Detail);
+
+                File.Delete(jar);
+                using (ZipArchive archive = ZipFile.Open(jar, ZipArchiveMode.Create))
+                {
+                    archive.CreateEntry("fabric.mod.json");
+                }
+
+                vm.RefreshJoinChecks();
+                check = vm.JoinChecks.FirstOrDefault(item => item.Label == "模组");
+                Assert.NotNull(check);
+                Assert.True(check!.IsOk);
+                Assert.Contains("已就位", check.Detail);
             }
             finally
             {
