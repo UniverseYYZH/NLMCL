@@ -282,6 +282,7 @@ namespace NLMCL.App
 
             // 展示层
             services.AddSingleton<IDownloadJobStore, JsonDownloadJobStore>();
+            services.AddSingleton<DownloadQueue>();
             services.AddSingleton<DownloadViewModel>();
             services.AddSingleton<ResourceViewModel>();
             services.AddSingleton<SkinViewModel>();

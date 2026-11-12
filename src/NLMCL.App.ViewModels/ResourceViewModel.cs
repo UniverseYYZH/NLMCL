@@ -41,7 +41,8 @@ namespace NLMCL.App.ViewModels
             IJavaLocator? javaLocator = null,
         ICurseForgeInstaller? curseForge = null,
             NLMCL.Core.Resources.CurseForgeCatalog? curseForgeCatalog = null,
-            IFileDownloader? fileDownloader = null)
+            IFileDownloader? fileDownloader = null,
+            DownloadQueue? queue = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
@@ -52,7 +53,10 @@ namespace NLMCL.App.ViewModels
         _curseForgeCatalog = curseForgeCatalog;
             _fileDownloader = fileDownloader;
             _javaLocator = javaLocator;
+            _queue = queue ?? new DownloadQueue();
         }
+
+        private readonly DownloadQueue _queue;
 
         public IReadOnlyList<string> KindOptions { get; } = new[] { "模组", "资源包", "光影", "数据包" };
 
@@ -550,7 +554,7 @@ namespace NLMCL.App.ViewModels
 
                 StatusText = "正在下载 " + file.Name + "…";
 
-                string path;
+                string path = string.Empty;
 
             System.Diagnostics.Stopwatch watch = System.Diagnostics.Stopwatch.StartNew();
             double lastRatio = 0;
@@ -586,57 +590,60 @@ namespace NLMCL.App.ViewModels
                 StatusText = "正在下载 " + file.Name + " " + (ratio * 100).ToString("0") + "%" + speed;
             });
 
-            if (IsCurseForge && _curseForge != null)
+            await _queue.RunAsync("安装 " + file.Name, async () =>
             {
-                path = await _curseForge
-                    .InstallFileAsync(
-                        file.Url, file.Name, item.Kind, MinecraftDirectory, VersionFolder, installProgress, token)
-                    .ConfigureAwait(true);
-            }
-            else if (_fileDownloader != null)
-            {
-                // PCL 的 ModNet 拉 Modrinth 的 CDN 会报"小文件下载失败"，
-                // 这里也走自带下载器（分片 + 断点续传 + 超时看门狗）。
-                string targetDirectory = Path.Combine(
-                    MinecraftDirectory, "versions", VersionFolder, SubdirectoryFor(item.Kind));
-
-                Directory.CreateDirectory(targetDirectory);
-
-                string target = Path.Combine(targetDirectory, file.Name);
-
-                await _fileDownloader
-                    .DownloadAsync(file.Url, target, installProgress, token)
-                    .ConfigureAwait(true);
-
-                path = target;
-            }
-            else
-            {
-                path = await _installer
-                    .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, token)
-                    .ConfigureAwait(true);
-            }
-
-            // 直连下载器不校验哈希；Modrinth 给了 SHA1 就必须验，
-            // 否则 CDN 返回半截/错误内容也会被当成安装成功。
-            if (!string.IsNullOrWhiteSpace(file.Sha1) &&
-                !ResourceInstaller.IsChecksumValid(path, file.Sha1, out string actualSha1, out _))
-            {
-                try
+                if (IsCurseForge && _curseForge != null)
                 {
-                    File.Delete(path);
+                    path = await _curseForge
+                        .InstallFileAsync(
+                            file.Url, file.Name, item.Kind, MinecraftDirectory, VersionFolder, installProgress, token)
+                        .ConfigureAwait(true);
                 }
-                catch (IOException)
+                else if (_fileDownloader != null)
                 {
+                    // PCL 的 ModNet 拉 Modrinth 的 CDN 会报"小文件下载失败"，
+                    // 这里也走自带下载器（分片 + 断点续传 + 超时看门狗）。
+                    string targetDirectory = Path.Combine(
+                        MinecraftDirectory, "versions", VersionFolder, SubdirectoryFor(item.Kind));
+
+                    Directory.CreateDirectory(targetDirectory);
+
+                    string target = Path.Combine(targetDirectory, file.Name);
+
+                    await _fileDownloader
+                        .DownloadAsync(file.Url, target, installProgress, token)
+                        .ConfigureAwait(true);
+
+                    path = target;
                 }
-                catch (UnauthorizedAccessException)
+                else
                 {
+                    path = await _installer
+                        .InstallAsync(file, item.Kind, MinecraftDirectory, VersionFolder, token)
+                        .ConfigureAwait(true);
                 }
 
-                throw new InvalidDataException(
-                    "文件校验失败：" + file.Name + "（期望 SHA1 " + file.Sha1 +
-                    "，实际 " + actualSha1 + "）");
-            }
+                // 直连下载器不校验哈希；Modrinth 给了 SHA1 就必须验，
+                // 否则 CDN 返回半截/错误内容也会被当成安装成功。
+                if (!string.IsNullOrWhiteSpace(file.Sha1) &&
+                    !ResourceInstaller.IsChecksumValid(path, file.Sha1, out string actualSha1, out _))
+                {
+                    try
+                    {
+                        File.Delete(path);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+
+                    throw new InvalidDataException(
+                        "文件校验失败：" + file.Name + "（期望 SHA1 " + file.Sha1 +
+                        "，实际 " + actualSha1 + "）");
+                }
+            }, token).ConfigureAwait(true);
 
             Trace("安装成功：" + path);
                 StatusText = "已安装到 " + path;
@@ -706,14 +713,18 @@ namespace NLMCL.App.ViewModels
                 }
 
                 StatusText = "正在补装前置 " + dependencyFile.Name + "…";
-                string dependencyPath = await _installer
-                    .InstallAsync(
-                        dependencyFile,
-                        ResourceKind.Mod,
-                        MinecraftDirectory,
-                        VersionFolder,
-                        cancellationToken)
-                    .ConfigureAwait(true);
+                string dependencyPath = string.Empty;
+                await _queue.RunAsync("补装前置 " + dependencyFile.Name, async () =>
+                {
+                    dependencyPath = await _installer
+                        .InstallAsync(
+                            dependencyFile,
+                            ResourceKind.Mod,
+                            MinecraftDirectory,
+                            VersionFolder,
+                            cancellationToken)
+                        .ConfigureAwait(true);
+                }, cancellationToken).ConfigureAwait(true);
 
                 if (!string.IsNullOrWhiteSpace(dependencyFile.Sha1) &&
                     !ResourceInstaller.IsChecksumValid(

@@ -28,6 +28,7 @@ namespace NLMCL.App.ViewModels
         private readonly IJavaLocator? _javaLocator;
         private readonly IFolderPicker? _folderPicker;
         private readonly IDownloadJobStore? _jobs;
+        private readonly DownloadQueue _queue;
         private DownloadJob? _pendingJob;
         private bool _suppressLoaderReload;
 
@@ -42,7 +43,8 @@ namespace NLMCL.App.ViewModels
             IJavaLocator? javaLocator = null,
             INeoForgeCatalog? neoForgeCatalog = null,
             IFolderPicker? folderPicker = null,
-            IDownloadJobStore? jobs = null)
+            IDownloadJobStore? jobs = null,
+            DownloadQueue? queue = null)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
@@ -55,9 +57,12 @@ namespace NLMCL.App.ViewModels
             _neoForgeCatalog = neoForgeCatalog;
             _folderPicker = folderPicker;
             _jobs = jobs;
+            _queue = queue ?? new DownloadQueue();
 
             TargetDirectory = paths.DefaultMinecraftDirectory;
         }
+
+        public DownloadQueue Queue => _queue;
 
         public ObservableCollection<VanillaVersion> Versions { get; } = new ObservableCollection<VanillaVersion>();
 
@@ -583,30 +588,33 @@ namespace NLMCL.App.ViewModels
 
             try
             {
-                if (IsForgeSelected || IsNeoForgeSelected)
+                await _queue.RunAsync("安装 " + target!.Id, async () =>
                 {
-                    await InstallModdedLoaderAsync(target!, token).ConfigureAwait(true);
-                }
-                else
-                {
-                    InstallRequest request = new InstallRequest(TargetDirectory, target!.Id)
+                    if (IsForgeSelected || IsNeoForgeSelected)
                     {
-                        Parallelism = Parallelism
-                    };
-
-                    if (IsFabricSelected)
-                    {
-                        request.Loader = "fabric";
-                        request.LoaderVersion = LoaderVersion;
+                        await InstallModdedLoaderAsync(target!, token).ConfigureAwait(true);
                     }
+                    else
+                    {
+                        InstallRequest request = new InstallRequest(TargetDirectory, target!.Id)
+                        {
+                            Parallelism = Parallelism
+                        };
 
-                    await _installer
-                        .InstallAsync(request, new InlineProgress(ApplyProgress), token)
-                        .ConfigureAwait(true);
+                        if (IsFabricSelected)
+                        {
+                            request.Loader = "fabric";
+                            request.LoaderVersion = LoaderVersion;
+                        }
 
-                    Progress = 100;
-                    StatusText = "已安装 " + target!.Id + " 到 " + TargetDirectory;
-                }
+                        await _installer
+                            .InstallAsync(request, new InlineProgress(ApplyProgress), token)
+                            .ConfigureAwait(true);
+
+                        Progress = 100;
+                        StatusText = "已安装 " + target!.Id + " 到 " + TargetDirectory;
+                    }
+                }, token).ConfigureAwait(true);
 
                 await MarkInstalledFromCatalogAsync().ConfigureAwait(true);
                 ApplyFilter();
