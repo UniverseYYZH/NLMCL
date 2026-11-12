@@ -209,6 +209,27 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Launch_passes_software_opengl_flag_to_jvm_arguments()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            RecordingLauncher launcher = new RecordingLauncher();
+            TestSupport.MemoryInstanceSettingsStore settings = new TestSupport.MemoryInstanceSettingsStore();
+            settings.Items["1.21.1"] = new InstanceSettings { SoftwareOpenGl = true };
+            MainViewModel vm = Create(catalog, launcher, new FixedJavaLocator(TestSupport.CreateJava(21)), settings);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LoadInstanceSettingsAsync(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+
+            Assert.NotNull(launcher.LastRequest);
+            Assert.Contains(
+                "-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true",
+                launcher.LastRequest!.ExtraJvmArguments);
+        }
+
+        [Fact]
         public async Task Launch_with_incomplete_proxy_reports_instead_of_starting()
         {
             CountingCatalog catalog = new CountingCatalog(

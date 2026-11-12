@@ -42,6 +42,12 @@ namespace NLMCL.Abstractions
         /// <summary>代理端口（UseProxy 为 true 时生效）。</summary>
         public int ProxyPort { get; set; }
 
+        /// <summary>
+        /// 允许 LWJGL 回退到软件 OpenGL。只对使用 LWJGL2 的旧版本有效，
+        /// 新版本（LWJGL3）会忽略该属性。
+        /// </summary>
+        public bool SoftwareOpenGl { get; set; }
+
         /// <summary>把额外参数按空白切开（忽略多余空格）。</summary>
         public IReadOnlyList<string> ParsedExtraArguments()
         {

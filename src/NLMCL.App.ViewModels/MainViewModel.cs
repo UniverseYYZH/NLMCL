@@ -499,6 +499,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private int _proxyPort;
 
+        /// <summary>允许 LWJGL2 回退到软件 OpenGL（旧显卡/驱动兼容）。</summary>
+        [ObservableProperty]
+        private bool _softwareOpenGl;
+
         /// <summary>列表里被点中的版本。启动按钮用它决定启动哪个。</summary>
         [ObservableProperty]
         private VersionItem? _selectedVersion;
@@ -2927,6 +2931,17 @@ namespace NLMCL.App.ViewModels
             });
         }
 
+        /// <summary>
+        /// 图形兼容参数。Windows 没有可移植的 OpenGL/Vulkan 切换开关，
+        /// 这里只提供 LWJGL2 的软件 OpenGL 回退，供旧显卡或驱动异常时使用。
+        /// </summary>
+        internal string BuildGraphicsJvmArguments()
+        {
+            return SoftwareOpenGl
+                ? "-Dorg.lwjgl.opengl.Display.allowSoftwareOpenGL=true"
+                : string.Empty;
+        }
+
 
         /// <summary>读取当前实例的设置。</summary>
         public async Task LoadInstanceSettingsAsync(VersionItem item)
@@ -2960,6 +2975,7 @@ namespace NLMCL.App.ViewModels
                 UseProxy = settings.UseProxy;
                 ProxyHost = settings.ProxyHost ?? string.Empty;
                 ProxyPort = settings.ProxyPort;
+                SoftwareOpenGl = settings.SoftwareOpenGl;
             }
             catch (Exception ex)
             {
@@ -3074,7 +3090,8 @@ namespace NLMCL.App.ViewModels
                         Fullscreen = Fullscreen,
                         UseProxy = UseProxy,
                         ProxyHost = string.IsNullOrWhiteSpace(ProxyHost) ? null : ProxyHost.Trim(),
-                        ProxyPort = ProxyPort
+                        ProxyPort = ProxyPort,
+                        SoftwareOpenGl = SoftwareOpenGl
                     },
                     CancellationToken.None).ConfigureAwait(true);
 
@@ -4362,7 +4379,7 @@ namespace NLMCL.App.ViewModels
                         .ConfigureAwait(true);
 
                     request.ExtraJvmArguments = string.Join(" ",
-                        new[] { globalJvm, BuildProxyJvmArguments(), externalJvm ?? string.Empty }
+                        new[] { globalJvm, BuildProxyJvmArguments(), BuildGraphicsJvmArguments(), externalJvm ?? string.Empty }
                             .Where(part => !string.IsNullOrWhiteSpace(part)));
                 }
                 catch (Exception ex)
