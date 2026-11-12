@@ -35,6 +35,28 @@ namespace NLMCL.Tests
                 => Task.FromResult(new ServerEndpoint(host, port, false));
         }
 
+        private sealed class BlockingResolver : IServerAddressResolver
+        {
+            private readonly TaskCompletionSource<ServerEndpoint> _endpoint =
+                new TaskCompletionSource<ServerEndpoint>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public TaskCompletionSource<bool> Entered { get; } =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public int Calls { get; private set; }
+
+            public async Task<ServerEndpoint> ResolveAsync(
+                string host, int port, CancellationToken cancellationToken)
+            {
+                Calls++;
+                Entered.TrySetResult(true);
+                return await _endpoint.Task.ConfigureAwait(false);
+            }
+
+            public void Release(string host, int port)
+                => _endpoint.TrySetResult(new ServerEndpoint(host, port, false));
+        }
+
         private sealed class OnlinePinger : IServerPinger
         {
             public Task<LanRoom> PingAsync(
@@ -122,6 +144,58 @@ namespace NLMCL.Tests
                 Assert.Contains("没找到适配", vm.StatusText);
                 Assert.Contains("已停止启动", vm.StatusText);
                 Assert.Equal(0, launcher.Calls);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Modded_join_ignores_a_second_click_while_preparing()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-guard-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                BlockingResolver resolver = new BlockingResolver();
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    resolver, new OnlinePinger(), TimeSpan.FromSeconds(1));
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    profilePicker: picker,
+                    resourceCatalog: new EmptyResourceCatalog(),
+                    fileDownloader: new UnusedDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                Task first = vm.JoinProfileModdedAsync(profile);
+                await resolver.Entered.Task;
+
+                Assert.True(vm.IsJoiningProfile);
+
+                Task second = vm.JoinProfileModdedAsync(profile);
+                await second;
+
+                Assert.Contains("正在进服", vm.StatusText);
+                Assert.Equal(1, resolver.Calls);
+
+                resolver.Release("example.com", 25565);
+                await first;
+
+                Assert.False(vm.IsJoiningProfile);
             }
             finally
             {

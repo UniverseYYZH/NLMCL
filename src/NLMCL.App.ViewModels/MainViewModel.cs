@@ -700,6 +700,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isLaunching;
 
+        /// <summary>是否正在执行“进模组服”的准备流程（挑入口/安装/AutoModpack）。</summary>
+        [ObservableProperty]
+        private bool _isJoiningProfile;
+
         [ObservableProperty]
         private string _currentGameDirectory = string.Empty;
 
@@ -2035,12 +2039,22 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            if (_isJoiningProfile)
+            {
+                StatusText = "正在进服，请稍候…";
+                return;
+            }
+
+            IsJoiningProfile = true;
+
             try
             {
-                StatusText = "正在挑选入口：" + string.Join(" / ", profile.Addresses) + " …";
+                try
+                {
+                    StatusText = "正在挑选入口：" + string.Join(" / ", profile.Addresses) + " …";
 
-                ProfileEndpoint chosen = await _profilePicker
-                    .PickAsync(profile, CancellationToken.None).ConfigureAwait(true);
+                    ProfileEndpoint chosen = await _profilePicker
+                        .PickAsync(profile, CancellationToken.None).ConfigureAwait(true);
 
                 JoinTrace("挑入口结果：" + chosen.Endpoint + " 在线=" + chosen.Online + " 错误=" + (chosen.Error ?? "-"));
                 if (!chosen.Online)
@@ -2185,6 +2199,11 @@ namespace NLMCL.App.ViewModels
             {
                 JoinTrace("进服失败：" + ex.GetType().Name + " " + ex.Message);
                 StatusText = "进模组服失败：" + ex.Message;
+            }
+            }
+            finally
+            {
+                IsJoiningProfile = false;
             }
         }
 
