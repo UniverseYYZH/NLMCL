@@ -108,6 +108,31 @@ namespace NLMCL.Tests
             public Task DeleteAsync(ModEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
         }
 
+        private sealed class BlockingInstanceSettingsStore : IInstanceSettingsStore
+        {
+            private readonly TaskCompletionSource<InstanceSettings> _pending =
+                new TaskCompletionSource<InstanceSettings>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public bool Block { get; set; }
+
+            public Task<InstanceSettings> LoadAsync(
+                string minecraftDirectory, string versionId, CancellationToken cancellationToken)
+            {
+                return Block
+                    ? _pending.Task
+                    : Task.FromResult(new InstanceSettings());
+            }
+
+            public Task SaveAsync(
+                string minecraftDirectory, string versionId, InstanceSettings settings,
+                CancellationToken cancellationToken)
+            {
+                return Task.CompletedTask;
+            }
+
+            public bool Exists(string minecraftDirectory, string versionId) => false;
+        }
+
         private sealed class CancelDialog : IDialogService
         {
             public bool Asked { get; private set; }
@@ -277,6 +302,32 @@ namespace NLMCL.Tests
             Assert.True(vm.HasLaunchPreflightWarnings);
             Assert.Contains("flywheel", string.Join("\n", vm.LaunchPreflightWarnings));
             Assert.Contains("发现", vm.LaunchPreflightSummary);
+        }
+
+        [Fact]
+        public async Task Selecting_another_instance_clears_previous_preflight_immediately()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null),
+                new MinecraftVersion("1.20.1", "1.20.1", VersionKind.Release, null));
+            BlockingInstanceSettingsStore settings = new BlockingInstanceSettingsStore();
+            MainViewModel vm = Create(catalog, new RecordingLauncher(), new FixedJavaLocator(),
+                instanceSettings: settings);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            vm.UseProxy = true;
+            vm.ProxyHost = "bad host";
+            vm.ProxyPort = 0;
+            await vm.RefreshLaunchPreflightAsync();
+            Assert.Contains("代理设置不完整", string.Join("\n", vm.LaunchPreflightWarnings));
+
+            settings.Block = true;
+            vm.SelectVersion(vm.Versions[1]);
+
+            Assert.Empty(vm.LaunchPreflightWarnings);
+            Assert.Equal("正在检查启动前问题…", vm.LaunchPreflightSummary);
+            Assert.True(vm.IsLaunchPreflightBusy);
         }
 
         [Fact]

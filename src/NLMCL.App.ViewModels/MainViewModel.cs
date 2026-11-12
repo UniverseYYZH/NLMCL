@@ -4081,8 +4081,21 @@ namespace NLMCL.App.ViewModels
             HasSelection = true;
             StatusText = "已选择 " + item.Name;
 
+            // 旧实例的预检结果立刻作废。实例设置是异步读的，等它读完再刷新会让上一个
+            // 实例的“代理不完整”等告警短暂挂在新实例上，看起来像新实例也有问题。
+            ResetLaunchPreflightForSelection();
+
             // 切版本时先带出实例设置，再按最新代理/模组状态做预检，避免读到上一个实例的配置
             _ = LoadInstanceSettingsAndPreflightAsync(item);
+        }
+
+        private void ResetLaunchPreflightForSelection()
+        {
+            _launchPreflightGeneration++;
+            LaunchPreflightWarnings.Clear();
+            OnPropertyChanged(nameof(HasLaunchPreflightWarnings));
+            LaunchPreflightSummary = "正在检查启动前问题…";
+            IsLaunchPreflightBusy = true;
         }
 
         private async Task LoadInstanceSettingsAndPreflightAsync(VersionItem item)
