@@ -4362,7 +4362,13 @@ namespace NLMCL.App.ViewModels
             if (GameDirectories.Count > 0
                 && string.Equals(NormalizeDirectory(CurrentGameDirectory), directory, StringComparison.OrdinalIgnoreCase))
             {
-                CurrentGameDirectory = GameDirectories[0];
+                string next = NormalizeDirectory(GameDirectories[0]);
+                if (!string.Equals(GameDirectories[0], next, StringComparison.Ordinal))
+                {
+                    GameDirectories[0] = next;
+                }
+
+                CurrentGameDirectory = next;
             }
 
             SelectedGameDirectory = CurrentGameDirectory;

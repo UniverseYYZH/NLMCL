@@ -176,7 +176,7 @@ namespace NLMCL.Tests
 
                 // 旧设置或手工编辑可能把目录写成带尾部分隔符的形式。
                 vm.GameDirectories.Clear();
-                vm.GameDirectories.Add(first);
+                vm.GameDirectories.Add(first + System.IO.Path.DirectorySeparatorChar);
                 vm.GameDirectories.Add(second + System.IO.Path.DirectorySeparatorChar);
                 vm.CurrentGameDirectory = second;
 
