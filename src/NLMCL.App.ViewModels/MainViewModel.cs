@@ -1980,6 +1980,14 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            // 模组服正在挑入口/安装时，大厅入口不能插进来抢状态。
+            // 真正的重复启动由 LaunchCoreAsync 的原子闸门兜底，这里只做交互层拦截。
+            if (IsJoiningProfile)
+            {
+                StatusText = "正在进服，请稍候…";
+                return;
+            }
+
             if (SelectedVersion == null)
             {
                 StatusText = "请先在「世界库」里选一个版本，再进大厅";

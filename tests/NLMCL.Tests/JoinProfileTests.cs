@@ -109,6 +109,53 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Lobby_join_ignores_click_while_modded_join_is_preparing()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-lobby-guard-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                BlockingResolver resolver = new BlockingResolver();
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    resolver, new OnlinePinger(), TimeSpan.FromSeconds(1));
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    profilePicker: picker,
+                    resourceCatalog: new EmptyResourceCatalog(),
+                    fileDownloader: new UnusedDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                Task modded = vm.JoinProfileModdedAsync(profile);
+                await resolver.Entered.Task;
+
+                await vm.JoinProfileLobbyAsync(profile);
+
+                Assert.Contains("正在进服", vm.StatusText);
+                Assert.Equal(1, resolver.Calls);
+
+                resolver.Release("example.com", 25565);
+                await modded;
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public async Task Modded_join_aborts_when_automodpack_services_are_missing()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-no-services-");
