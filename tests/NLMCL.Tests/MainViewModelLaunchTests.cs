@@ -167,6 +167,35 @@ namespace NLMCL.Tests
             public bool Exists(string minecraftDirectory, string versionId) => true;
         }
 
+        private sealed class DelayedFailingSettingsStore : IInstanceSettingsStore
+        {
+            private readonly TaskCompletionSource<InstanceSettings> _first =
+                new TaskCompletionSource<InstanceSettings>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public string FirstVersionId { get; set; } = "1.21.1";
+
+            public InstanceSettings Second { get; set; } = new InstanceSettings();
+
+            public Task<InstanceSettings> LoadAsync(
+                string minecraftDirectory, string versionId, CancellationToken cancellationToken)
+            {
+                return string.Equals(versionId, FirstVersionId, StringComparison.Ordinal)
+                    ? _first.Task
+                    : Task.FromResult(Second);
+            }
+
+            public Task SaveAsync(
+                string minecraftDirectory, string versionId, InstanceSettings settings,
+                CancellationToken cancellationToken)
+            {
+                return Task.CompletedTask;
+            }
+
+            public bool Exists(string minecraftDirectory, string versionId) => true;
+
+            public void FailFirst(Exception error) => _first.TrySetException(error);
+        }
+
         private sealed class CancelDialog : IDialogService
         {
             public bool Asked { get; private set; }
@@ -410,6 +439,47 @@ namespace NLMCL.Tests
             Assert.Equal(0, vm.ProxyPort);
             Assert.False(vm.HasLaunchPreflightWarnings);
             Assert.Contains("读取实例设置失败", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Late_settings_failure_of_previous_instance_does_not_reset_new_one()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null),
+                new MinecraftVersion("1.20.1", "1.20.1", VersionKind.Release, null));
+            DelayedFailingSettingsStore settings = new DelayedFailingSettingsStore
+            {
+                Second = new InstanceSettings
+                {
+                    MemoryMb = 4096,
+                    UseProxy = true,
+                    ProxyHost = "127.0.0.1",
+                    ProxyPort = 7890
+                }
+            };
+            MainViewModel vm = Create(catalog, new RecordingLauncher(), new FixedJavaLocator(),
+                instanceSettings: settings);
+
+            await vm.RefreshAsync();
+            VersionItem first = vm.Versions[0];
+            VersionItem second = vm.Versions[1];
+
+            vm.SelectedVersion = first;
+            Task firstLoad = vm.LoadInstanceSettingsAsync(first);
+
+            vm.SelectedVersion = second;
+            await vm.LoadInstanceSettingsAsync(second);
+            Assert.Equal(4096, vm.MemoryMb);
+            Assert.True(vm.UseProxy);
+
+            settings.FailFirst(new InvalidDataException("old settings broken"));
+            await firstLoad;
+
+            Assert.Equal(4096, vm.MemoryMb);
+            Assert.True(vm.UseProxy);
+            Assert.Equal("127.0.0.1", vm.ProxyHost);
+            Assert.Equal(7890, vm.ProxyPort);
+            Assert.DoesNotContain("读取实例设置失败", vm.StatusText);
         }
 
         [Fact]

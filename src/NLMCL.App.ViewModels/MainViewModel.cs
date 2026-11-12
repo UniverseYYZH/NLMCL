@@ -2974,6 +2974,12 @@ namespace NLMCL.App.ViewModels
             }
             catch (Exception ex)
             {
+                // A 的设置读取失败也可能晚于用户切到 B；此时不能把 B 的界面重置成默认值。
+                if (!ReferenceEquals(SelectedVersion, item))
+                {
+                    return;
+                }
+
                 // 设置文件损坏/不可读时不能把上一个实例的代理、内存等继续带过来。
                 ApplyInstanceSettings(new InstanceSettings(), fresh: true);
                 StatusText = "读取实例设置失败：" + ex.Message;
