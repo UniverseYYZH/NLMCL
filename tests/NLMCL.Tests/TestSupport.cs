@@ -265,9 +265,9 @@ namespace NLMCL.Tests
         }
 
         /// <summary>给只需要 MainViewModel 的测试用的最小下载页视图模型。</summary>
-        internal static DownloadViewModel CreateDownload(IAppPaths paths)
+        internal static DownloadViewModel CreateDownload(IAppPaths paths, DownloadQueue? queue = null)
         {
-            return new DownloadViewModel(new EmptyProvider(), new NoopInstaller(), paths);
+            return new DownloadViewModel(new EmptyProvider(), new NoopInstaller(), paths, queue: queue);
         }
 
         internal static LaunchConsoleViewModel CreateConsole(IAppPaths paths, IUiDispatcher? dispatcher = null)
