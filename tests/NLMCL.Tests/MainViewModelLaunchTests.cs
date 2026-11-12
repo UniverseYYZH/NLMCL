@@ -133,6 +133,24 @@ namespace NLMCL.Tests
             public bool Exists(string minecraftDirectory, string versionId) => false;
         }
 
+        private sealed class FailingInstanceSettingsStore : IInstanceSettingsStore
+        {
+            public Task<InstanceSettings> LoadAsync(
+                string minecraftDirectory, string versionId, CancellationToken cancellationToken)
+            {
+                throw new InvalidDataException("settings.json 损坏");
+            }
+
+            public Task SaveAsync(
+                string minecraftDirectory, string versionId, InstanceSettings settings,
+                CancellationToken cancellationToken)
+            {
+                return Task.CompletedTask;
+            }
+
+            public bool Exists(string minecraftDirectory, string versionId) => true;
+        }
+
         private sealed class CancelDialog : IDialogService
         {
             public bool Asked { get; private set; }
@@ -348,6 +366,34 @@ namespace NLMCL.Tests
             await Task.Delay(700);
             Assert.False(vm.HasLaunchPreflightWarnings);
             Assert.Contains("未发现", vm.LaunchPreflightSummary);
+        }
+
+        [Fact]
+        public async Task Settings_load_failure_resets_previous_instance_proxy()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null),
+                new MinecraftVersion("1.20.1", "1.20.1", VersionKind.Release, null));
+            MainViewModel vm = Create(catalog, new RecordingLauncher(), new FixedJavaLocator(),
+                instanceSettings: new FailingInstanceSettingsStore());
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            vm.UseProxy = true;
+            vm.ProxyHost = "bad host";
+            vm.ProxyPort = 0;
+            await vm.RefreshLaunchPreflightAsync();
+            Assert.True(vm.HasLaunchPreflightWarnings);
+
+            vm.SelectVersion(vm.Versions[1]);
+            await vm.LoadInstanceSettingsAsync(vm.Versions[1]);
+            await vm.RefreshLaunchPreflightAsync();
+
+            Assert.False(vm.UseProxy);
+            Assert.Equal(string.Empty, vm.ProxyHost);
+            Assert.Equal(0, vm.ProxyPort);
+            Assert.False(vm.HasLaunchPreflightWarnings);
+            Assert.Contains("读取实例设置失败", vm.StatusText);
         }
 
         [Fact]

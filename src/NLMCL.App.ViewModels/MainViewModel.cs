@@ -2970,29 +2970,36 @@ namespace NLMCL.App.ViewModels
                 // 新实例还没有设置文件：用设置页里的"默认内存"
                 bool fresh = !_instanceSettings.Exists(CurrentGameDirectory, item.FolderName);
 
-                bool previousSuppress = _suppressProxyPreflightRefresh;
-                _suppressProxyPreflightRefresh = true;
-                try
-                {
-                    MemoryMb = fresh && DefaultMemoryMb > 0 ? DefaultMemoryMb : settings.MemoryMb;
-                    JavaPath = settings.JavaPath ?? string.Empty;
-                    ExtraArguments = settings.ExtraArguments ?? string.Empty;
-                    WindowWidth = settings.WindowWidth;
-                    WindowHeight = settings.WindowHeight;
-                    Fullscreen = settings.Fullscreen;
-                    UseProxy = settings.UseProxy;
-                    ProxyHost = settings.ProxyHost ?? string.Empty;
-                    ProxyPort = settings.ProxyPort;
-                    SoftwareOpenGl = settings.SoftwareOpenGl;
-                }
-                finally
-                {
-                    _suppressProxyPreflightRefresh = previousSuppress;
-                }
+                ApplyInstanceSettings(settings, fresh);
             }
             catch (Exception ex)
             {
+                // 设置文件损坏/不可读时不能把上一个实例的代理、内存等继续带过来。
+                ApplyInstanceSettings(new InstanceSettings(), fresh: true);
                 StatusText = "读取实例设置失败：" + ex.Message;
+            }
+        }
+
+        private void ApplyInstanceSettings(InstanceSettings settings, bool fresh)
+        {
+            bool previousSuppress = _suppressProxyPreflightRefresh;
+            _suppressProxyPreflightRefresh = true;
+            try
+            {
+                MemoryMb = fresh && DefaultMemoryMb > 0 ? DefaultMemoryMb : settings.MemoryMb;
+                JavaPath = settings.JavaPath ?? string.Empty;
+                ExtraArguments = settings.ExtraArguments ?? string.Empty;
+                WindowWidth = settings.WindowWidth;
+                WindowHeight = settings.WindowHeight;
+                Fullscreen = settings.Fullscreen;
+                UseProxy = settings.UseProxy;
+                ProxyHost = settings.ProxyHost ?? string.Empty;
+                ProxyPort = settings.ProxyPort;
+                SoftwareOpenGl = settings.SoftwareOpenGl;
+            }
+            finally
+            {
+                _suppressProxyPreflightRefresh = previousSuppress;
             }
         }
 
