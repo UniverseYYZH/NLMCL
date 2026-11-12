@@ -239,6 +239,15 @@ namespace NLMCL.App.ViewModels
 
         public string CurrentGameDirectory => _host.CurrentGameDirectory;
 
+        /// <summary>设置页里的已添加目录列表；状态仍由 MainViewModel 持有。</summary>
+        public ObservableCollection<string> GameDirectories => _host.GameDirectories;
+
+        public string? SelectedGameDirectory
+        {
+            get => _host.SelectedGameDirectory;
+            set => _host.SelectedGameDirectory = value;
+        }
+
         public string GameDirectoryStatusText => _host.GameDirectoryStatusText;
 
         public string GameDirectoryDiskText => _host.GameDirectoryDiskText;
