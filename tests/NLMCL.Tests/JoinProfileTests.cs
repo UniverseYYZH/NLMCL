@@ -547,6 +547,59 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Modded_join_installs_the_pinned_loader_instead_of_reusing_another_loader()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-loader-pin-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                string wrongInstance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.20.1-1.21.1");
+                Directory.CreateDirectory(wrongInstance);
+                Directory.CreateDirectory(Path.Combine(root, "bin"));
+                File.WriteAllText(Path.Combine(root, "bin", "java.exe"), string.Empty);
+
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    javaLocator: new FixedJavaLocator(root),
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new MatchingAutoModpackCatalog(),
+                    fileDownloader: new WritingAutoModpackDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                string wanted = Path.Combine(
+                    paths.DefaultMinecraftDirectory,
+                    "versions",
+                    "fabric-loader-0.15.0-1.21.1");
+                Assert.True(launcher.Calls == 1, vm.StatusText);
+                Assert.Equal("fabric-loader-0.15.0-1.21.1", launcher.LastRequest?.VersionId);
+                Assert.True(File.Exists(Path.Combine(wanted, "mods", "automodpack-4.0.6.jar")));
+                Assert.False(Directory.Exists(Path.Combine(wrongInstance, "mods")));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
         public async Task Installed_automodpack_with_matching_size_is_not_downloaded()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-size-");

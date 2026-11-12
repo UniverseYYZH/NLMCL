@@ -2299,18 +2299,31 @@ namespace NLMCL.App.ViewModels
             string loader = (profile.Loader ?? string.Empty).ToLowerInvariant();
             string minecraft = profile.Minecraft ?? string.Empty;
 
+            VersionItem? fallback = null;
+            bool pinnedLoader = !string.IsNullOrWhiteSpace(profile.LoaderVersion);
+
             foreach (VersionItem item in Versions)
             {
                 // 版本目录命名约定是 <加载器>-<加载器版本>-<MC 版本>；
                 // 不能用 Contains，否则 1.21.1 会命中 1.21.10。
-                if (ProfileInstanceMatcher.Matches(item.FolderName, minecraft, profile.Loader))
+                if (ProfileInstanceMatcher.Matches(
+                    item.FolderName, minecraft, profile.Loader, profile.LoaderVersion))
                 {
                     return item;
                 }
 
+                // 档案没钉加载器版本时才允许回退到同加载器的任意版本；
+                // 钉了版本却装的是别的版本，应视为没装，交给安装流程补正确版本，
+                // 否则会把 AutoModpack 装进错误实例并启动错误加载器。
+                if (!pinnedLoader
+                    && fallback == null
+                    && ProfileInstanceMatcher.Matches(item.FolderName, minecraft, profile.Loader))
+                {
+                    fallback = item;
+                }
             }
 
-            return null;
+            return fallback;
         }
 
         /// <summary>把 AutoModpack 客户端 mod 放进实例的 mods 目录（已有且哈希一致就跳过）。</summary>
@@ -2762,15 +2775,28 @@ namespace NLMCL.App.ViewModels
                     return null;
                 }
 
+                string? fallback = null;
+                bool pinnedLoader = !string.IsNullOrWhiteSpace(profile.LoaderVersion);
+
                 foreach (string dir in Directory.GetDirectories(versions))
                 {
                     string name = Path.GetFileName(dir);
 
-                    if (ProfileInstanceMatcher.Matches(name, profile.Minecraft, profile.Loader))
+                    if (ProfileInstanceMatcher.Matches(
+                        name, profile.Minecraft, profile.Loader, profile.LoaderVersion))
                     {
                         return name;
                     }
+
+                    if (!pinnedLoader
+                        && fallback == null
+                        && ProfileInstanceMatcher.Matches(name, profile.Minecraft, profile.Loader))
+                    {
+                        fallback = name;
+                    }
                 }
+
+                return fallback;
             }
             catch (IOException)
             {

@@ -27,5 +27,16 @@ namespace NLMCL.Tests
             Assert.False(ProfileInstanceMatcher.Matches(null, "1.21.1", "fabric"));
             Assert.False(ProfileInstanceMatcher.Matches("fabric-loader-0.20.1-1.21.1", "", "fabric"));
         }
+
+        [Theory]
+        [InlineData("fabric-loader-0.20.1-1.21.1", "1.21.1", "fabric", "0.20.1", true)]
+        [InlineData("fabric-loader-0.20.1-1.21.1", "1.21.1", "fabric", "0.16.9", false)]
+        [InlineData("fabric-loader-0.20.1-1.21.1", "1.21.1", "fabric", null, true)]
+        [InlineData("fabric-loader-0.20.10-1.21.1", "1.21.1", "fabric", "0.20.1", false)]
+        public void Matches_loader_version_when_specified(
+            string folder, string minecraft, string loader, string? loaderVersion, bool expected)
+        {
+            Assert.Equal(expected, ProfileInstanceMatcher.Matches(folder, minecraft, loader, loaderVersion));
+        }
     }
 }

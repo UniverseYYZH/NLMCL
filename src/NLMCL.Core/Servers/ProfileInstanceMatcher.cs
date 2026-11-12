@@ -12,7 +12,11 @@ namespace NLMCL.Core.Servers
     /// </summary>
     public static class ProfileInstanceMatcher
     {
-        public static bool Matches(string? folderName, string? minecraft, string? loader)
+        public static bool Matches(
+            string? folderName,
+            string? minecraft,
+            string? loader,
+            string? loaderVersion = null)
         {
             string folder = (folderName ?? string.Empty).ToLowerInvariant();
             string version = (minecraft ?? string.Empty).ToLowerInvariant();
@@ -33,7 +37,23 @@ namespace NLMCL.Core.Servers
 
             if (kind.Length > 0)
             {
-                return folder.Contains(kind);
+                if (!folder.Contains(kind))
+                {
+                    return false;
+                }
+
+                string wantedLoader = (loaderVersion ?? string.Empty).Trim().ToLowerInvariant();
+                if (wantedLoader.Length == 0)
+                {
+                    return true;
+                }
+
+                // 目录约定是 <加载器>-<加载器版本>-<MC 版本>。
+                // 同一 MC 下可能装过多个加载器版本，必须用加载器版本再做一次边界匹配，
+                // 否则会随机命中旧实例并把 AutoModpack 装错地方。
+                string versionSuffix = "-" + version;
+                string prefix = folder.Substring(0, folder.Length - versionSuffix.Length);
+                return prefix.EndsWith("-" + wantedLoader, StringComparison.Ordinal);
             }
 
             // 纯净档案（loader 为空）：必须排除"带加载器"的目录。
