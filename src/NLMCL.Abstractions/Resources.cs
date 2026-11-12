@@ -91,11 +91,31 @@ namespace NLMCL.Abstractions
         }
     }
 
+    /// <summary>Modrinth 版本声明的依赖；只保存可安装的 project id，不伪造名称。</summary>
+    public sealed class ResourceDependency
+    {
+        public ResourceDependency(string projectId, string? versionId, string dependencyType)
+        {
+            ProjectId = projectId ?? throw new ArgumentNullException(nameof(projectId));
+            VersionId = versionId;
+            DependencyType = dependencyType ?? "required";
+        }
+
+        public string ProjectId { get; }
+
+        public string? VersionId { get; }
+
+        public string DependencyType { get; }
+
+        public bool IsRequired => string.Equals(DependencyType, "required", StringComparison.OrdinalIgnoreCase);
+    }
+
     /// <summary>某个项目的一个可下载版本（已按游戏版本/加载器筛过）。</summary>
     public sealed class ResourceFile
     {
         public ResourceFile(string name, string url, long size, string? versionName,
-            IReadOnlyList<string> gameVersions, string? loader, string? sha1 = null)
+            IReadOnlyList<string> gameVersions, string? loader, string? sha1 = null,
+            IReadOnlyList<ResourceDependency>? dependencies = null)
         {
             Name = name ?? throw new ArgumentNullException(nameof(name));
             Url = url ?? throw new ArgumentNullException(nameof(url));
@@ -104,6 +124,7 @@ namespace NLMCL.Abstractions
             GameVersions = gameVersions ?? Array.Empty<string>();
             Loader = loader;
             Sha1 = sha1;
+            Dependencies = dependencies ?? Array.Empty<ResourceDependency>();
         }
 
         /// <summary>Modrinth 提供的 SHA1（可为空；有就必须校验）。</summary>
@@ -120,6 +141,8 @@ namespace NLMCL.Abstractions
         public IReadOnlyList<string> GameVersions { get; }
 
         public string? Loader { get; }
+
+        public IReadOnlyList<ResourceDependency> Dependencies { get; }
     }
 
     /// <summary>把下载好的资源文件放进实例目录（mods / resourcepacks / shaderpacks / datapacks）。</summary>

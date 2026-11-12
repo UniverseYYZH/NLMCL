@@ -102,6 +102,33 @@ namespace NLMCL.Tests
             Assert.Equal("0.5.13", files[0].VersionName);
         }
 
+        [Fact]
+        public void Parses_required_dependencies_from_a_version()
+        {
+            const string json = @"[
+                {
+                    ""version_number"": ""2.0"",
+                    ""loaders"": [ ""fabric"" ],
+                    ""game_versions"": [ ""1.21.1"" ],
+                    ""dependencies"": [
+                        { ""project_id"": ""P7dR8mSH"", ""version_id"": ""abc"", ""dependency_type"": ""required"" },
+                        { ""project_id"": ""Ha28R6CL"", ""dependency_type"": ""optional"" }
+                    ],
+                    ""files"": [
+                        { ""filename"": ""mod.jar"", ""url"": ""https://cdn/mod.jar"", ""size"": 10, ""primary"": true }
+                    ]
+                }
+            ]";
+
+            IReadOnlyList<ResourceFile> files = ModrinthCatalog.ParseFiles(json);
+
+            Assert.Single(files);
+            Assert.Equal(2, files[0].Dependencies.Count);
+            Assert.True(files[0].Dependencies[0].IsRequired);
+            Assert.Equal("P7dR8mSH", files[0].Dependencies[0].ProjectId);
+            Assert.False(files[0].Dependencies[1].IsRequired);
+        }
+
         [Theory]
         [InlineData("1.20.1", "1.20.1")]
         [InlineData("1.20.1-Fabric 0.20.1", "1.20.1")]

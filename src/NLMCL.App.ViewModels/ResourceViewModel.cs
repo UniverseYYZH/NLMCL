@@ -2,6 +2,7 @@ using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -539,6 +540,14 @@ namespace NLMCL.App.ViewModels
 
                 ResourceFile file = files[0];
 
+                if (!IsCurseForge && item.Kind == ResourceKind.Mod)
+                {
+                    await InstallRequiredDependenciesAsync(
+                        file,
+                        new HashSet<string>(StringComparer.OrdinalIgnoreCase) { item.Id },
+                        token).ConfigureAwait(true);
+                }
+
                 StatusText = "正在下载 " + file.Name + "…";
 
                 string path;
@@ -651,6 +660,82 @@ namespace NLMCL.App.ViewModels
                 _installCts = null;
                 CanCancel = false;
                 IsBusy = false;
+            }
+        }
+
+        /// <summary>
+        /// 安装 Modrinth 版本声明里的 required 前置；递归但不重复安装同一项目。
+        /// 先装前置再装主体，避免玩家启动时才发现缺依赖。
+        /// </summary>
+        private async Task InstallRequiredDependenciesAsync(
+            ResourceFile file,
+            HashSet<string> visited,
+            CancellationToken cancellationToken)
+        {
+            foreach (ResourceDependency dependency in file.Dependencies)
+            {
+                if (!dependency.IsRequired || string.IsNullOrWhiteSpace(dependency.ProjectId))
+                {
+                    continue;
+                }
+
+                if (!visited.Add(dependency.ProjectId))
+                {
+                    continue;
+                }
+
+                IReadOnlyList<ResourceFile> candidates = await _catalog
+                    .GetFilesAsync(
+                        dependency.ProjectId,
+                        ResourceKind.Mod,
+                        string.IsNullOrWhiteSpace(GameVersion) ? null : GameVersion.Trim(),
+                        LoaderOf(SelectedLoader),
+                        cancellationToken)
+                    .ConfigureAwait(true);
+
+                ResourceFile? dependencyFile = candidates.FirstOrDefault(candidate =>
+                    !string.IsNullOrWhiteSpace(candidate.Url));
+                if (dependencyFile == null)
+                {
+                    throw new InvalidOperationException(
+                        "缺少必需前置（Modrinth 项目 " + dependency.ProjectId + "），请先手动安装后再试。");
+                }
+
+                StatusText = "正在补装前置 " + dependencyFile.Name + "…";
+                string dependencyPath = await _installer
+                    .InstallAsync(
+                        dependencyFile,
+                        ResourceKind.Mod,
+                        MinecraftDirectory,
+                        VersionFolder,
+                        cancellationToken)
+                    .ConfigureAwait(true);
+
+                if (!string.IsNullOrWhiteSpace(dependencyFile.Sha1) &&
+                    !ResourceInstaller.IsChecksumValid(
+                        dependencyPath,
+                        dependencyFile.Sha1,
+                        out string actualSha1,
+                        out _))
+                {
+                    try
+                    {
+                        File.Delete(dependencyPath);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+
+                    throw new InvalidDataException(
+                        "前置校验失败：" + dependencyFile.Name + "（期望 SHA1 " +
+                        dependencyFile.Sha1 + "，实际 " + actualSha1 + "）");
+                }
+
+                await InstallRequiredDependenciesAsync(dependencyFile, visited, cancellationToken)
+                    .ConfigureAwait(true);
             }
         }
 

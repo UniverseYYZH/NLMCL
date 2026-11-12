@@ -264,6 +264,14 @@ namespace NLMCL.Core.Resources
                     continue;
                 }
 
+                IReadOnlyList<ResourceDependency> dependencies = (version["dependencies"] as JArray)
+                    ?.Select(dependency => new ResourceDependency(
+                        dependency.Value<string>("project_id") ?? string.Empty,
+                        dependency.Value<string>("version_id"),
+                        dependency.Value<string>("dependency_type") ?? "required"))
+                    .Where(dependency => !string.IsNullOrWhiteSpace(dependency.ProjectId))
+                    .ToArray() ?? Array.Empty<ResourceDependency>();
+
                 files.Add(new ResourceFile(
                     name!,
                     url!,
@@ -271,7 +279,8 @@ namespace NLMCL.Core.Resources
                     versionName,
                     gameVersions,
                     loader,
-                    primary.SelectToken("hashes.sha1")?.Value<string>()));
+                    primary.SelectToken("hashes.sha1")?.Value<string>(),
+                    dependencies));
             }
 
             return files;

@@ -72,6 +72,60 @@ namespace NLMCL.Tests
             }
         }
 
+        [Fact]
+        public async Task Installs_required_dependencies_before_the_selected_mod()
+        {
+            DependencyCatalog catalog = new DependencyCatalog();
+            StubInstaller installer = new StubInstaller();
+            ResourceViewModel vm = new ResourceViewModel(catalog, installer)
+            {
+                MinecraftDirectory = @"C:\Temp\roaming\.minecraft",
+                VersionFolder = "1.21.1"
+            };
+
+            ResourceSummary item = new ResourceSummary(
+                "root", "root", "Root Mod", "desc", null, null, 10, ResourceKind.Mod);
+
+            await vm.InstallAsync(item);
+
+            Assert.Equal(2, installer.Calls);
+            Assert.Contains("fabric-api", catalog.RequestedProjectIds);
+            Assert.Contains("已安装", vm.StatusText);
+        }
+
+        private sealed class DependencyCatalog : IResourceCatalog
+        {
+            public List<string> RequestedProjectIds { get; } = new List<string>();
+
+            public Task<IReadOnlyList<ResourceSummary>> SearchAsync(
+                ResourceQuery query, CancellationToken cancellationToken)
+                => Task.FromResult<IReadOnlyList<ResourceSummary>>(Array.Empty<ResourceSummary>());
+
+            public Task<IReadOnlyList<ResourceFile>> GetFilesAsync(
+                string projectId, ResourceKind kind, string? gameVersion, string? loader,
+                CancellationToken cancellationToken)
+            {
+                RequestedProjectIds.Add(projectId);
+
+                if (projectId == "root")
+                {
+                    return Task.FromResult<IReadOnlyList<ResourceFile>>(new[]
+                    {
+                        new ResourceFile(
+                            "root.jar", "https://example.com/root.jar", 100, "1", new[] { "1.21.1" }, "fabric",
+                            dependencies: new[] { new ResourceDependency("fabric-api", null, "required") })
+                    });
+                }
+
+                return Task.FromResult<IReadOnlyList<ResourceFile>>(new[]
+                {
+                    new ResourceFile(
+                        "fabric-api.jar", "https://example.com/fabric-api.jar", 50, "1",
+                        new[] { "1.21.1" }, "fabric")
+                });
+            }
+        }
+
         private sealed class ShaCatalog : IResourceCatalog
         {
             public Task<IReadOnlyList<ResourceSummary>> SearchAsync(
