@@ -2001,6 +2001,14 @@ namespace NLMCL.App.ViewModels
 
         private async Task JoinProfileLobbyCoreAsync(ServerProfile profile)
         {
+            // 游戏已经启动中，别再挑入口；否则最后会被 LaunchCore 的闸门静默吞掉，
+            // 状态却还停在“进入大厅”。
+            if (IsLaunching)
+            {
+                StatusText = "游戏正在启动，请稍候…";
+                return;
+            }
+
             // 模组服正在挑入口/安装时，大厅入口不能插进来抢状态。
             // 真正的重复启动由 LaunchCoreAsync 的原子闸门兜底，这里只做交互层拦截。
             if (IsJoiningProfile)
@@ -2074,6 +2082,12 @@ namespace NLMCL.App.ViewModels
             if (_isJoiningProfile)
             {
                 StatusText = "正在进服，请稍候…";
+                return;
+            }
+
+            if (IsLaunching)
+            {
+                StatusText = "游戏正在启动，请稍候…";
                 return;
             }
 

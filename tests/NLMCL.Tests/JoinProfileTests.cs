@@ -57,6 +57,18 @@ namespace NLMCL.Tests
                 => _endpoint.TrySetResult(new ServerEndpoint(host, port, false));
         }
 
+        private sealed class CountingResolver : IServerAddressResolver
+        {
+            public int Calls { get; private set; }
+
+            public Task<ServerEndpoint> ResolveAsync(
+                string host, int port, CancellationToken cancellationToken)
+            {
+                Calls++;
+                return Task.FromResult(new ServerEndpoint(host, port, false));
+            }
+        }
+
         private sealed class OnlinePinger : IServerPinger
         {
             public Task<LanRoom> PingAsync(
@@ -149,6 +161,53 @@ namespace NLMCL.Tests
                 Assert.True(File.Exists(target));
                 Assert.False(File.Exists(stale));
                 Assert.True(File.Exists(unrelated));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Joins_are_ignored_while_a_game_is_launching()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-launching-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                CountingResolver resolver = new CountingResolver();
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    resolver, new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new EmptyResourceCatalog(),
+                    fileDownloader: new UnusedDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+                vm.IsLaunching = true;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+                Assert.Contains("游戏正在启动", vm.StatusText);
+
+                await vm.JoinProfileLobbyAsync(profile);
+                Assert.Contains("游戏正在启动", vm.StatusText);
+                Assert.Equal(0, resolver.Calls);
+                Assert.Equal(0, launcher.Calls);
             }
             finally
             {
