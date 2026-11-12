@@ -61,6 +61,27 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class BlockingLauncher : IGameLauncher
+        {
+            private readonly TaskCompletionSource<LaunchResult> _result =
+                new TaskCompletionSource<LaunchResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public TaskCompletionSource<bool> Entered { get; } =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public int Calls { get; private set; }
+
+            public async Task<LaunchResult> LaunchAsync(
+                LaunchRequest request, CancellationToken cancellationToken)
+            {
+                Calls++;
+                Entered.TrySetResult(true);
+                return await _result.Task.ConfigureAwait(false);
+            }
+
+            public void Release() => _result.TrySetResult(new LaunchResult(777, true, "ok"));
+        }
+
         private sealed class FixedJavaLocator : IJavaLocator
         {
             private readonly IReadOnlyList<JavaRuntime> _javas;
@@ -742,6 +763,37 @@ namespace NLMCL.Tests
         /// 以前两条启动路径互不相干——主界面走 IGameLauncher，不捕获输出，
         /// 所以本地版本启动的游戏在「启动与日志」里一行日志都看不到。
         /// </summary>
+        [Fact]
+        public async Task Launch_ignores_a_second_click_while_first_is_starting()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            BlockingLauncher launcher = new BlockingLauncher();
+            MainViewModel vm = Create(
+                catalog,
+                launcher,
+                new FixedJavaLocator(TestSupport.CreateJava(21)));
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+
+            Task first = vm.LaunchSelectedAsync();
+            await launcher.Entered.Task;
+
+            // 第一次启动还卡在 IGameLauncher 里；第二次点击必须直接返回，
+            // 不能再次走预检/启动请求。
+            Task second = vm.LaunchSelectedAsync();
+            await second;
+
+            Assert.Equal(1, launcher.Calls);
+            Assert.True(vm.IsLaunching);
+
+            launcher.Release();
+            await first;
+
+            Assert.False(vm.IsLaunching);
+        }
+
         [Fact]
         public async Task Main_launch_hands_the_session_to_the_console()
         {

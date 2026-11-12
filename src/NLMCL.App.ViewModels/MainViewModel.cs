@@ -704,6 +704,9 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isJoiningProfile;
 
+        /// <summary>启动入口的原子闸门：预检是异步的，只靠 IsLaunching 会放过双击。</summary>
+        private int _launchGate;
+
         [ObservableProperty]
         private string _currentGameDirectory = string.Empty;
 
@@ -4474,11 +4477,15 @@ namespace NLMCL.App.ViewModels
         /// <summary>启动的统一入口：普通启动传 null，联机启动传对方地址。</summary>
         private async Task LaunchCoreAsync(string? serverAddress)
         {
-            _lastServerAddress = serverAddress;
-            if (IsLaunching)
+            if (Interlocked.CompareExchange(ref _launchGate, 1, 0) != 0)
             {
                 return;
             }
+
+            try
+            {
+                _lastServerAddress = serverAddress;
+                IsLaunching = true;
 
             if (SelectedVersion == null)
             {
@@ -4532,7 +4539,6 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            IsLaunching = true;
             StatusText = "正在查找 Java…";
             VersionItem launchedVersion = SelectedVersion;
 
@@ -4703,6 +4709,12 @@ namespace NLMCL.App.ViewModels
             finally
             {
                 IsLaunching = false;
+            }
+            }
+            finally
+            {
+                IsLaunching = false;
+                Interlocked.Exchange(ref _launchGate, 0);
             }
         }
 
