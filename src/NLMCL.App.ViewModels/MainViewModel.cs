@@ -2088,7 +2088,7 @@ namespace NLMCL.App.ViewModels
                         return;
                     }
 
-                    SelectedVersion = vanillaInstance;
+                    await SelectVersionForLaunchAsync(vanillaInstance).ConfigureAwait(true);
                     StatusText = "启动 " + vanillaInstance.Name + " 并连接 " + target + " …";
                     JoinTrace("纯净分支：启动 " + vanillaInstance.FolderName + " → " + target);
                     await LaunchCoreAsync(target).ConfigureAwait(true);
@@ -2172,7 +2172,7 @@ namespace NLMCL.App.ViewModels
                     }
                 }
 
-                SelectedVersion = instance;
+                await SelectVersionForLaunchAsync(instance).ConfigureAwait(true);
 
                 JoinTrace("模组分支：启动 " + instance.FolderName + " → " + target);
                 StatusText = "启动 " + instance.Name + " 并连接 " + target + " …";
@@ -4092,6 +4092,11 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public void SelectVersion(VersionItem item)
         {
+            SelectVersion(item, loadSettings: true);
+        }
+
+        private void SelectVersion(VersionItem item, bool loadSettings)
+        {
             if (item == null)
             {
                 return;
@@ -4118,7 +4123,17 @@ namespace NLMCL.App.ViewModels
             ResetLaunchPreflightForSelection();
 
             // 切版本时先带出实例设置，再按最新代理/模组状态做预检，避免读到上一个实例的配置
-            _ = LoadInstanceSettingsAndPreflightAsync(item);
+            if (loadSettings)
+            {
+                _ = LoadInstanceSettingsAndPreflightAsync(item);
+            }
+        }
+
+        /// <summary>“进模组服”会直接启动，必须等实例设置读完再启动，不能沿用上一个实例的代理/内存。</summary>
+        internal async Task SelectVersionForLaunchAsync(VersionItem item)
+        {
+            SelectVersion(item, loadSettings: false);
+            await LoadInstanceSettingsAsync(item).ConfigureAwait(true);
         }
 
         private void ResetLaunchPreflightForSelection()

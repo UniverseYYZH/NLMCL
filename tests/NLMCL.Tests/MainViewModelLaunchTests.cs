@@ -442,6 +442,33 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Preparing_join_selection_loads_instance_settings_before_launch()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null),
+                new MinecraftVersion("1.20.1", "1.20.1", VersionKind.Release, null));
+            TestSupport.MemoryInstanceSettingsStore settings = new TestSupport.MemoryInstanceSettingsStore();
+            settings.Items["1.20.1"] = new InstanceSettings
+            {
+                MemoryMb = 6144,
+                UseProxy = true,
+                ProxyHost = "127.0.0.1",
+                ProxyPort = 7890
+            };
+            MainViewModel vm = Create(catalog, new RecordingLauncher(), new FixedJavaLocator(),
+                instanceSettings: settings);
+
+            await vm.RefreshAsync();
+            await vm.SelectVersionForLaunchAsync(vm.Versions[1]);
+
+            Assert.Same(vm.Versions[1], vm.SelectedVersion);
+            Assert.True(vm.HasSelection);
+            Assert.Equal(6144, vm.MemoryMb);
+            Assert.True(vm.UseProxy);
+            Assert.Equal(7890, vm.ProxyPort);
+        }
+
+        [Fact]
         public async Task Late_settings_failure_of_previous_instance_does_not_reset_new_one()
         {
             CountingCatalog catalog = new CountingCatalog(
