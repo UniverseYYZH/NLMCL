@@ -263,6 +263,23 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Select_version_populates_launch_preflight_warnings()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            MainViewModel vm = Create(catalog, new RecordingLauncher(), new FixedJavaLocator(),
+                mods: new ModsViewModel(new MissingDependencyModManager()));
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.RefreshLaunchPreflightAsync();
+
+            Assert.True(vm.HasLaunchPreflightWarnings);
+            Assert.Contains("flywheel", string.Join("\n", vm.LaunchPreflightWarnings));
+            Assert.Contains("发现", vm.LaunchPreflightSummary);
+        }
+
+        [Fact]
         public async Task Launch_keeps_global_jvm_arguments()
         {
             CountingCatalog catalog = new CountingCatalog(

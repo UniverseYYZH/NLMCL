@@ -4082,6 +4082,98 @@ namespace NLMCL.App.ViewModels
 
             // 切版本时把该实例的设置带出来
             _ = LoadInstanceSettingsAsync(item);
+            _ = RefreshLaunchPreflightAsync();
+        }
+
+        /// <summary>启动前预检结果。只读扫描，不改 Mod 文件。</summary>
+        public ObservableCollection<string> LaunchPreflightWarnings { get; } = new ObservableCollection<string>();
+
+        public bool HasLaunchPreflightWarnings => LaunchPreflightWarnings.Count > 0;
+
+        [ObservableProperty]
+        private string _launchPreflightSummary = "尚未检查。";
+
+        [ObservableProperty]
+        private bool _isLaunchPreflightBusy;
+
+        private int _launchPreflightGeneration;
+
+        /// <summary>
+        /// 在世界页展示启动前会遇到的模组/实例问题，避免玩家点启动后才看到弹框。
+        /// </summary>
+        [RelayCommand]
+        public async Task RefreshLaunchPreflightAsync()
+        {
+            int generation = ++_launchPreflightGeneration;
+            VersionItem? version = SelectedVersion;
+
+            LaunchPreflightWarnings.Clear();
+            OnPropertyChanged(nameof(HasLaunchPreflightWarnings));
+
+            if (version == null)
+            {
+                LaunchPreflightSummary = "先选择一个实例。";
+                return;
+            }
+
+            IsLaunchPreflightBusy = true;
+
+            try
+            {
+                List<string> warnings = new List<string>();
+
+                if (version.HasWarning)
+                {
+                    warnings.Add("实例缺少客户端 JAR，启动会被阻止。请先修复或重新安装。");
+                }
+
+                if (UseProxy && (string.IsNullOrWhiteSpace(ProxyHost)
+                    || ProxyHost.Contains(" ") || ProxyHost.Contains("\t")
+                    || ProxyPort <= 0 || ProxyPort > 65535))
+                {
+                    warnings.Add("代理设置不完整，启动会被阻止。");
+                }
+
+                if (_mods != null)
+                {
+                    string modsDirectory = Path.Combine(
+                        ResolveGameDirectory(_instancePaths, CurrentGameDirectory, version.FolderName),
+                        "mods");
+
+                    warnings.AddRange(await _mods
+                        .GetLaunchWarningsAsync(modsDirectory, CancellationToken.None)
+                        .ConfigureAwait(true));
+                }
+
+                if (generation != _launchPreflightGeneration || !ReferenceEquals(SelectedVersion, version))
+                {
+                    return;
+                }
+
+                foreach (string warning in warnings)
+                {
+                    LaunchPreflightWarnings.Add(warning);
+                }
+
+                OnPropertyChanged(nameof(HasLaunchPreflightWarnings));
+                LaunchPreflightSummary = warnings.Count == 0
+                    ? "未发现启动前问题。"
+                    : "发现 " + warnings.Count + " 项，启动时会再次确认。";
+            }
+            catch (Exception ex)
+            {
+                if (generation == _launchPreflightGeneration)
+                {
+                    LaunchPreflightSummary = "预检未完成：" + ex.Message;
+                }
+            }
+            finally
+            {
+                if (generation == _launchPreflightGeneration)
+                {
+                    IsLaunchPreflightBusy = false;
+                }
+            }
         }
 
         /// <summary>打开某个版本的只读详情浮层。</summary>
