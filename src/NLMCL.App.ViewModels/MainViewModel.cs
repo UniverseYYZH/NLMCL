@@ -499,6 +499,9 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private int _proxyPort;
 
+        private CancellationTokenSource? _proxyPreflightDebounce;
+        private bool _suppressProxyPreflightRefresh;
+
         /// <summary>允许 LWJGL2 回退到软件 OpenGL（旧显卡/驱动兼容）。</summary>
         [ObservableProperty]
         private bool _softwareOpenGl;
@@ -2967,16 +2970,25 @@ namespace NLMCL.App.ViewModels
                 // 新实例还没有设置文件：用设置页里的"默认内存"
                 bool fresh = !_instanceSettings.Exists(CurrentGameDirectory, item.FolderName);
 
-                MemoryMb = fresh && DefaultMemoryMb > 0 ? DefaultMemoryMb : settings.MemoryMb;
-                JavaPath = settings.JavaPath ?? string.Empty;
-                ExtraArguments = settings.ExtraArguments ?? string.Empty;
-                WindowWidth = settings.WindowWidth;
-                WindowHeight = settings.WindowHeight;
-                Fullscreen = settings.Fullscreen;
-                UseProxy = settings.UseProxy;
-                ProxyHost = settings.ProxyHost ?? string.Empty;
-                ProxyPort = settings.ProxyPort;
-                SoftwareOpenGl = settings.SoftwareOpenGl;
+                bool previousSuppress = _suppressProxyPreflightRefresh;
+                _suppressProxyPreflightRefresh = true;
+                try
+                {
+                    MemoryMb = fresh && DefaultMemoryMb > 0 ? DefaultMemoryMb : settings.MemoryMb;
+                    JavaPath = settings.JavaPath ?? string.Empty;
+                    ExtraArguments = settings.ExtraArguments ?? string.Empty;
+                    WindowWidth = settings.WindowWidth;
+                    WindowHeight = settings.WindowHeight;
+                    Fullscreen = settings.Fullscreen;
+                    UseProxy = settings.UseProxy;
+                    ProxyHost = settings.ProxyHost ?? string.Empty;
+                    ProxyPort = settings.ProxyPort;
+                    SoftwareOpenGl = settings.SoftwareOpenGl;
+                }
+                finally
+                {
+                    _suppressProxyPreflightRefresh = previousSuppress;
+                }
             }
             catch (Exception ex)
             {
@@ -3098,7 +3110,8 @@ namespace NLMCL.App.ViewModels
 
                 StatusText = "已保存 " + version.Name + " 的启动设置";
 
-                // 代理开关/主机/端口都会进入启动参数，保存后立刻让世界页预检反映新配置。
+                // 保存后立即刷新；取消尚未触发的输入防抖，避免重复扫描。
+                CancelProxyPreflightDebounce();
                 if (ReferenceEquals(SelectedVersion, version))
                 {
                     await RefreshLaunchPreflightAsync();
@@ -4097,6 +4110,7 @@ namespace NLMCL.App.ViewModels
 
         private void ResetLaunchPreflightForSelection()
         {
+            CancelProxyPreflightDebounce();
             _launchPreflightGeneration++;
             LaunchPreflightWarnings.Clear();
             OnPropertyChanged(nameof(HasLaunchPreflightWarnings));
@@ -4202,6 +4216,68 @@ namespace NLMCL.App.ViewModels
                 {
                     IsLaunchPreflightBusy = false;
                 }
+            }
+        }
+
+        partial void OnUseProxyChanged(bool value)
+        {
+            ScheduleProxyPreflightRefresh();
+        }
+
+        partial void OnProxyHostChanged(string value)
+        {
+            ScheduleProxyPreflightRefresh();
+        }
+
+        partial void OnProxyPortChanged(int value)
+        {
+            ScheduleProxyPreflightRefresh();
+        }
+
+        /// <summary>代理输入会连续触发；停顿后再扫描，避免每敲一个字符都读 mods 目录。</summary>
+        private void ScheduleProxyPreflightRefresh()
+        {
+            if (_suppressProxyPreflightRefresh || SelectedVersion == null)
+            {
+                return;
+            }
+
+            CancelProxyPreflightDebounce();
+            CancellationTokenSource cts = new CancellationTokenSource();
+            _proxyPreflightDebounce = cts;
+            _ = DebounceProxyPreflightAsync(cts);
+        }
+
+        private void CancelProxyPreflightDebounce()
+        {
+            _proxyPreflightDebounce?.Cancel();
+            _proxyPreflightDebounce = null;
+        }
+
+        private async Task DebounceProxyPreflightAsync(CancellationTokenSource cts)
+        {
+            bool canceled = false;
+            try
+            {
+                await Task.Delay(400, cts.Token).ConfigureAwait(true);
+            }
+            catch (OperationCanceledException)
+            {
+                canceled = true;
+            }
+            finally
+            {
+                if (ReferenceEquals(_proxyPreflightDebounce, cts))
+                {
+                    _proxyPreflightDebounce = null;
+                }
+
+                cts.Dispose();
+            }
+
+            if (!canceled)
+            {
+                await RefreshLaunchPreflightAsync();
             }
         }
 
