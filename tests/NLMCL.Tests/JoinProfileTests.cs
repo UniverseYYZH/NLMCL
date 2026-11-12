@@ -435,6 +435,52 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Changing_game_directory_refreshes_join_checks()
+        {
+            string first = TestSupport.CreateTemporaryDirectory("nlmcl-join-dir-a-");
+            string second = TestSupport.CreateTemporaryDirectory("nlmcl-join-dir-b-");
+            try
+            {
+                AppPaths paths = new AppPaths(first);
+                MainViewModel vm = TestSupport.CreateMain(new FixedCatalog(), paths);
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Loader = "fabric",
+                    LoaderVersion = "0.20.1",
+                    AutoModpackVersion = "4.0.6",
+                    Mode = ServerProfileMode.Modded
+                };
+                profile.Addresses.Add("play.example.org:25565");
+                vm.Ningli.SetProfiles(new[] { profile });
+
+                vm.CurrentGameDirectory = first;
+                ServerJoinCheck? before = vm.JoinChecks.FirstOrDefault(item => item.Label == "客户端");
+                Assert.NotNull(before);
+                Assert.False(before!.IsOk);
+
+                string version = Path.Combine(second, "versions", "fabric-loader-0.20.1-1.21.1");
+                Directory.CreateDirectory(version);
+                File.WriteAllText(
+                    Path.Combine(version, "fabric-loader-0.20.1-1.21.1.json"),
+                    "{\"id\":\"fabric-loader-0.20.1-1.21.1\"}");
+                File.WriteAllBytes(
+                    Path.Combine(version, "fabric-loader-0.20.1-1.21.1.jar"),
+                    new byte[1024 * 1024 + 1]);
+
+                vm.CurrentGameDirectory = second;
+
+                ServerJoinCheck? after = vm.JoinChecks.FirstOrDefault(item => item.Label == "客户端");
+                Assert.NotNull(after);
+                Assert.True(after!.IsOk, after.Detail);
+            }
+            finally
+            {
+                try { Directory.Delete(first, true); } catch (IOException) { }
+                try { Directory.Delete(second, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
         public void Switching_account_refreshes_join_checks()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-check-account-");

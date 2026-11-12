@@ -331,6 +331,7 @@ namespace NLMCL.App.ViewModels
             }
 
             RefreshInstanceContent();
+            RefreshJoinChecks();
         }
 
         /// <summary>选中版本时把控制台的"版本目录名"一起带过去，省得用户再抄一遍。</summary>
