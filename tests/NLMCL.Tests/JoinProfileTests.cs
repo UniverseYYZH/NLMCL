@@ -142,6 +142,55 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Join_check_reports_a_mismatched_automodpack_version()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-check-version-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                Directory.CreateDirectory(paths.DefaultMinecraftDirectory);
+
+                string instance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.20.1-1.21.1");
+                string mods = Path.Combine(instance, "mods");
+                Directory.CreateDirectory(mods);
+                File.WriteAllText(Path.Combine(mods, "automodpack-5.0.0.jar"), "wrong-version");
+
+                MainViewModel vm = TestSupport.CreateMain(new FixedCatalog(), paths);
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Loader = "fabric",
+                    AutoModpackVersion = "4.0.6",
+                    Mode = ServerProfileMode.Modded
+                };
+                profile.Addresses.Add("play.example.org:25565");
+                vm.Ningli.SetProfiles(new[] { profile });
+
+                vm.RefreshJoinChecks();
+
+                ServerJoinCheck? check = null;
+                foreach (ServerJoinCheck item in vm.JoinChecks)
+                {
+                    if (item.Label == "模组")
+                    {
+                        check = item;
+                        break;
+                    }
+                }
+
+                Assert.NotNull(check);
+                Assert.False(check!.IsOk);
+                Assert.Contains("版本不匹配", check.Detail);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
         public void Stale_automodpack_jars_are_removed_when_target_already_exists()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-stale-");

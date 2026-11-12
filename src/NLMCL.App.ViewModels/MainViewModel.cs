@@ -2555,12 +2555,21 @@ namespace NLMCL.App.ViewModels
             }
 
             string mods = Path.Combine(CurrentGameDirectory, "versions", folder, "mods");
-            bool hasAutoModpack = Directory.Exists(mods)
-                && Directory.GetFiles(mods, "automodpack*.jar").Length > 0;
+            string[] autoModpackJars = Directory.Exists(mods)
+                ? Directory.GetFiles(mods, "automodpack*.jar")
+                : Array.Empty<string>();
+            string wantedAutoModpack = (profile.AutoModpackVersion ?? string.Empty).Trim();
+            bool hasAutoModpack = wantedAutoModpack.Length == 0
+                ? autoModpackJars.Length > 0
+                : autoModpackJars.Any(file =>
+                    AutoModpackSelector.MatchesVersion(Path.GetFileName(file), wantedAutoModpack));
 
             JoinChecks.Add(hasAutoModpack
-                ? new ServerJoinCheck("模组", "AutoModpack " + profile.AutoModpackVersion + " 已就位", true)
-                : new ServerJoinCheck("模组", "缺 AutoModpack（点按钮会自动装）", false));
+                ? new ServerJoinCheck("模组", "AutoModpack " + (wantedAutoModpack.Length == 0 ? "已就位" : wantedAutoModpack + " 已就位"), true)
+                : wantedAutoModpack.Length > 0 && autoModpackJars.Length > 0
+                    ? new ServerJoinCheck("模组", "AutoModpack 版本不匹配（需要 "
+                        + wantedAutoModpack + "，点按钮会重装）", false)
+                    : new ServerJoinCheck("模组", "缺 AutoModpack（点按钮会自动装）", false));
 
             // ③ 内存（100+ mod 的整合包 2 GB 会频繁 GC）
             int memory = GetInstanceMemory(folder);

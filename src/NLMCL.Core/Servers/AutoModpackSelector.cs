@@ -69,7 +69,40 @@ namespace NLMCL.Core.Servers
             return version.Equals(wanted, StringComparison.OrdinalIgnoreCase)
                 || version.StartsWith(wanted + "-", StringComparison.OrdinalIgnoreCase)
                 || version.StartsWith(wanted + ".", StringComparison.OrdinalIgnoreCase)
-                || file.Name.IndexOf(wanted, StringComparison.OrdinalIgnoreCase) >= 0;
+                || MatchesVersion(file.Name, wanted);
+        }
+
+        /// <summary>
+        /// 已落盘文件名是否满足档案钉的版本（用于“已就位”检查）。
+        /// 只按文件名判断；版本号缺失时无法确认，返回 false 让调用方提示重装。
+        /// </summary>
+        public static bool MatchesVersion(string? fileName, string? wantedVersion)
+        {
+            string file = (fileName ?? string.Empty).Trim();
+            string wanted = (wantedVersion ?? string.Empty).Trim();
+
+            if (file.Length == 0 || wanted.Length == 0)
+            {
+                return false;
+            }
+
+            if (file.IndexOf(wanted, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+
+            int dot = wanted.IndexOf('.');
+            if (dot > 0)
+            {
+                // 精确版本（4.0.6）不能靠主版本前缀命中 4.0.7。
+                return false;
+            }
+
+            string majorPrefix = wanted + ".";
+
+            return file.StartsWith("automodpack-" + majorPrefix, StringComparison.OrdinalIgnoreCase)
+                || file.IndexOf("-" + majorPrefix, StringComparison.OrdinalIgnoreCase) >= 0
+                || file.IndexOf("_" + majorPrefix, StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }
