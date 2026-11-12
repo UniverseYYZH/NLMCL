@@ -1025,5 +1025,27 @@ namespace NLMCL.Tests
 
             Assert.Null(skin);
         }
+
+        [Fact]
+        public void Local_skin_thumbnail_is_rendered_lazily()
+        {
+            int calls = 0;
+            LocalSkinItem item = new LocalSkinItem(
+                @"C:\Temp\steve.png",
+                previewFactory: () =>
+                {
+                    calls++;
+                    return new byte[] { 1, 2, 3 };
+                });
+
+            Assert.Equal(0, calls);
+
+            byte[]? preview = item.PreviewPng;
+            Assert.Equal(1, calls);
+            Assert.NotNull(preview);
+            Assert.True(item.HasPreview);
+            Assert.Equal(1, calls);
+            Assert.Equal("3D 预览", item.PreviewLabel);
+        }
     }
 }

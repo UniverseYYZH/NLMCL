@@ -191,11 +191,12 @@ namespace NLMCL.App.ViewModels
                         _allLocalSkins.Add(new LocalSkinItem(
                             file,
                             string.Equals(file, currentPath, StringComparison.OrdinalIgnoreCase),
-                            RenderLocalThumbnail(file),
+                            null,
                             new DateTimeOffset(acquired, TimeSpan.Zero),
                             usage?.LastUsedAt,
                             usage?.TotalSeconds ?? 0,
-                            DetectLocalModel(file)));
+                            DetectLocalModel(file),
+                            previewFactory: () => RenderLocalThumbnail(file)));
                     }
                 }
 
@@ -1591,6 +1592,9 @@ namespace NLMCL.App.ViewModels
 /// <summary>本地皮肤库中的一张 PNG。</summary>
     public sealed class LocalSkinItem
     {
+        private readonly Func<byte[]>? _previewFactory;
+        private byte[]? _previewPng;
+
         public LocalSkinItem(
             string path,
             bool isCurrent = false,
@@ -1598,12 +1602,14 @@ namespace NLMCL.App.ViewModels
             DateTimeOffset acquiredAt = default,
             DateTimeOffset? lastUsedAt = null,
             double usageSeconds = 0,
-            string modelLabel = "经典")
+            string modelLabel = "经典",
+            Func<byte[]>? previewFactory = null)
         {
             Path = path;
             Name = System.IO.Path.GetFileNameWithoutExtension(path);
             IsCurrent = isCurrent;
-            PreviewPng = previewPng;
+            _previewPng = previewPng;
+            _previewFactory = previewFactory;
             AcquiredAt = acquiredAt == default ? DateTimeOffset.Now : acquiredAt;
             LastUsedAt = lastUsedAt;
             UsageSeconds = usageSeconds;
@@ -1616,8 +1622,8 @@ namespace NLMCL.App.ViewModels
 
         public bool IsCurrent { get; }
 
-        /// <summary>本地卡直接展示 3D 方块人，而不是原始皮肤贴图。</summary>
-        public byte[]? PreviewPng { get; }
+        /// <summary>本地卡直接展示 3D 方块人，而不是原始皮肤贴图；首次绑定到可见卡片时才渲染。</summary>
+        public byte[]? PreviewPng => _previewPng ??= _previewFactory?.Invoke();
 
         public bool HasPreview => PreviewPng != null && PreviewPng.Length > 0;
 
