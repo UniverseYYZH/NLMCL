@@ -15,23 +15,25 @@ namespace NLMCL.Tests
 {
     public class RenderWorldPageTests
     {
-        private sealed class OneVersionCatalog : IVersionCatalog
+        private sealed class TwoVersionCatalog : IVersionCatalog
         {
             public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
                 string minecraftDirectory, CancellationToken cancellationToken)
             {
                 return Task.FromResult<IReadOnlyList<MinecraftVersion>>(new[]
                 {
-                    new MinecraftVersion("1.21.1-fabric", "1.21.1", VersionKind.Release, null)
+                    new MinecraftVersion("1.21.1-fabric", "1.21.1", VersionKind.Release, null, hasClientJar: true),
+                    new MinecraftVersion("1.20.1-fabric", "1.20.1", VersionKind.Release, null, hasClientJar: false)
                 });
             }
         }
 
         [Fact]
-        public void World_page_renders_offscreen_to_png()
+        public void World_page_renders_clean_and_warning_preflight_states()
         {
             Exception? failure = null;
-            string? output = null;
+            string? cleanOutput = null;
+            string? warningOutput = null;
             string roaming = Path.Combine(Path.GetTempPath(), "nlmcl-world-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(Path.Combine(roaming, ".minecraft"));
 
@@ -40,45 +42,66 @@ namespace NLMCL.Tests
                 try
                 {
                     AppPaths paths = new AppPaths(roaming);
-                    MainViewModel vm = TestSupport.CreateMain(new OneVersionCatalog(), paths);
+                    MainViewModel vm = TestSupport.CreateMain(new TwoVersionCatalog(), paths);
                     vm.RefreshAsync().GetAwaiter().GetResult();
 
-                    Assert.Single(vm.Versions);
-                    vm.SelectedVersion = vm.Versions[0];
-                    vm.SelectSection(ShellSection.World);
-                    Assert.True(vm.IsWorldSection);
+                    Assert.Equal(2, vm.Versions.Count);
 
                     const int width = 1060;
                     const int height = 760;
 
-                    NLMCL.App.MainWindow window = new NLMCL.App.MainWindow(vm)
+                    string RenderTo(string fileName)
                     {
-                        Width = width,
-                        Height = height
-                    };
+                        NLMCL.App.MainWindow window = new NLMCL.App.MainWindow(vm)
+                        {
+                            Width = width,
+                            Height = height
+                        };
 
-                    FrameworkElement root = (FrameworkElement)window.Content;
-                    root.Measure(new Size(width, height));
-                    root.Arrange(new Rect(0, 0, width, height));
-                    root.UpdateLayout();
+                        FrameworkElement root = (FrameworkElement)window.Content;
+                        root.Measure(new Size(width, height));
+                        root.Arrange(new Rect(0, 0, width, height));
+                        root.UpdateLayout();
 
-                    RenderTargetBitmap bitmap = new RenderTargetBitmap(
-                        width, height, 96, 96, PixelFormats.Pbgra32);
-                    bitmap.Render(root);
+                        RenderTargetBitmap bitmap = new RenderTargetBitmap(
+                            width, height, 96, 96, PixelFormats.Pbgra32);
+                        bitmap.Render(root);
 
-                    PngBitmapEncoder encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                        PngBitmapEncoder encoder = new PngBitmapEncoder();
+                        encoder.Frames.Add(BitmapFrame.Create(bitmap));
 
-                    string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts");
-                    Directory.CreateDirectory(dir);
-                    output = Path.Combine(dir, "ui-world.png");
+                        string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "artifacts");
+                        Directory.CreateDirectory(dir);
+                        string file = Path.Combine(dir, fileName);
 
-                    using (FileStream stream = File.Create(output))
-                    {
-                        encoder.Save(stream);
+                        using (FileStream stream = File.Create(file))
+                        {
+                            encoder.Save(stream);
+                        }
+
+                        window.Close();
+                        return file;
                     }
 
-                    window.Close();
+                    VersionItem clean = vm.Versions[0];
+                    vm.SelectVersion(clean);
+                    vm.SelectSection(ShellSection.World);
+                    vm.LoadInstanceSettingsAsync(clean).GetAwaiter().GetResult();
+                    vm.RefreshLaunchPreflightAsync().GetAwaiter().GetResult();
+
+                    Assert.True(vm.IsWorldSection);
+                    Assert.False(vm.HasLaunchPreflightWarnings);
+                    Assert.Contains("未发现", vm.LaunchPreflightSummary);
+                    cleanOutput = RenderTo("ui-world.png");
+
+                    VersionItem warning = vm.Versions[1];
+                    vm.SelectVersion(warning);
+                    vm.LoadInstanceSettingsAsync(warning).GetAwaiter().GetResult();
+                    vm.RefreshLaunchPreflightAsync().GetAwaiter().GetResult();
+
+                    Assert.True(vm.HasLaunchPreflightWarnings);
+                    Assert.Contains("缺少客户端 JAR", string.Join("\n", vm.LaunchPreflightWarnings));
+                    warningOutput = RenderTo("ui-world-warning.png");
                 }
                 catch (Exception ex)
                 {
@@ -91,8 +114,10 @@ namespace NLMCL.Tests
             Assert.True(thread.Join(TimeSpan.FromSeconds(60)), "渲染线程超时。");
 
             Assert.Null(failure);
-            Assert.NotNull(output);
-            Assert.True(new FileInfo(output!).Length > 20_000);
+            Assert.NotNull(cleanOutput);
+            Assert.NotNull(warningOutput);
+            Assert.True(new FileInfo(cleanOutput!).Length > 20_000);
+            Assert.True(new FileInfo(warningOutput!).Length > 20_000);
         }
     }
 }
