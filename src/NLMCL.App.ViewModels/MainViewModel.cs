@@ -82,6 +82,7 @@ namespace NLMCL.App.ViewModels
         private readonly IFilePicker? _filePicker;
         private readonly IFileSavePicker? _saveFilePicker;
         private readonly IInstancePackageService? _instancePackages;
+        private readonly IInstanceContentService? _instanceContent;
 
         /// <summary>常用服务器（快捷入口）。</summary>
         private readonly IServerBookmarkStore? _bookmarks;
@@ -179,7 +180,8 @@ namespace NLMCL.App.ViewModels
             IFileSavePicker? saveFilePicker = null,
             IGameDirectoryScanner? directoryScanner = null,
             IVersionDetailsService? versionDetails = null,
-            IInstancePackageService? instancePackages = null)
+            IInstancePackageService? instancePackages = null,
+            IInstanceContentService? instanceContent = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -216,6 +218,7 @@ namespace NLMCL.App.ViewModels
             _filePicker = filePicker;
             _saveFilePicker = saveFilePicker;
             _instancePackages = instancePackages;
+            _instanceContent = instanceContent;
             _resource = resource;
             _skin = skin;
             _lanScan = lanScan;
@@ -325,6 +328,8 @@ namespace NLMCL.App.ViewModels
             {
                 SelectedGameDirectory = value;
             }
+
+            RefreshInstanceContent();
         }
 
         /// <summary>选中版本时把控制台的"版本目录名"一起带过去，省得用户再抄一遍。</summary>
@@ -350,6 +355,15 @@ namespace NLMCL.App.ViewModels
         public string GameDirectoryStatusText => Directory.Exists(CurrentGameDirectory)
             ? "目录存在"
             : "目录不存在";
+
+        [ObservableProperty]
+        private int _saveSlotCount;
+
+        [ObservableProperty]
+        private int _resourcePackCount;
+
+        [ObservableProperty]
+        private int _shaderPackCount;
 
         /// <summary>当前游戏目录所在磁盘的可用空间。</summary>
         public string GameDirectoryDiskText
@@ -1613,6 +1627,11 @@ namespace NLMCL.App.ViewModels
             if (item.Section == ShellSection.Snapshot || item.Section == ShellSection.World)
             {
                 _ = LoadSnapshotPageAsync();
+            }
+
+            if (item.Section == ShellSection.World)
+            {
+                RefreshInstanceContent();
             }
 
             foreach (NavigationGroup group in NavigationGroups)
@@ -4638,6 +4657,89 @@ namespace NLMCL.App.ViewModels
             catch (Exception ex)
             {
                 StatusText = "删除失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>刷新世界页“实例内容”数量；目录不存在时显示 0。</summary>
+        [RelayCommand]
+        public void RefreshInstanceContent()
+        {
+            if (_instanceContent == null || string.IsNullOrWhiteSpace(CurrentGameDirectory))
+            {
+                SaveSlotCount = 0;
+                ResourcePackCount = 0;
+                ShaderPackCount = 0;
+                return;
+            }
+
+            try
+            {
+                SaveSlotCount = _instanceContent.Count(CurrentGameDirectory, InstanceContentKind.Saves);
+                ResourcePackCount = _instanceContent.Count(CurrentGameDirectory, InstanceContentKind.ResourcePacks);
+                ShaderPackCount = _instanceContent.Count(CurrentGameDirectory, InstanceContentKind.ShaderPacks);
+            }
+            catch (Exception)
+            {
+                SaveSlotCount = 0;
+                ResourcePackCount = 0;
+                ShaderPackCount = 0;
+            }
+        }
+
+        [RelayCommand]
+        public Task ImportSaveAsync() => ImportInstanceContentAsync(
+            InstanceContentKind.Saves,
+            "导入存档",
+            "存档压缩包 (*.zip)|*.zip");
+
+        [RelayCommand]
+        public Task ImportResourcePackAsync() => ImportInstanceContentAsync(
+            InstanceContentKind.ResourcePacks,
+            "导入资源包",
+            "资源包 (*.zip)|*.zip");
+
+        [RelayCommand]
+        public Task ImportShaderPackAsync() => ImportInstanceContentAsync(
+            InstanceContentKind.ShaderPacks,
+            "导入光影包",
+            "光影包 (*.zip)|*.zip");
+
+        private async Task ImportInstanceContentAsync(
+            InstanceContentKind kind,
+            string title,
+            string filter)
+        {
+            if (_instanceContent == null || _filePicker == null)
+            {
+                StatusText = "实例内容导入不可用。";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CurrentGameDirectory))
+            {
+                StatusText = "请先选择游戏目录。";
+                return;
+            }
+
+            string? path = _filePicker.PickFile(title, filter);
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            try
+            {
+                StatusText = "正在导入" + title.Substring(2) + "…";
+                string imported = await _instanceContent
+                    .ImportAsync(CurrentGameDirectory, kind, path!, CancellationToken.None)
+                    .ConfigureAwait(true);
+                RefreshInstanceContent();
+                StatusText = "已导入：" + Path.GetFileName(imported);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "导入失败：" + ex.Message;
             }
         }
 

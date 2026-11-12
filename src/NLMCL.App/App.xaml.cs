@@ -193,6 +193,7 @@ namespace NLMCL.App
             services.AddSingleton<IGameDirectoryScanner, GameDirectoryScanner>();
             services.AddSingleton<IVersionDetailsService, VersionDetailsService>();
             services.AddSingleton<IInstancePackageService, NLMCL.Core.Instances.InstancePackageService>();
+            services.AddSingleton<IInstanceContentService, NLMCL.Core.Instances.InstanceContentService>();
             services.AddSingleton<ILocalNetworkInfo, LocalNetworkInfo>();
             services.AddSingleton<IClipboard, Services.WpfClipboard>();
             services.AddSingleton<IFolderPicker, Services.WinFormsFolderPicker>();
