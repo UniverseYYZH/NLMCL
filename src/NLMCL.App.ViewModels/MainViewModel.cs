@@ -4346,10 +4346,21 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            GameDirectories.Remove(directory);
+            // 列表可能来自旧版设置或手工编辑，尾部分隔符/大小写不一定和当前目录一致。
+            // ObservableCollection.Remove 是区分大小写的精确匹配，找不到时会静默失败。
+            string? stored = GameDirectories.FirstOrDefault(item =>
+                string.Equals(NormalizeDirectory(item), directory, StringComparison.OrdinalIgnoreCase));
+
+            if (stored == null)
+            {
+                StatusText = "当前游戏目录不在已添加列表中。";
+                return;
+            }
+
+            GameDirectories.Remove(stored);
 
             if (GameDirectories.Count > 0
-                && string.Equals(CurrentGameDirectory, directory, StringComparison.OrdinalIgnoreCase))
+                && string.Equals(NormalizeDirectory(CurrentGameDirectory), directory, StringComparison.OrdinalIgnoreCase))
             {
                 CurrentGameDirectory = GameDirectories[0];
             }

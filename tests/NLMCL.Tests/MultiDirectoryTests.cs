@@ -152,6 +152,53 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Removing_a_directory_stored_with_a_trailing_separator_still_works()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-remove-normalized-" + Guid.NewGuid().ToString("N"));
+            string first = System.IO.Path.Combine(root, "one");
+            string second = System.IO.Path.Combine(root, "two");
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(first);
+                System.IO.Directory.CreateDirectory(second);
+
+                TestSupport.FakeAppSettings settings = new TestSupport.FakeAppSettings();
+                settings.Current.GameDirectory = first;
+                settings.Current.GameDirectories = new List<string> { first, second };
+
+                MainViewModel vm = TestSupport.CreateMain(
+                    new MultiCatalog(first, second),
+                    new NLMCL.Core.AppPaths(root),
+                    appSettings: settings);
+                await vm.InitializeAsync();
+
+                // 旧设置或手工编辑可能把目录写成带尾部分隔符的形式。
+                vm.GameDirectories.Clear();
+                vm.GameDirectories.Add(first);
+                vm.GameDirectories.Add(second + System.IO.Path.DirectorySeparatorChar);
+                vm.CurrentGameDirectory = second;
+
+                await vm.RemoveGameDirectoryAsync();
+
+                Assert.Equal(new[] { first }, vm.GameDirectories);
+                Assert.Equal(first, vm.CurrentGameDirectory);
+                Assert.Equal(first, vm.SelectedGameDirectory);
+            }
+            finally
+            {
+                try
+                {
+                    System.IO.Directory.Delete(root, true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
         public async Task Add_folder_button_uses_folder_picker()
         {
             string root = System.IO.Path.Combine(
