@@ -190,6 +190,7 @@ namespace NLMCL.App
             services.AddSingleton<ICacheCleaner, CacheCleaner>();
             services.AddSingleton<IGameDirectoryScanner, GameDirectoryScanner>();
             services.AddSingleton<IVersionDetailsService, VersionDetailsService>();
+            services.AddSingleton<IInstancePackageService, NLMCL.Core.Instances.InstancePackageService>();
             services.AddSingleton<ILocalNetworkInfo, LocalNetworkInfo>();
             services.AddSingleton<IClipboard, Services.WpfClipboard>();
             services.AddSingleton<IFolderPicker, Services.WinFormsFolderPicker>();

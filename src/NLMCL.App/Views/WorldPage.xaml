@@ -370,13 +370,30 @@
                         <StackPanel>
                             <TextBlock Text="实例操作" FontFamily="{DynamicResource MonoFont}"
                                        FontSize="10.5" Foreground="{DynamicResource Faint}" />
-                            <Button Content="重命名实例" Style="{StaticResource GhostButton}" Padding="10,6"
-                                    FontSize="10.5" Margin="0,6,0,0" Command="{Binding RenameVersionCommand}" />
-                            <Button Content="复制实例" Style="{StaticResource GhostButton}" Padding="10,6"
-                                    FontSize="10.5" Margin="0,4,0,0" Command="{Binding CopyVersionCommand}" />
-                            <Button Content="删除实例" Style="{StaticResource GhostButton}" Padding="10,6"
-                                    FontSize="10.5" Margin="0,4,0,0" Foreground="#A23A32"
-                                    Command="{Binding DeleteVersionCommand}" />
+                            <Grid Margin="0,6,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Button Content="重命名" Style="{StaticResource GhostButton}" Padding="8,6"
+                                        FontSize="10.5" Command="{Binding RenameVersionCommand}" />
+                                <Button Content="复制" Style="{StaticResource GhostButton}" Padding="8,6"
+                                        FontSize="10.5" Margin="4,0,0,0" Grid.Column="1" Command="{Binding CopyVersionCommand}" />
+                                <Button Content="导出实例包" Style="{StaticResource GhostButton}" Padding="8,6"
+                                        FontSize="10.5" Margin="0,4,0,0" Grid.Row="1" Command="{Binding ExportInstanceCommand}"
+                                        ToolTip="导出当前实例（不含 logs 与 crash-reports）" />
+                                <Button Content="导入实例包" Style="{StaticResource GhostButton}" Padding="8,6"
+                                        FontSize="10.5" Margin="4,4,0,0" Grid.Row="1" Grid.Column="1" Command="{Binding ImportInstanceCommand}"
+                                        ToolTip="从 .zip 实例包恢复为新实例" />
+                                <Button Content="删除实例" Style="{StaticResource GhostButton}" Padding="8,6"
+                                        FontSize="10.5" Margin="0,4,0,0" Grid.Row="2" Grid.ColumnSpan="2"
+                                        Foreground="#A23A32" Command="{Binding DeleteVersionCommand}" />
+                            </Grid>
                         </StackPanel>
                     </Border>
 

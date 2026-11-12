@@ -80,6 +80,8 @@ namespace NLMCL.App.ViewModels
         private readonly IGameDirectoryScanner? _directoryScanner;
         private readonly IVersionDetailsService? _versionDetails;
         private readonly IFilePicker? _filePicker;
+        private readonly IFileSavePicker? _saveFilePicker;
+        private readonly IInstancePackageService? _instancePackages;
 
         /// <summary>常用服务器（快捷入口）。</summary>
         private readonly IServerBookmarkStore? _bookmarks;
@@ -176,7 +178,8 @@ namespace NLMCL.App.ViewModels
             IFilePicker? filePicker = null,
             IFileSavePicker? saveFilePicker = null,
             IGameDirectoryScanner? directoryScanner = null,
-            IVersionDetailsService? versionDetails = null)
+            IVersionDetailsService? versionDetails = null,
+            IInstancePackageService? instancePackages = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -211,6 +214,8 @@ namespace NLMCL.App.ViewModels
             _directoryScanner = directoryScanner;
             _versionDetails = versionDetails;
             _filePicker = filePicker;
+            _saveFilePicker = saveFilePicker;
+            _instancePackages = instancePackages;
             _resource = resource;
             _skin = skin;
             _lanScan = lanScan;
@@ -4588,9 +4593,88 @@ namespace NLMCL.App.ViewModels
             }
         }
 
-        private void SelectVersionByName(string folder)
+        /// <summary>把当前实例打包为可分享的 zip（不含 logs/crash-reports）。</summary>
+        [RelayCommand]
+        public async Task ExportInstanceAsync()
         {
-            VersionItem? match = Versions.FirstOrDefault(
+            if (_instancePackages == null || _saveFilePicker == null)
+            {
+                StatusText = "实例导出不可用。";
+                return;
+            }
+
+            if (SelectedVersion == null)
+            {
+                StatusText = "请先在列表里点选一个版本";
+                return;
+            }
+
+            string suggested = SelectedVersion.FolderName + ".zip";
+            string? path = _saveFilePicker.PickFile(
+                "导出实例",
+                "NLMCL 实例包 (*.zip)|*.zip|所有文件 (*.*)|*.*",
+                suggested);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            try
+            {
+                StatusText = "正在导出实例（大实例可能要一会儿）…";
+                string exported = await _instancePackages
+                    .ExportAsync(SelectedVersion.InstancePath, path!, CancellationToken.None)
+                    .ConfigureAwait(true);
+                StatusText = "已导出实例：" + exported;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "导出失败：" + ex.Message;
+            }
+        }
+
+        /// <summary>从 zip 导入一个实例包，目录重名时自动加后缀。</summary>
+        [RelayCommand]
+        public async Task ImportInstanceAsync()
+        {
+            if (_instancePackages == null || _filePicker == null)
+            {
+                StatusText = "实例导入不可用。";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(CurrentGameDirectory))
+            {
+                StatusText = "请先选择游戏目录。";
+                return;
+            }
+
+            string? path = _filePicker.PickFile("导入实例包", "NLMCL 实例包 (*.zip)|*.zip|所有文件 (*.*)|*.*");
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            try
+            {
+                StatusText = "正在导入实例包…";
+                string versions = Path.Combine(CurrentGameDirectory, "versions");
+                string imported = await _instancePackages
+                    .ImportAsync(path!, versions, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                await RefreshAsync().ConfigureAwait(true);
+                SelectVersionByName(Path.GetFileName(imported));
+                StatusText = "已导入实例：" + Path.GetFileName(imported);
+            }
+            catch (Exception ex)
+            {
+                StatusText = "导入失败：" + ex.Message;
+            }
+        }
+
+        private void SelectVersionByName(string folder)
+        {            VersionItem? match = Versions.FirstOrDefault(
                 item => string.Equals(item.FolderName, folder, StringComparison.OrdinalIgnoreCase));
 
             if (match != null)
