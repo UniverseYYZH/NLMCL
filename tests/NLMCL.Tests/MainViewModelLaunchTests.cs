@@ -307,6 +307,23 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Launch_with_missing_client_jar_reports_and_resets_state()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null, hasClientJar: false));
+            RecordingLauncher launcher = new RecordingLauncher();
+            MainViewModel vm = Create(catalog, launcher, new FixedJavaLocator(TestSupport.CreateJava(21)));
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+
+            await vm.LaunchSelectedAsync();
+
+            Assert.Null(launcher.LastRequest);
+            Assert.Contains("缺少客户端 JAR", vm.StatusText);
+            Assert.False(vm.IsLaunching);
+        }
+
+        [Fact]
         public async Task Launch_passes_selected_java_and_folder_name()
         {
             CountingCatalog catalog = new CountingCatalog(
@@ -349,6 +366,7 @@ namespace NLMCL.Tests
             Assert.Contains("OptiFine", dialogs.LastMessage);
             Assert.Contains("不兼容", dialogs.LastMessage);
             Assert.Contains("启动前检查", vm.StatusText);
+            Assert.False(vm.IsLaunching);
         }
 
         [Fact]
@@ -369,6 +387,7 @@ namespace NLMCL.Tests
             Assert.Null(launcher.LastRequest);
             Assert.Contains("缺少前置", dialogs.LastMessage);
             Assert.Contains("flywheel", dialogs.LastMessage);
+            Assert.False(vm.IsLaunching);
         }
 
         [Fact]
