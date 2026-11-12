@@ -4200,6 +4200,14 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            if (UseProxy && (string.IsNullOrWhiteSpace(ProxyHost)
+                || ProxyHost.Contains(" ") || ProxyHost.Contains("\t")
+                || ProxyPort <= 0 || ProxyPort > 65535))
+            {
+                StatusText = "代理设置不完整：请填写主机和 1–65535 的端口，或关闭代理后再启动。";
+                return;
+            }
+
             // 缺客户端 JAR 的实例直接拉起 JVM 只会弹「A Java Exception has occurred.」，
             // 对用户毫无信息量。这里提前拦住，并告诉他去哪儿修。
             if (SelectedVersion.HasWarning)

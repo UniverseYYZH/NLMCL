@@ -209,6 +209,25 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Launch_with_incomplete_proxy_reports_instead_of_starting()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            RecordingLauncher launcher = new RecordingLauncher();
+            TestSupport.MemoryInstanceSettingsStore settings = new TestSupport.MemoryInstanceSettingsStore();
+            settings.Items["1.21.1"] = new InstanceSettings { UseProxy = true };
+            MainViewModel vm = Create(catalog, launcher, new FixedJavaLocator(TestSupport.CreateJava(21)), settings);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LoadInstanceSettingsAsync(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+
+            Assert.Null(launcher.LastRequest);
+            Assert.Contains("代理设置不完整", vm.StatusText);
+        }
+
+        [Fact]
         public async Task Successful_launch_records_last_launch_time()
         {
             CountingCatalog catalog = new CountingCatalog(
