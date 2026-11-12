@@ -32,6 +32,22 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class MutableCatalog : IVersionCatalog
+        {
+            public MutableCatalog(params MinecraftVersion[] items)
+            {
+                Items = items;
+            }
+
+            public IReadOnlyList<MinecraftVersion> Items { get; set; }
+
+            public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
+                string minecraftDirectory, CancellationToken cancellationToken)
+            {
+                return Task.FromResult(Items);
+            }
+        }
+
         private sealed class RecordingLauncher : IGameLauncher
         {
             public LaunchRequest? LastRequest { get; private set; }
@@ -528,6 +544,31 @@ namespace NLMCL.Tests
             Assert.True(settings.Current.LastLaunched.ContainsKey(instancePath));
             Assert.StartsWith("最后启动 ", vm.Versions[0].LastLaunchLabel);
             Assert.Contains("已启动", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Refresh_with_no_instances_clears_selection_and_preflight()
+        {
+            MutableCatalog catalog = new MutableCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            MainViewModel vm = Create(catalog, new RecordingLauncher(), new FixedJavaLocator());
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            vm.UseProxy = true;
+            vm.ProxyHost = "bad host";
+            vm.ProxyPort = 0;
+            await vm.RefreshLaunchPreflightAsync();
+            Assert.True(vm.HasLaunchPreflightWarnings);
+
+            catalog.Items = Array.Empty<MinecraftVersion>();
+            await vm.RefreshAsync();
+
+            Assert.Null(vm.SelectedVersion);
+            Assert.False(vm.HasSelection);
+            Assert.Empty(vm.LaunchPreflightWarnings);
+            Assert.False(vm.IsLaunchPreflightBusy);
+            Assert.Contains("先选择一个实例", vm.LaunchPreflightSummary);
         }
 
         private sealed class SingleVersionProvider : IVersionListProvider
