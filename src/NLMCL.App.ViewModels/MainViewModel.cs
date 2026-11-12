@@ -475,6 +475,16 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _fullscreen;
 
+        /// <summary>该实例是否走 HTTP/HTTPS 代理。</summary>
+        [ObservableProperty]
+        private bool _useProxy;
+
+        [ObservableProperty]
+        private string _proxyHost = string.Empty;
+
+        [ObservableProperty]
+        private int _proxyPort;
+
         /// <summary>列表里被点中的版本。启动按钮用它决定启动哪个。</summary>
         [ObservableProperty]
         private VersionItem? _selectedVersion;
@@ -2874,6 +2884,30 @@ namespace NLMCL.App.ViewModels
             return args;
         }
 
+        /// <summary>实例级 HTTP/HTTPS 代理，走 JVM 系统属性；不修改系统代理。</summary>
+        internal string BuildProxyJvmArguments()
+        {
+            if (!UseProxy || string.IsNullOrWhiteSpace(ProxyHost) || ProxyPort <= 0 || ProxyPort > 65535)
+            {
+                return string.Empty;
+            }
+
+            string host = ProxyHost.Trim();
+            if (host.Contains(" ") || host.Contains("\t"))
+            {
+                return string.Empty;
+            }
+
+            return string.Join(" ", new[]
+            {
+                "-Dhttp.proxyHost=" + host,
+                "-Dhttp.proxyPort=" + ProxyPort,
+                "-Dhttps.proxyHost=" + host,
+                "-Dhttps.proxyPort=" + ProxyPort,
+                "-Dhttp.nonProxyHosts=localhost|127.0.0.1"
+            });
+        }
+
 
         /// <summary>读取当前实例的设置。</summary>
         public async Task LoadInstanceSettingsAsync(VersionItem item)
@@ -2904,6 +2938,9 @@ namespace NLMCL.App.ViewModels
                 WindowWidth = settings.WindowWidth;
                 WindowHeight = settings.WindowHeight;
                 Fullscreen = settings.Fullscreen;
+                UseProxy = settings.UseProxy;
+                ProxyHost = settings.ProxyHost ?? string.Empty;
+                ProxyPort = settings.ProxyPort;
             }
             catch (Exception ex)
             {
@@ -3015,7 +3052,10 @@ namespace NLMCL.App.ViewModels
                         ExtraArguments = string.IsNullOrWhiteSpace(ExtraArguments) ? null : ExtraArguments,
                         WindowWidth = WindowWidth,
                         WindowHeight = WindowHeight,
-                        Fullscreen = Fullscreen
+                        Fullscreen = Fullscreen,
+                        UseProxy = UseProxy,
+                        ProxyHost = string.IsNullOrWhiteSpace(ProxyHost) ? null : ProxyHost.Trim(),
+                        ProxyPort = ProxyPort
                     },
                     CancellationToken.None).ConfigureAwait(true);
 
@@ -4295,7 +4335,7 @@ namespace NLMCL.App.ViewModels
                         .ConfigureAwait(true);
 
                     request.ExtraJvmArguments = string.Join(" ",
-                        new[] { globalJvm, externalJvm ?? string.Empty }
+                        new[] { globalJvm, BuildProxyJvmArguments(), externalJvm ?? string.Empty }
                             .Where(part => !string.IsNullOrWhiteSpace(part)));
                 }
                 catch (Exception ex)

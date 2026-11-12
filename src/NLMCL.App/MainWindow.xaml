@@ -771,6 +771,22 @@
                                             <CheckBox Content="全屏" IsChecked="{Binding Fullscreen}" FontSize="9.5"
                                                       Foreground="{DynamicResource Text}" Margin="10,0,0,0" VerticalAlignment="Center" />
                                         </StackPanel>
+                                        <CheckBox Content="使用代理" IsChecked="{Binding UseProxy}" FontSize="9.5"
+                                                  Foreground="{DynamicResource Text}" Margin="62,0,0,4" />
+                                        <Grid Margin="62,0,0,6" IsEnabled="{Binding UseProxy}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="58" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox Text="{Binding ProxyHost, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontSize="9" Padding="6,4" Background="{DynamicResource Surface}"
+                                                     Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource BorderColor}"
+                                                     ToolTip="代理主机，例如 127.0.0.1" />
+                                            <TextBox Grid.Column="1" Text="{Binding ProxyPort, UpdateSourceTrigger=PropertyChanged}"
+                                                     FontSize="9" Padding="4,4" Margin="4,0,0,0" Background="{DynamicResource Surface}"
+                                                     Foreground="{DynamicResource Text}" BorderBrush="{DynamicResource BorderColor}"
+                                                     ToolTip="代理端口，例如 7890" />
+                                        </Grid>
                                         <WrapPanel Margin="62,0,0,0">
                                             <Button Content="保存" Style="{StaticResource GhostButton}" Padding="8,4" FontSize="9"
                                                     Command="{Binding SaveSettingsCommand}" />

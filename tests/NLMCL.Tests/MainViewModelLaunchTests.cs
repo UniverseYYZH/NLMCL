@@ -61,12 +61,13 @@ namespace NLMCL.Tests
         }
 
         private static MainViewModel Create(
-            IVersionCatalog catalog, IGameLauncher launcher, IJavaLocator javas)
+            IVersionCatalog catalog, IGameLauncher launcher, IJavaLocator javas,
+            IInstanceSettingsStore? instanceSettings = null)
         {
             AppPaths paths = new AppPaths(@"C:\Temp\roaming");
             return new MainViewModel(
                 catalog, paths, new DownloadViewModel(new TestSupport.EmptyProvider(), new TestSupport.NoopInstaller(), paths),
-                TestSupport.CreateConsole(paths), launcher, javas, new TestSupport.MemoryAccountStore(), new TestSupport.NoopAuthenticator(), new TestSupport.MemoryInstanceSettingsStore(), new TestSupport.FakeNetwork(), new TestSupport.FakeClipboard(), new TestSupport.FakeFolderPicker(), new TestSupport.FakeAppSettings());
+                TestSupport.CreateConsole(paths), launcher, javas, new TestSupport.MemoryAccountStore(), new TestSupport.NoopAuthenticator(), instanceSettings ?? new TestSupport.MemoryInstanceSettingsStore(), new TestSupport.FakeNetwork(), new TestSupport.FakeClipboard(), new TestSupport.FakeFolderPicker(), new TestSupport.FakeAppSettings());
         }
 
         [Fact]
@@ -178,6 +179,33 @@ namespace NLMCL.Tests
 
             Assert.NotNull(launcher.LastRequest);
             Assert.Contains("UseG1GC", launcher.LastRequest!.ExtraJvmArguments);
+        }
+
+        [Fact]
+        public async Task Launch_passes_instance_proxy_to_jvm_arguments()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            RecordingLauncher launcher = new RecordingLauncher();
+            TestSupport.MemoryInstanceSettingsStore settings = new TestSupport.MemoryInstanceSettingsStore();
+            settings.Items["1.21.1"] = new InstanceSettings
+            {
+                UseProxy = true,
+                ProxyHost = "127.0.0.1",
+                ProxyPort = 7890
+            };
+            MainViewModel vm = Create(catalog, launcher, new FixedJavaLocator(TestSupport.CreateJava(21)), settings);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LoadInstanceSettingsAsync(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+
+            Assert.NotNull(launcher.LastRequest);
+            string jvm = launcher.LastRequest!.ExtraJvmArguments;
+            Assert.Contains("-Dhttp.proxyHost=127.0.0.1", jvm);
+            Assert.Contains("-Dhttp.proxyPort=7890", jvm);
+            Assert.Contains("-Dhttps.proxyHost=127.0.0.1", jvm);
         }
 
         [Fact]

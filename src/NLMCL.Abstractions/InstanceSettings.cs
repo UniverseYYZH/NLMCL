@@ -33,6 +33,15 @@ namespace NLMCL.Abstractions
         /// <summary>是否全屏启动。</summary>
         public bool Fullscreen { get; set; }
 
+        /// <summary>是否让该实例走 HTTP/HTTPS 代理。</summary>
+        public bool UseProxy { get; set; }
+
+        /// <summary>代理主机（UseProxy 为 true 时生效）。</summary>
+        public string? ProxyHost { get; set; }
+
+        /// <summary>代理端口（UseProxy 为 true 时生效）。</summary>
+        public int ProxyPort { get; set; }
+
         /// <summary>把额外参数按空白切开（忽略多余空格）。</summary>
         public IReadOnlyList<string> ParsedExtraArguments()
         {
