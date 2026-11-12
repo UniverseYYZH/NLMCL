@@ -39,10 +39,17 @@ namespace NLMCL.Core.Servers
                     return exact;
                 }
 
-                int dot = wanted.IndexOf('.');
-                string majorPrefix = dot > 0
-                    ? wanted.Substring(0, dot + 1) // "4."
-                    : wanted + "."; // 只写了主版本 "4"
+                int firstDot = wanted.IndexOf('.');
+                int secondDot = firstDot >= 0
+                    ? wanted.IndexOf('.', firstDot + 1)
+                    : -1;
+
+                // "4" -> "4."；"4.0" -> "4.0."；"4.0.6" -> "4."（同主版本兜底）。
+                // 两段版本不能再退到别的次版本，否则 Pick 选出的文件会被
+                // MatchesVersion 判为不匹配，界面会反复提示重装。
+                string majorPrefix = firstDot < 0 || secondDot < 0
+                    ? wanted + "."
+                    : wanted.Substring(0, firstDot + 1);
 
                 ResourceFile? sameMajor = files.FirstOrDefault(file =>
                     (file.VersionName ?? string.Empty).StartsWith(majorPrefix, StringComparison.OrdinalIgnoreCase)
@@ -98,18 +105,40 @@ namespace NLMCL.Core.Servers
                 index = file.IndexOf(wanted, index + 1, StringComparison.OrdinalIgnoreCase);
             }
 
-            int dot = wanted.IndexOf('.');
-            if (dot > 0)
+            int firstDot = wanted.IndexOf('.');
+            if (firstDot < 0)
+            {
+                string majorPrefix = wanted + ".";
+
+                return file.StartsWith("automodpack-" + majorPrefix, StringComparison.OrdinalIgnoreCase)
+                    || file.IndexOf("-" + majorPrefix, StringComparison.OrdinalIgnoreCase) >= 0
+                    || file.IndexOf("_" + majorPrefix, StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+
+            int secondDot = wanted.IndexOf('.', firstDot + 1);
+            if (secondDot >= 0)
             {
                 // 精确版本（4.0.6）不能靠主版本前缀命中 4.0.7。
                 return false;
             }
 
-            string majorPrefix = wanted + ".";
+            // 两段版本（4.0）允许 4.0.x，但不能命中 4.1.x 或 14.0.x。
+            string minorPrefix = wanted + ".";
+            int minorIndex = file.IndexOf(minorPrefix, StringComparison.OrdinalIgnoreCase);
+            while (minorIndex >= 0)
+            {
+                int minorEnd = minorIndex + minorPrefix.Length;
+                if (IsVersionBoundaryBefore(file, minorIndex)
+                    && minorEnd < file.Length
+                    && char.IsDigit(file[minorEnd]))
+                {
+                    return true;
+                }
 
-            return file.StartsWith("automodpack-" + majorPrefix, StringComparison.OrdinalIgnoreCase)
-                || file.IndexOf("-" + majorPrefix, StringComparison.OrdinalIgnoreCase) >= 0
-                || file.IndexOf("_" + majorPrefix, StringComparison.OrdinalIgnoreCase) >= 0;
+                minorIndex = file.IndexOf(minorPrefix, minorIndex + 1, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
 
         /// <summary>版本号前一位不能紧贴数字或另一个版本段。</summary>
