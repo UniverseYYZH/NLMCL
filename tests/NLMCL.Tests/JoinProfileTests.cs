@@ -435,6 +435,44 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public void Switching_account_refreshes_join_checks()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-check-account-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                MainViewModel vm = TestSupport.CreateMain(new FixedCatalog(), paths);
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Loader = "fabric",
+                    LoaderVersion = "0.20.1",
+                    AutoModpackVersion = "4.0.6",
+                    Mode = ServerProfileMode.Modded
+                };
+                profile.Addresses.Add("play.example.org:25565");
+                vm.Ningli.SetProfiles(new[] { profile });
+                vm.RefreshJoinChecks();
+
+                ServerJoinCheck? before = vm.JoinChecks.FirstOrDefault(item => item.Label == "账号");
+                Assert.NotNull(before);
+                Assert.False(before!.IsOk);
+
+                vm.Account = new Account("UniverseYYZH", "uuid-universe", AccountType.Offline);
+
+                ServerJoinCheck? after = vm.JoinChecks.FirstOrDefault(item => item.Label == "账号");
+                Assert.NotNull(after);
+                Assert.True(after!.IsOk, after.Detail);
+                Assert.Contains("UniverseYYZH", after.Detail);
+            }
+            finally
+            {
+                try { Directory.Delete(root, true); } catch (IOException) { }
+            }
+        }
+
+        [Fact]
         public void Join_check_reports_a_corrupted_automodpack_jar()
         {
             string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-check-corrupt-");

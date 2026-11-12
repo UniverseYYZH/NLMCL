@@ -592,6 +592,9 @@ namespace NLMCL.App.ViewModels
                 _skin?.ActivateLibrary();
             }
 
+            // 账号是进服检查的第一项；切换/登录后立即刷新，避免显示上一个账号。
+            RefreshJoinChecks();
+
             _ = LoadAvatarAsync(value);
         }
         /// <summary>拉取账号头像（头部正面）。失败时回退默认 Steve，不阻断界面。</summary>
