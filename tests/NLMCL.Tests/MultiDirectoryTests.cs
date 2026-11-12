@@ -106,6 +106,52 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Removing_the_active_directory_falls_back_to_the_first_remaining()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-remove-" + Guid.NewGuid().ToString("N"));
+            string first = System.IO.Path.Combine(root, "one");
+            string second = System.IO.Path.Combine(root, "two");
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(first);
+                System.IO.Directory.CreateDirectory(second);
+
+                TestSupport.FakeAppSettings settings = new TestSupport.FakeAppSettings();
+                settings.Current.GameDirectory = first;
+                settings.Current.GameDirectories = new List<string> { first, second };
+
+                MainViewModel vm = TestSupport.CreateMain(
+                    new MultiCatalog(first, second),
+                    new NLMCL.Core.AppPaths(root),
+                    appSettings: settings);
+                await vm.InitializeAsync();
+
+                vm.SelectedGameDirectory = second;
+                await vm.RemoveGameDirectoryAsync();
+
+                Assert.Equal(new[] { first }, vm.GameDirectories);
+                Assert.Equal(first, vm.CurrentGameDirectory);
+                Assert.Equal(first, vm.SelectedGameDirectory);
+                Assert.Equal(first, settings.Current.GameDirectory);
+                Assert.Equal(new[] { first }, settings.Current.GameDirectories);
+                Assert.DoesNotContain(vm.Versions, item =>
+                    string.Equals(item.GameDirectory, second, StringComparison.OrdinalIgnoreCase));
+            }
+            finally
+            {
+                try
+                {
+                    System.IO.Directory.Delete(root, true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
         public async Task Add_folder_button_uses_folder_picker()
         {
             string root = System.IO.Path.Combine(

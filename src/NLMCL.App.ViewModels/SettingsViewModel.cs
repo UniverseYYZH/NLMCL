@@ -44,6 +44,12 @@ namespace NLMCL.App.ViewModels
             _transfer = transfer;
             _commands = commands;
             _host.PropertyChanged += OnHostPropertyChanged;
+            _host.GameDirectories.CollectionChanged += OnGameDirectoriesChanged;
+        }
+
+        private void OnGameDirectoriesChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            OnPropertyChanged(nameof(CanRemoveGameDirectory));
         }
 
         public event EventHandler? SaveRequested;
@@ -241,6 +247,9 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>设置页里的已添加目录列表；状态仍由 MainViewModel 持有。</summary>
         public ObservableCollection<string> GameDirectories => _host.GameDirectories;
+
+        /// <summary>至少保留一个目录，避免移除后没有可扫描的位置。</summary>
+        public bool CanRemoveGameDirectory => _host.GameDirectories.Count > 1;
 
         public string? SelectedGameDirectory
         {
@@ -471,6 +480,12 @@ namespace NLMCL.App.ViewModels
         private Task PickGameDirectoryAsync()
         {
             return _commands?.PickGameDirectoryAsync() ?? Task.CompletedTask;
+        }
+
+        [RelayCommand]
+        private Task RemoveGameDirectoryAsync()
+        {
+            return _commands?.RemoveGameDirectoryAsync() ?? Task.CompletedTask;
         }
 
         [RelayCommand]

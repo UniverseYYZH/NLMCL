@@ -11,6 +11,8 @@ namespace NLMCL.App.ViewModels
     {
         Task PickGameDirectoryAsync();
 
+        Task RemoveGameDirectoryAsync();
+
         void OpenGameDirectory();
 
         void OpenLogsFolder();
