@@ -4244,6 +4244,34 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            // 渲染器冲突不会阻止游戏启动，但通常会在进入世界后黑屏/崩溃。
+            // 启动前给一次可取消的提醒，不篡改玩家装好的 Mod。
+            if (_mods != null && _dialogs != null)
+            {
+                try
+                {
+                    string modsDirectory = Path.Combine(
+                        ResolveGameDirectory(_instancePaths, CurrentGameDirectory, SelectedVersion.FolderName),
+                        "mods");
+                    string rendererWarning = await _mods
+                        .GetRendererWarningAsync(modsDirectory, CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    if (!string.IsNullOrWhiteSpace(rendererWarning)
+                        && !_dialogs.Confirm(
+                            "渲染器 Mod 冲突",
+                            rendererWarning + "\n\n仍要启动吗？"))
+                    {
+                        StatusText = "已取消启动：检测到渲染器 Mod 冲突。";
+                        return;
+                    }
+                }
+                catch (Exception)
+                {
+                    // 读取 mods 失败不应挡住启动。
+                }
+            }
+
             // 缺客户端 JAR 的实例直接拉起 JVM 只会弹「A Java Exception has occurred.」，
             // 对用户毫无信息量。这里提前拦住，并告诉他去哪儿修。
             if (SelectedVersion.HasWarning)

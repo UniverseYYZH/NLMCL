@@ -62,12 +62,46 @@ namespace NLMCL.Tests
 
         private static MainViewModel Create(
             IVersionCatalog catalog, IGameLauncher launcher, IJavaLocator javas,
-            IInstanceSettingsStore? instanceSettings = null)
+            IInstanceSettingsStore? instanceSettings = null,
+            ModsViewModel? mods = null, IDialogService? dialogs = null)
         {
             AppPaths paths = new AppPaths(@"C:\Temp\roaming");
             return new MainViewModel(
                 catalog, paths, new DownloadViewModel(new TestSupport.EmptyProvider(), new TestSupport.NoopInstaller(), paths),
-                TestSupport.CreateConsole(paths), launcher, javas, new TestSupport.MemoryAccountStore(), new TestSupport.NoopAuthenticator(), instanceSettings ?? new TestSupport.MemoryInstanceSettingsStore(), new TestSupport.FakeNetwork(), new TestSupport.FakeClipboard(), new TestSupport.FakeFolderPicker(), new TestSupport.FakeAppSettings());
+                TestSupport.CreateConsole(paths), launcher, javas, new TestSupport.MemoryAccountStore(), new TestSupport.NoopAuthenticator(), instanceSettings ?? new TestSupport.MemoryInstanceSettingsStore(), new TestSupport.FakeNetwork(), new TestSupport.FakeClipboard(), new TestSupport.FakeFolderPicker(), new TestSupport.FakeAppSettings(),
+                mods: mods, dialogs: dialogs);
+        }
+
+        private sealed class ConflictModManager : IModManager
+        {
+            public Task<IReadOnlyList<ModEntry>> ListAsync(string modsDirectory, CancellationToken cancellationToken)
+            {
+                IReadOnlyList<ModEntry> mods = new[]
+                {
+                    new ModEntry("sodium.jar", "sodium.jar", 1) { Name = "Sodium", Enabled = true },
+                    new ModEntry("optifine.jar", "optifine.jar", 1) { Name = "OptiFine", Enabled = true }
+                };
+                return Task.FromResult(mods);
+            }
+
+            public Task EnableAsync(ModEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+
+            public Task DisableAsync(ModEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+
+            public Task DeleteAsync(ModEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+        }
+
+        private sealed class CancelDialog : IDialogService
+        {
+            public bool Asked { get; private set; }
+
+            public bool Confirm(string title, string message)
+            {
+                Asked = true;
+                return false;
+            }
+
+            public string? Prompt(string title, string message, string initialValue) => null;
         }
 
         [Fact]
@@ -161,6 +195,25 @@ namespace NLMCL.Tests
             // 两个 Java 中应该挑高版本（这里断言的是"挑中了哪一个实例"）
             Assert.Equal(java21.ExecutablePath, launcher.LastRequest.JavaExecutable);
             Assert.Contains("已启动", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Launch_warns_about_renderer_conflicts_and_can_cancel()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            RecordingLauncher launcher = new RecordingLauncher();
+            CancelDialog dialogs = new CancelDialog();
+            MainViewModel vm = Create(catalog, launcher, new FixedJavaLocator(),
+                mods: new ModsViewModel(new ConflictModManager()), dialogs: dialogs);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+
+            Assert.True(dialogs.Asked);
+            Assert.Null(launcher.LastRequest);
+            Assert.Contains("渲染器", vm.StatusText);
         }
 
         [Fact]

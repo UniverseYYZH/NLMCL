@@ -224,9 +224,48 @@ namespace NLMCL.App.ViewModels
                 ? "未检测到 Sodium / Embeddium / OptiFine / VulkanMod / Iris。"
                 : "检测到：" + string.Join("、", RendererMods.Select(item => item.DisplayText));
 
-            HashSet<string> enabled = new HashSet<string>(
-                RendererMods.Where(item => item.Enabled).Select(item => item.Kind),
-                StringComparer.OrdinalIgnoreCase);
+            RendererWarning = BuildRendererWarning(Mods);
+        }
+
+        /// <summary>
+        /// 启动前检查用：不依赖 Mod 管理页当前列表，直接扫描实例的 mods 目录。
+        /// 读取失败不应阻止启动，由调用方决定如何处理空字符串。
+        /// </summary>
+        public Task<string> GetRendererWarningAsync(CancellationToken cancellationToken)
+            => GetRendererWarningAsync(_modsDirectory, cancellationToken);
+
+        /// <summary>指定 mods 目录的启动前检查，不修改 Mod 管理页当前状态。</summary>
+        public async Task<string> GetRendererWarningAsync(string modsDirectory, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(modsDirectory))
+            {
+                return string.Empty;
+            }
+
+            IReadOnlyList<ModEntry> mods = await _manager
+                .ListAsync(modsDirectory, cancellationToken)
+                .ConfigureAwait(false);
+
+            return BuildRendererWarning(mods);
+        }
+
+        private static string BuildRendererWarning(IEnumerable<ModEntry> mods)
+        {
+            HashSet<string> enabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (ModEntry mod in mods)
+            {
+                if (!mod.Enabled)
+                {
+                    continue;
+                }
+
+                string? kind = DetectRenderer(mod);
+                if (kind != null)
+                {
+                    enabled.Add(kind);
+                }
+            }
 
             bool sodium = enabled.Contains("Sodium");
             bool embeddium = enabled.Contains("Embeddium");
@@ -262,7 +301,7 @@ namespace NLMCL.App.ViewModels
                 warnings.Add("OptiFabric 需要 OptiFine；当前未检测到已启用的 OptiFine。");
             }
 
-            RendererWarning = warnings.Count == 0 ? string.Empty : string.Join(" ", warnings);
+            return warnings.Count == 0 ? string.Empty : string.Join(" ", warnings);
         }
 
         private static string? DetectRenderer(ModEntry mod)
