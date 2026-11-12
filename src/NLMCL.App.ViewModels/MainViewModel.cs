@@ -2357,7 +2357,7 @@ namespace NLMCL.App.ViewModels
 
             string target = Path.Combine(mods, file.Name);
 
-            if (File.Exists(target) && !string.IsNullOrEmpty(file.Sha1) && HasSha1(target, file.Sha1!))
+            if (File.Exists(target) && IsAutoModpackFileCurrent(target, file))
             {
                 // 目标已正确也要清掉同目录的旧版本，否则两个 AutoModpack 会同时加载。
                 DeleteStaleAutoModpackJars(mods, file.Name);
@@ -2400,10 +2400,53 @@ namespace NLMCL.App.ViewModels
             // 否则两个 AutoModpack 同时加载会冲突。
             DeleteStaleAutoModpackJars(mods, file.Name);
 
-            if (!string.IsNullOrEmpty(file.Sha1) && !HasSha1(target, file.Sha1!))
+            if ((!string.IsNullOrEmpty(file.Sha1) || file.Size > 0)
+                && !IsAutoModpackFileCurrent(target, file))
             {
-                File.Delete(target);
-                throw new InvalidOperationException("AutoModpack 校验失败（哈希不一致），已删除");
+                if (File.Exists(target))
+                {
+                    File.Delete(target);
+                }
+
+                throw new InvalidOperationException(
+                    string.IsNullOrEmpty(file.Sha1)
+                        ? "AutoModpack 校验失败（文件大小不一致），已删除"
+                        : "AutoModpack 校验失败（哈希不一致），已删除");
+            }
+        }
+
+        /// <summary>
+        /// 已落盘文件是否可信：优先 SHA1；没有 SHA1 时用源站大小兜底，
+        /// 避免下载中断留下的半截文件被当成“已就位”。大小未知时只能重下。
+        /// </summary>
+        private static bool IsAutoModpackFileCurrent(string path, ResourceFile file)
+        {
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(file.Sha1))
+            {
+                return HasSha1(path, file.Sha1!);
+            }
+
+            if (file.Size <= 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                return new FileInfo(path).Length == file.Size;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
             }
         }
 
@@ -2437,6 +2480,10 @@ namespace NLMCL.App.ViewModels
                 return string.Equals(actual, expected.Trim().ToLowerInvariant(), StringComparison.Ordinal);
             }
             catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
             {
                 return false;
             }

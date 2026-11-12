@@ -143,7 +143,7 @@ namespace NLMCL.Tests
                     new ResourceFile(
                         "automodpack-4.0.6.jar",
                         "https://example.com/automodpack-4.0.6.jar",
-                        1,
+                        "automodpack".Length,
                         "4.0.6",
                         new[] { "1.21.1" },
                         "fabric")
@@ -202,12 +202,15 @@ namespace NLMCL.Tests
 
         private sealed class WritingAutoModpackDownloader : IFileDownloader
         {
+            public int Calls { get; private set; }
+
             public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
                 => DownloadAsync(url, targetPath, null, cancellationToken);
 
             public Task DownloadAsync(
                 string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
             {
+                Calls++;
                 Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
                 File.WriteAllText(targetPath, "automodpack");
                 progress?.Report(1);
@@ -353,6 +356,108 @@ namespace NLMCL.Tests
                 Assert.Equal("example.com:25565", launcher.LastRequest?.ServerAddress);
                 Assert.True(File.Exists(Path.Combine(instance, "mods", "automodpack-4.0.6.jar")));
                 Assert.Contains("已启动", vm.StatusText);
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Installed_automodpack_with_matching_size_is_not_downloaded()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-size-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                string instance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.15.0-1.21.1");
+                string mods = Path.Combine(instance, "mods");
+                Directory.CreateDirectory(mods);
+                Directory.CreateDirectory(Path.Combine(root, "bin"));
+                File.WriteAllText(Path.Combine(root, "bin", "java.exe"), string.Empty);
+                File.WriteAllText(Path.Combine(mods, "automodpack-4.0.6.jar"), "automodpack");
+
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    javaLocator: new FixedJavaLocator(root),
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new MatchingAutoModpackCatalog(),
+                    fileDownloader: new UnusedDownloader());
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                Assert.True(launcher.Calls == 1, vm.StatusText);
+                Assert.Equal("automodpack", File.ReadAllText(
+                    Path.Combine(mods, "automodpack-4.0.6.jar")));
+            }
+            finally
+            {
+                Directory.Delete(root, true);
+            }
+        }
+
+        [Fact]
+        public async Task Truncated_automodpack_is_replaced()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-join-truncated-");
+            try
+            {
+                AppPaths paths = new AppPaths(root);
+                string instance = Path.Combine(
+                    paths.DefaultMinecraftDirectory, "versions", "fabric-loader-0.15.0-1.21.1");
+                string mods = Path.Combine(instance, "mods");
+                Directory.CreateDirectory(mods);
+                Directory.CreateDirectory(Path.Combine(root, "bin"));
+                File.WriteAllText(Path.Combine(root, "bin", "java.exe"), string.Empty);
+                File.WriteAllText(Path.Combine(mods, "automodpack-4.0.6.jar"), "old");
+
+                ServerProfilePicker picker = new ServerProfilePicker(
+                    new FixedResolver(), new OnlinePinger(), TimeSpan.FromSeconds(1));
+                CountingLauncher launcher = new CountingLauncher();
+                WritingAutoModpackDownloader downloader = new WritingAutoModpackDownloader();
+                MainViewModel vm = TestSupport.CreateMain(
+                    new FixedCatalog(),
+                    paths,
+                    javaLocator: new FixedJavaLocator(root),
+                    launcher: launcher,
+                    profilePicker: picker,
+                    resourceCatalog: new MatchingAutoModpackCatalog(),
+                    fileDownloader: downloader);
+
+                vm.CurrentGameDirectory = paths.DefaultMinecraftDirectory;
+
+                ServerProfile profile = new ServerProfile("pokemon", "宝可梦", "1.21.1")
+                {
+                    Mode = ServerProfileMode.Modded,
+                    Loader = "fabric",
+                    LoaderVersion = "0.15.0",
+                    AutoModpackVersion = "4.0.6"
+                };
+                profile.Addresses.Add("example.com");
+
+                await vm.JoinProfileModdedAsync(profile);
+
+                Assert.True(launcher.Calls == 1, vm.StatusText);
+                Assert.Equal(1, downloader.Calls);
+                Assert.Equal("automodpack", File.ReadAllText(
+                    Path.Combine(mods, "automodpack-4.0.6.jar")));
             }
             finally
             {
