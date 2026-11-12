@@ -76,7 +76,28 @@ namespace NLMCL.Core.Servers
             return version.Equals(wanted, StringComparison.OrdinalIgnoreCase)
                 || version.StartsWith(wanted + "-", StringComparison.OrdinalIgnoreCase)
                 || version.StartsWith(wanted + ".", StringComparison.OrdinalIgnoreCase)
-                || MatchesVersion(file.Name, wanted);
+                || MatchesExactVersion(file.Name, wanted);
+        }
+
+        /// <summary>
+        /// 文件名里是否真的写着这个版本号（边界匹配）。用于 Pick 的“精确优先”，
+        /// 不能使用 MatchesVersion 的同主版本兜底，否则 4.0.7 会排在 4.0.6 前面。
+        /// </summary>
+        private static bool MatchesExactVersion(string file, string wanted)
+        {
+            int index = file.IndexOf(wanted, StringComparison.OrdinalIgnoreCase);
+            while (index >= 0)
+            {
+                int end = index + wanted.Length;
+                if (IsVersionBoundaryBefore(file, index) && IsVersionBoundaryAfter(file, end))
+                {
+                    return true;
+                }
+
+                index = file.IndexOf(wanted, index + 1, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -93,16 +114,9 @@ namespace NLMCL.Core.Servers
                 return false;
             }
 
-            int index = file.IndexOf(wanted, StringComparison.OrdinalIgnoreCase);
-            while (index >= 0)
+            if (MatchesExactVersion(file, wanted))
             {
-                int end = index + wanted.Length;
-                if (IsVersionBoundaryBefore(file, index) && IsVersionBoundaryAfter(file, end))
-                {
-                    return true;
-                }
-
-                index = file.IndexOf(wanted, index + 1, StringComparison.OrdinalIgnoreCase);
+                return true;
             }
 
             int firstDot = wanted.IndexOf('.');
@@ -118,7 +132,26 @@ namespace NLMCL.Core.Servers
             int secondDot = wanted.IndexOf('.', firstDot + 1);
             if (secondDot >= 0)
             {
-                // 精确版本（4.0.6）不能靠主版本前缀命中 4.0.7。
+                // 与 Pick 的兜底保持一致：精确补丁版缺失时会选同主版本的最新版
+                // （例如 4.0.6 -> 4.0.7），这里必须把这个选择认作“已就位”，
+                // 否则界面会一直提示版本不匹配，但每次都会复用同一个 jar。
+                // 仍要求主版本有左边界，避免 14.0.6 被当成 4.x。
+                string majorPrefix = wanted.Substring(0, firstDot + 1);
+                int majorIndex = file.IndexOf(majorPrefix, StringComparison.OrdinalIgnoreCase);
+                while (majorIndex >= 0)
+                {
+                    int majorEnd = majorIndex + majorPrefix.Length;
+                    if (IsVersionBoundaryBefore(file, majorIndex)
+                        && majorEnd < file.Length
+                        && char.IsDigit(file[majorEnd]))
+                    {
+                        return true;
+                    }
+
+                    majorIndex = file.IndexOf(
+                        majorPrefix, majorIndex + 1, StringComparison.OrdinalIgnoreCase);
+                }
+
                 return false;
             }
 

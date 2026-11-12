@@ -91,12 +91,33 @@ namespace NLMCL.Tests
         }
 
         [Fact]
-        public void Installed_jar_does_not_match_a_longer_patch_version()
+        public void Installed_jar_matches_a_later_patch_of_the_same_major()
         {
-            Assert.False(AutoModpackSelector.MatchesVersion(
+            // Pick 在精确 4.0.6 缺失时会落到同主版本 4.0.7；界面检查必须认这个结果，
+            // 否则会反复提示“版本不匹配”。4.0.60 是同一主版本里更高的补丁，不能因
+            // 字符串包含关系误判成 4.0.6，但作为同主版本兜底仍是可接受的。
+            Assert.True(AutoModpackSelector.MatchesVersion(
+                "automodpack-mc1.21.1-fabric-4.0.7.jar", "4.0.6"));
+            Assert.True(AutoModpackSelector.MatchesVersion(
                 "automodpack-mc1.21.1-fabric-4.0.60.jar", "4.0.6"));
             Assert.False(AutoModpackSelector.MatchesVersion(
-                "automodpack-mc1.21.1-fabric-4.0.6.1.jar", "4.0.6"));
+                "automodpack-mc1.21.1-fabric-14.0.6.jar", "4.0.6"));
+        }
+
+        [Fact]
+        public void Picked_jar_is_reported_as_installed()
+        {
+            List<ResourceFile> files = new List<ResourceFile>
+            {
+                File("5.0.0-rc.7", "automodpack-5.0.0-rc.7.jar"),
+                File("4.0.7", "automodpack-mc1.21.1-fabric-4.0.7.jar")
+            };
+
+            ResourceFile? picked = AutoModpackSelector.Pick(files, "4.0.6");
+
+            Assert.NotNull(picked);
+            Assert.True(AutoModpackSelector.MatchesVersion(
+                picked!.Name, "4.0.6"), "Pick 选出的 jar 必须被 MatchesVersion 认作已安装");
         }
 
         [Fact]
