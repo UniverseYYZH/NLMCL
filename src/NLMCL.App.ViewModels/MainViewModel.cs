@@ -2423,6 +2423,13 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            // 进服准备可能正握着目标实例/服务器地址；先停游戏再启动会被
+            // LaunchCoreAsync 的 fromJoin 拦截，最后变成“游戏被关了但没有重开”。
+            if (IsJoinPreparationInProgress())
+            {
+                return;
+            }
+
             if (Console.IsRunning)
             {
                 StatusText = "正在停止当前游戏 …";

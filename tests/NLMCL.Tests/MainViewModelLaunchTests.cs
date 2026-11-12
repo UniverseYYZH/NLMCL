@@ -290,6 +290,22 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Restart_is_ignored_while_a_join_is_preparing()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            RecordingLauncher launcher = new RecordingLauncher();
+            MainViewModel vm = Create(catalog, launcher, new FixedJavaLocator());
+            await vm.RefreshAsync();
+            vm.IsJoiningProfile = true;
+
+            await vm.RestartGameAsync();
+
+            Assert.Null(launcher.LastRequest);
+            Assert.Contains("正在准备进入服务器", vm.StatusText);
+        }
+
+        [Fact]
         public async Task Launch_without_java_reports_instead_of_starting()
         {
             CountingCatalog catalog = new CountingCatalog(
