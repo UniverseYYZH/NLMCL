@@ -91,13 +91,36 @@ namespace NLMCL.Tests
             public Task DeleteAsync(ModEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
         }
 
+        private sealed class MissingDependencyModManager : IModManager
+        {
+            public Task<IReadOnlyList<ModEntry>> ListAsync(string modsDirectory, CancellationToken cancellationToken)
+            {
+                ModEntry mod = new ModEntry("create.jar", "create.jar", 1) { Name = "Create", Enabled = true };
+                mod.MissingDependencies.Add("flywheel");
+                IReadOnlyList<ModEntry> mods = new[] { mod };
+                return Task.FromResult(mods);
+            }
+
+            public Task EnableAsync(ModEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+
+            public Task DisableAsync(ModEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+
+            public Task DeleteAsync(ModEntry entry, CancellationToken cancellationToken) => Task.CompletedTask;
+        }
+
         private sealed class CancelDialog : IDialogService
         {
             public bool Asked { get; private set; }
 
+            public string LastTitle { get; private set; } = string.Empty;
+
+            public string LastMessage { get; private set; } = string.Empty;
+
             public bool Confirm(string title, string message)
             {
                 Asked = true;
+                LastTitle = title;
+                LastMessage = message;
                 return false;
             }
 
@@ -213,7 +236,30 @@ namespace NLMCL.Tests
 
             Assert.True(dialogs.Asked);
             Assert.Null(launcher.LastRequest);
-            Assert.Contains("渲染器", vm.StatusText);
+            Assert.Equal("启动前检查", dialogs.LastTitle);
+            Assert.Contains("OptiFine", dialogs.LastMessage);
+            Assert.Contains("不兼容", dialogs.LastMessage);
+            Assert.Contains("启动前检查", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Launch_warns_about_missing_mod_dependencies_and_can_cancel()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            RecordingLauncher launcher = new RecordingLauncher();
+            CancelDialog dialogs = new CancelDialog();
+            MainViewModel vm = Create(catalog, launcher, new FixedJavaLocator(),
+                mods: new ModsViewModel(new MissingDependencyModManager()), dialogs: dialogs);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+
+            Assert.True(dialogs.Asked);
+            Assert.Null(launcher.LastRequest);
+            Assert.Contains("缺少前置", dialogs.LastMessage);
+            Assert.Contains("flywheel", dialogs.LastMessage);
         }
 
         [Fact]

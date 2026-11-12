@@ -249,6 +249,44 @@ namespace NLMCL.App.ViewModels
             return BuildRendererWarning(mods);
         }
 
+        /// <summary>
+        /// 启动前预检：把缺失前置和渲染器冲突合成一次提示，避免连续弹多个框。
+        /// 只读文件，不自动改 Mod。
+        /// </summary>
+        public async Task<IReadOnlyList<string>> GetLaunchWarningsAsync(
+            string modsDirectory, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrEmpty(modsDirectory))
+            {
+                return Array.Empty<string>();
+            }
+
+            IReadOnlyList<ModEntry> mods = await _manager
+                .ListAsync(modsDirectory, cancellationToken)
+                .ConfigureAwait(false);
+
+            List<string> warnings = new List<string>();
+
+            List<ModEntry> missing = mods
+                .Where(mod => mod.Enabled && mod.HasMissingDependencies)
+                .Take(6)
+                .ToList();
+
+            if (missing.Count > 0)
+            {
+                warnings.Add("以下 Mod 缺少前置：" + string.Join("；", missing.Select(
+                    mod => mod.DisplayName + "（缺 " + string.Join("、", mod.MissingDependencies) + "）")));
+            }
+
+            string renderer = BuildRendererWarning(mods);
+            if (!string.IsNullOrWhiteSpace(renderer))
+            {
+                warnings.Add(renderer);
+            }
+
+            return warnings;
+        }
+
         private static string BuildRendererWarning(IEnumerable<ModEntry> mods)
         {
             HashSet<string> enabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

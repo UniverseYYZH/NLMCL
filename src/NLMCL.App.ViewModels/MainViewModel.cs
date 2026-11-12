@@ -4253,16 +4253,17 @@ namespace NLMCL.App.ViewModels
                     string modsDirectory = Path.Combine(
                         ResolveGameDirectory(_instancePaths, CurrentGameDirectory, SelectedVersion.FolderName),
                         "mods");
-                    string rendererWarning = await _mods
-                        .GetRendererWarningAsync(modsDirectory, CancellationToken.None)
+                    IReadOnlyList<string> warnings = await _mods
+                        .GetLaunchWarningsAsync(modsDirectory, CancellationToken.None)
                         .ConfigureAwait(true);
 
-                    if (!string.IsNullOrWhiteSpace(rendererWarning)
+                    if (warnings.Count > 0
                         && !_dialogs.Confirm(
-                            "渲染器 Mod 冲突",
-                            rendererWarning + "\n\n仍要启动吗？"))
+                            "启动前检查",
+                            "检测到以下问题：\n\n- " + string.Join("\n- ", warnings)
+                            + "\n\n仍要启动吗？"))
                     {
-                        StatusText = "已取消启动：检测到渲染器 Mod 冲突。";
+                        StatusText = "已取消启动：启动前检查发现模组问题。";
                         return;
                     }
                 }
