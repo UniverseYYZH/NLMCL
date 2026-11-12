@@ -8,6 +8,7 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/NLMCL;component/Themes/Design.xaml" />
             </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
             <Style x:Key="HubTab" TargetType="Button">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource Muted}" />
@@ -49,6 +50,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -76,7 +78,32 @@
             </StackPanel>
         </Border>
 
-        <Grid Grid.Row="2">
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="14,10"
+                Margin="0,0,0,10"
+                Background="{DynamicResource AmberBg}" BorderBrush="{DynamicResource AmberBorder}"
+                Visibility="{Binding Download.HasPendingJob, Converter={StaticResource BoolToVisibility}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="上次安装未完成" FontSize="12.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="{Binding Download.PendingJobText}" FontSize="10.5"
+                               Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="继续安装" Style="{StaticResource PrimaryButton}"
+                        Padding="14,6" Margin="10,0,0,0"
+                        Command="{Binding Download.ResumePendingJobCommand}" />
+                <Button Grid.Column="2" Content="忽略" Style="{StaticResource GhostButton}"
+                        Padding="12,6" Margin="8,0,0,0"
+                        Command="{Binding Download.DismissPendingJobCommand}" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="3">
             <views:DownloadPage x:Name="DownloadView" DataContext="{Binding Download}" />
             <views:ResourcePage x:Name="ResourceView" DataContext="{Binding Resource}" Visibility="Collapsed" />
             <views:ModPage x:Name="ModView" DataContext="{Binding Mods}" Visibility="Collapsed" />

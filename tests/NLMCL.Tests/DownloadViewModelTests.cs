@@ -75,12 +75,37 @@ namespace NLMCL.Tests
             }
         }
 
-        private static DownloadViewModel Create(IVersionInstaller installer)
+        private sealed class MemoryJobStore : IDownloadJobStore
+        {
+            public DownloadJob? Job { get; set; }
+            public int Saves { get; private set; }
+            public int Clears { get; private set; }
+
+            public Task<DownloadJob?> LoadAsync(CancellationToken cancellationToken)
+                => Task.FromResult(Job);
+
+            public Task SaveAsync(DownloadJob job, CancellationToken cancellationToken)
+            {
+                Saves++;
+                Job = job;
+                return Task.CompletedTask;
+            }
+
+            public Task ClearAsync(CancellationToken cancellationToken)
+            {
+                Clears++;
+                Job = null;
+                return Task.CompletedTask;
+            }
+        }
+
+        private static DownloadViewModel Create(IVersionInstaller installer, IDownloadJobStore? jobs = null)
         {
             return new DownloadViewModel(
                 new MojangVersionListProvider(new FakeDownload(Manifest)),
                 installer,
-                new AppPaths(@"C:\Temp\roaming"));
+                new AppPaths(@"C:\Temp\roaming"),
+                jobs: jobs);
         }
 
         [Fact]
@@ -194,6 +219,49 @@ namespace NLMCL.Tests
             vm.SelectedLoader = "原版";
             await vm.InstallAsync();
             Assert.Null(installer.LastRequest!.Loader);
+        }
+
+        [Fact]
+        public async Task Failed_install_keeps_a_resumable_job_and_resume_runs_it_again()
+        {
+            MemoryJobStore jobs = new MemoryJobStore();
+            FakeInstaller failing = new FakeInstaller(new InvalidDataException("half"));
+            DownloadViewModel vm = Create(failing, jobs);
+            await vm.LoadVersionsAsync();
+            vm.SelectedVersion = vm.Versions.Single(v => v.Id == "1.21.1");
+
+            await vm.InstallAsync();
+
+            Assert.True(vm.HasPendingJob);
+            Assert.NotNull(jobs.Job);
+            Assert.Equal("1.21.1", jobs.Job!.VersionId);
+
+            FakeInstaller ok = new FakeInstaller();
+            DownloadViewModel resumed = Create(ok, jobs);
+            await resumed.LoadPendingJobAsync();
+            Assert.True(resumed.HasPendingJob);
+
+            await resumed.ResumePendingJobCommand.ExecuteAsync(null);
+
+            Assert.Equal(1, ok.Calls);
+            Assert.Equal("1.21.1", ok.LastRequest!.VersionId);
+            Assert.False(resumed.HasPendingJob);
+            Assert.Null(jobs.Job);
+        }
+
+        [Fact]
+        public async Task Install_success_clears_the_pending_job()
+        {
+            MemoryJobStore jobs = new MemoryJobStore();
+            DownloadViewModel vm = Create(new FakeInstaller(), jobs);
+            await vm.LoadVersionsAsync();
+            vm.SelectedVersion = vm.Versions.Single(v => v.Id == "1.21.1");
+
+            await vm.InstallAsync();
+
+            Assert.False(vm.HasPendingJob);
+            Assert.Null(jobs.Job);
+            Assert.True(jobs.Clears > 0);
         }
 
         [Fact]

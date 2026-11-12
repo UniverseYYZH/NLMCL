@@ -12,7 +12,15 @@ namespace NLMCL.App.Views
         public DownloadHubPage()
         {
             InitializeComponent();
-            Loaded += (_, __) => ShowTab("download");
+            Loaded += async (_, __) =>
+            {
+                ShowTab("download");
+
+                if (Vm?.Download != null)
+                {
+                    await Vm.Download.LoadPendingJobAsync();
+                }
+            };
         }
 
         private MainViewModel? Vm => DataContext as MainViewModel;

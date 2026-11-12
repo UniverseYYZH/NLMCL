@@ -77,4 +77,25 @@ namespace NLMCL.Abstractions
             IProgress<FileDownloadProgress>? progress,
             CancellationToken cancellationToken);
     }
+
+    /// <summary>下载中心尚未完成的版本安装任务，用于重启后继续。</summary>
+    public sealed class DownloadJob
+    {
+        public string VersionId { get; set; } = string.Empty;
+        public string Loader { get; set; } = "原版";
+        public string LoaderVersion { get; set; } = string.Empty;
+        public string TargetDirectory { get; set; } = string.Empty;
+        public int Parallelism { get; set; }
+        public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
+    }
+
+    /// <summary>持久化下载任务；任务完成或用户主动忽略后清除。</summary>
+    public interface IDownloadJobStore
+    {
+        Task<DownloadJob?> LoadAsync(CancellationToken cancellationToken);
+
+        Task SaveAsync(DownloadJob job, CancellationToken cancellationToken);
+
+        Task ClearAsync(CancellationToken cancellationToken);
+    }
 }

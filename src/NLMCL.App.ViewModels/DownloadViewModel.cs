@@ -27,6 +27,9 @@ namespace NLMCL.App.ViewModels
         private readonly ILoaderInstaller? _forgeInstaller;
         private readonly IJavaLocator? _javaLocator;
         private readonly IFolderPicker? _folderPicker;
+        private readonly IDownloadJobStore? _jobs;
+        private DownloadJob? _pendingJob;
+        private bool _suppressLoaderReload;
 
         public DownloadViewModel(
             IVersionListProvider provider,
@@ -38,7 +41,8 @@ namespace NLMCL.App.ViewModels
             ILoaderInstaller? forgeInstaller = null,
             IJavaLocator? javaLocator = null,
             INeoForgeCatalog? neoForgeCatalog = null,
-            IFolderPicker? folderPicker = null)
+            IFolderPicker? folderPicker = null,
+            IDownloadJobStore? jobs = null)
         {
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
             _installer = installer ?? throw new ArgumentNullException(nameof(installer));
@@ -50,6 +54,7 @@ namespace NLMCL.App.ViewModels
             _javaLocator = javaLocator;
             _neoForgeCatalog = neoForgeCatalog;
             _folderPicker = folderPicker;
+            _jobs = jobs;
 
             TargetDirectory = paths.DefaultMinecraftDirectory;
         }
@@ -134,7 +139,7 @@ namespace NLMCL.App.ViewModels
             OnPropertyChanged(nameof(IsNeoForgeSelected));
             OnPropertyChanged(nameof(IsLoaderVersionVisible));
 
-            if (IsLoaderVersionVisible)
+            if (IsLoaderVersionVisible && !_suppressLoaderReload)
             {
                 _ = ReloadLoaderVersionsAsync();
             }
@@ -142,7 +147,7 @@ namespace NLMCL.App.ViewModels
 
         partial void OnSelectedVersionChanged(VanillaVersion? value)
         {
-            if (IsLoaderVersionVisible)
+            if (IsLoaderVersionVisible && !_suppressLoaderReload)
             {
                 _ = ReloadLoaderVersionsAsync();
             }
@@ -435,6 +440,83 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _canCancel;
 
+        [ObservableProperty]
+        private bool _hasPendingJob;
+
+        [ObservableProperty]
+        private string _pendingJobText = string.Empty;
+
+        /// <summary>读取上次未完成的安装任务；由下载中心页进入时调用。</summary>
+        public async Task LoadPendingJobAsync()
+        {
+            if (_jobs == null || IsBusy)
+            {
+                return;
+            }
+
+            try
+            {
+                _pendingJob = await _jobs.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+                UpdatePendingJobState();
+            }
+            catch (Exception)
+            {
+                _pendingJob = null;
+                UpdatePendingJobState();
+            }
+        }
+
+        private void UpdatePendingJobState()
+        {
+            HasPendingJob = _pendingJob != null;
+            PendingJobText = _pendingJob == null
+                ? string.Empty
+                : _pendingJob.VersionId + " · " + _pendingJob.Loader
+                    + (string.IsNullOrWhiteSpace(_pendingJob.LoaderVersion)
+                        ? string.Empty
+                        : " " + _pendingJob.LoaderVersion);
+        }
+
+        [RelayCommand]
+        private async Task ResumePendingJobAsync()
+        {
+            if (_pendingJob == null || IsBusy)
+            {
+                return;
+            }
+
+            DownloadJob job = _pendingJob;
+            _suppressLoaderReload = true;
+
+            try
+            {
+                TargetDirectory = job.TargetDirectory;
+                SelectedLoader = job.Loader;
+                LoaderVersion = job.LoaderVersion;
+                Parallelism = job.Parallelism > 0 ? job.Parallelism : 8;
+                InstallTarget = new VanillaVersion(job.VersionId, "release", null);
+                SelectedVersion = InstallTarget;
+            }
+            finally
+            {
+                _suppressLoaderReload = false;
+            }
+
+            await InstallAsync().ConfigureAwait(true);
+        }
+
+        [RelayCommand]
+        private async Task DismissPendingJobAsync()
+        {
+            if (_jobs != null)
+            {
+                await _jobs.ClearAsync(CancellationToken.None).ConfigureAwait(true);
+            }
+
+            _pendingJob = null;
+            UpdatePendingJobState();
+        }
+
         /// <summary>取消正在进行的下载（给用户反悔的机会）。</summary>
         [RelayCommand]
         private void CancelInstall()
@@ -476,6 +558,29 @@ namespace NLMCL.App.ViewModels
             _installCts = new CancellationTokenSource();
             CancellationToken token = _installCts.Token;
 
+            if (_jobs != null)
+            {
+                _pendingJob = new DownloadJob
+                {
+                    VersionId = target!.Id,
+                    Loader = SelectedLoader,
+                    LoaderVersion = LoaderVersion,
+                    TargetDirectory = TargetDirectory,
+                    Parallelism = Parallelism,
+                    CreatedAt = DateTimeOffset.Now
+                };
+                UpdatePendingJobState();
+
+                try
+                {
+                    await _jobs.SaveAsync(_pendingJob, CancellationToken.None).ConfigureAwait(true);
+                }
+                catch (Exception)
+                {
+                    // 任务持久化失败不应阻断本次安装。
+                }
+            }
+
             try
             {
                 if (IsForgeSelected || IsNeoForgeSelected)
@@ -507,6 +612,7 @@ namespace NLMCL.App.ViewModels
                 ApplyFilter();
                 IsInstallPanelOpen = false;
 
+                await ClearPendingJobAsync().ConfigureAwait(true);
                 InstallCompleted?.Invoke(this, EventArgs.Empty);
             }
             catch (OperationCanceledException)
@@ -515,6 +621,7 @@ namespace NLMCL.App.ViewModels
                 Progress = 0;
                 ProgressDetails = string.Empty;
                 StatusText = "已取消安装；已下载的文件会保留，可点“安装”重试";
+                await ClearPendingJobAsync().ConfigureAwait(true);
             }
             catch (Exception ex)
             {
@@ -592,6 +699,23 @@ namespace NLMCL.App.ViewModels
             }
 
             return 17;
+        }
+
+        private async Task ClearPendingJobAsync()
+        {
+            _pendingJob = null;
+            UpdatePendingJobState();
+
+            if (_jobs != null)
+            {
+                try
+                {
+                    await _jobs.ClearAsync(CancellationToken.None).ConfigureAwait(true);
+                }
+                catch (Exception)
+                {
+                }
+            }
         }
 
         private void ApplyProgress(InstallProgress value)

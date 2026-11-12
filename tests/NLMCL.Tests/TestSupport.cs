@@ -472,12 +472,13 @@ namespace NLMCL.Tests
             IFolderPicker? folderPicker = null,
             IVersionDetailsService? versionDetails = null,
             IFilePicker? filePicker = null,
-            LanScanViewModel? lanScan = null)
+            LanScanViewModel? lanScan = null,
+            DownloadViewModel? download = null)
         {
             return new MainViewModel(
                 catalog,
                 paths,
-                CreateDownload(paths),
+                download ?? CreateDownload(paths),
                 CreateConsole(paths),
                 new NoopLauncher(),
                 javaLocator ?? new NoopJavaLocator(),
