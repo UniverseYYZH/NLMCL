@@ -466,6 +466,8 @@ namespace NLMCL.Tests
             Assert.Equal(6144, vm.MemoryMb);
             Assert.True(vm.UseProxy);
             Assert.Equal(7890, vm.ProxyPort);
+            Assert.False(vm.IsLaunchPreflightBusy);
+            Assert.Contains("未发现", vm.LaunchPreflightSummary);
         }
 
         [Fact]

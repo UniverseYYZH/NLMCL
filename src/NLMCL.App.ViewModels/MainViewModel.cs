@@ -4133,7 +4133,10 @@ namespace NLMCL.App.ViewModels
         internal async Task SelectVersionForLaunchAsync(VersionItem item)
         {
             SelectVersion(item, loadSettings: false);
-            await LoadInstanceSettingsAsync(item).ConfigureAwait(true);
+
+            // 进服会在加载完设置后立刻启动；预检也要一起收尾，否则启动被取消
+            // （代理不完整、用户拒绝模组告警、缺 JAR/Java）时世界页会一直停在“正在检查…”。
+            await LoadInstanceSettingsAndPreflightAsync(item).ConfigureAwait(true);
         }
 
         private void ResetLaunchPreflightForSelection()
