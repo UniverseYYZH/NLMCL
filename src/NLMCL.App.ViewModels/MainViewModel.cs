@@ -728,6 +728,13 @@ namespace NLMCL.App.ViewModels
                 && !string.Equals(value, CurrentGameDirectory, StringComparison.OrdinalIgnoreCase))
             {
                 CurrentGameDirectory = value!;
+
+                // 下拉框切换不经过 PickGameDirectoryAsync，必须自己落盘；
+                // 否则用户切到另一个目录后重启，启动器又回到旧目录。
+                if (_settingsLoaded)
+                {
+                    _ = SaveGameDirectoryAsync();
+                }
             }
         }
 
