@@ -473,14 +473,19 @@ namespace NLMCL.Tests
             IVersionDetailsService? versionDetails = null,
             IFilePicker? filePicker = null,
             LanScanViewModel? lanScan = null,
-            DownloadViewModel? download = null)
+            DownloadViewModel? download = null,
+            IGameLauncher? launcher = null,
+            NLMCL.Core.Servers.ServerProfilePicker? profilePicker = null,
+            IVersionInstaller? versionInstaller = null,
+            IFileDownloader? fileDownloader = null,
+            IResourceCatalog? resourceCatalog = null)
         {
             return new MainViewModel(
                 catalog,
                 paths,
                 download ?? CreateDownload(paths),
                 CreateConsole(paths),
-                new NoopLauncher(),
+                launcher ?? new NoopLauncher(),
                 javaLocator ?? new NoopJavaLocator(),
                 accounts ?? new MemoryAccountStore(),
                 new NoopAuthenticator(),
@@ -501,7 +506,11 @@ namespace NLMCL.Tests
                 skin: skin,
                 versionDetails: versionDetails,
                 filePicker: filePicker,
-                lanScan: lanScan);
+                lanScan: lanScan,
+                profilePicker: profilePicker,
+                versionInstaller: versionInstaller,
+                fileDownloader: fileDownloader,
+                resourceCatalog: resourceCatalog);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {

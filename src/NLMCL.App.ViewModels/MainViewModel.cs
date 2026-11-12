@@ -2233,8 +2233,11 @@ namespace NLMCL.App.ViewModels
 
             if (file == null)
             {
-                StatusText = "没找到适配 " + profile.Minecraft + " 的 AutoModpack";
-                return;
+                // 没有 AutoModpack 就启动，客户端登录后无法同步整合包，玩家只会看到
+                // “进服失败/被踢”。这里直接中止，让错误停在启动器中。
+                throw new InvalidOperationException(
+                    "没找到适配 " + profile.Minecraft + " / " + profile.Loader
+                    + " 的 AutoModpack，已停止启动。请检查服务器档案或稍后重试。");
             }
 
             string target = Path.Combine(mods, file.Name);
