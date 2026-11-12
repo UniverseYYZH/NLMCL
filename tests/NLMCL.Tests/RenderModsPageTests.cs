@@ -40,8 +40,17 @@ namespace NLMCL.Tests
                         Name = "Sodium",
                         Version = "0.6.0",
                         Loader = "fabric",
-                        Enabled = false
+                        Enabled = true
                     });
+                    mods.Mods.Add(new ModEntry("OptiFine_1.21.1.jar", "OptiFine_1.21.1.jar", 2_000_000)
+                    {
+                        Name = "OptiFine",
+                        Version = "HD U I6",
+                        Loader = "forge",
+                        Enabled = true
+                    });
+
+                    mods.RefreshRendererDiagnostics();
 
                     const int width = 960;
                     const int height = 620;

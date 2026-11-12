@@ -31,6 +31,22 @@ namespace NLMCL.App.ViewModels
 
         public ObservableCollection<ModEntry> Mods { get; } = new ObservableCollection<ModEntry>();
 
+        /// <summary>当前实例里检测到的渲染器/优化 Mod。</summary>
+        public ObservableCollection<RendererModInfo> RendererMods { get; } = new ObservableCollection<RendererModInfo>();
+
+        [ObservableProperty]
+        private string _rendererSummary = string.Empty;
+
+        [ObservableProperty]
+        private string _rendererWarning = string.Empty;
+
+        public bool HasRendererMods => RendererMods.Count > 0;
+
+        public bool HasRendererWarning => !string.IsNullOrWhiteSpace(RendererWarning);
+
+        partial void OnRendererWarningChanged(string value)
+            => OnPropertyChanged(nameof(HasRendererWarning));
+
         [ObservableProperty]
         private string _statusText = "先在「世界库」选一个实例。";
 
@@ -107,6 +123,7 @@ namespace NLMCL.App.ViewModels
                 }
 
                 OnPropertyChanged(nameof(HasMods));
+                RefreshRendererDiagnostics();
 
             int missing = System.Linq.Enumerable.Count(mods, item => item.HasMissingDependencies);
 
@@ -168,12 +185,122 @@ namespace NLMCL.App.ViewModels
                 await _manager.DeleteAsync(entry, CancellationToken.None).ConfigureAwait(true);
                 Mods.Remove(entry);
                 OnPropertyChanged(nameof(HasMods));
+                RefreshRendererDiagnostics();
                 StatusText = "已删除 " + entry.DisplayName;
             }
             catch (Exception ex)
             {
                 StatusText = "删除失败：" + ex.Message;
             }
+        }
+
+        /// <summary>
+        /// 重新扫描当前 Mods 列表里的渲染器/优化模组。只做识别与冲突提示，
+        /// 不擅自禁用文件；是否保留由玩家决定。
+        /// </summary>
+        public void RefreshRendererDiagnostics()
+        {
+            RendererMods.Clear();
+
+            foreach (ModEntry mod in Mods)
+            {
+                string? kind = DetectRenderer(mod);
+                if (kind == null)
+                {
+                    continue;
+                }
+
+                RendererMods.Add(new RendererModInfo(
+                    kind,
+                    mod.DisplayName,
+                    string.IsNullOrWhiteSpace(mod.Version) ? string.Empty : mod.Version.Trim(),
+                    mod.Enabled,
+                    mod.FileName));
+            }
+
+            OnPropertyChanged(nameof(HasRendererMods));
+
+            RendererSummary = RendererMods.Count == 0
+                ? "未检测到 Sodium / Embeddium / OptiFine / VulkanMod / Iris。"
+                : "检测到：" + string.Join("、", RendererMods.Select(item => item.DisplayText));
+
+            HashSet<string> enabled = new HashSet<string>(
+                RendererMods.Where(item => item.Enabled).Select(item => item.Kind),
+                StringComparer.OrdinalIgnoreCase);
+
+            bool sodium = enabled.Contains("Sodium");
+            bool embeddium = enabled.Contains("Embeddium");
+            bool optifine = enabled.Contains("OptiFine");
+            bool vulkan = enabled.Contains("VulkanMod");
+            bool iris = enabled.Contains("Iris");
+            bool optifabric = enabled.Contains("OptiFabric");
+
+            List<string> warnings = new List<string>();
+
+            if (sodium && embeddium)
+            {
+                warnings.Add("Sodium 与 Embeddium 都是渲染器，通常只能保留一个。");
+            }
+
+            if (optifine && (sodium || embeddium || iris))
+            {
+                warnings.Add("OptiFine 与 Sodium / Embeddium / Iris 通常不兼容，请只保留一套。");
+            }
+
+            if (vulkan && (sodium || embeddium || optifine))
+            {
+                warnings.Add("VulkanMod 会替换渲染后端，不应再与 Sodium / Embeddium / OptiFine 同时启用。");
+            }
+
+            if (iris && !sodium)
+            {
+                warnings.Add("Iris 通常需要 Sodium 作为前置；当前未检测到已启用的 Sodium。");
+            }
+
+            if (optifabric && !optifine)
+            {
+                warnings.Add("OptiFabric 需要 OptiFine；当前未检测到已启用的 OptiFine。");
+            }
+
+            RendererWarning = warnings.Count == 0 ? string.Empty : string.Join(" ", warnings);
+        }
+
+        private static string? DetectRenderer(ModEntry mod)
+        {
+            string id = (mod.ModId ?? string.Empty).Trim().ToLowerInvariant();
+            string file = (mod.FileName ?? string.Empty).ToLowerInvariant();
+
+            if (id == "sodium" || file.Contains("sodium"))
+            {
+                return "Sodium";
+            }
+
+            if (id == "embeddium" || file.Contains("embeddium"))
+            {
+                return "Embeddium";
+            }
+
+            if (id == "optifine" || file.Contains("optifine"))
+            {
+                return "OptiFine";
+            }
+
+            if (id == "vulkanmod" || file.Contains("vulkanmod"))
+            {
+                return "VulkanMod";
+            }
+
+            if (id == "iris" || file.Contains("iris"))
+            {
+                return "Iris";
+            }
+
+            if (id == "optifabric" || file.Contains("optifabric"))
+            {
+                return "OptiFabric";
+            }
+
+            return null;
         }
 
         [ObservableProperty]
@@ -277,5 +404,33 @@ namespace NLMCL.App.ViewModels
                 IsCheckingUpdates = false;
             }
         }
+    }
+
+    /// <summary>Mod 管理页检测到的一个渲染器/优化 Mod。</summary>
+    public sealed class RendererModInfo
+    {
+        public RendererModInfo(string kind, string name, string version, bool enabled, string fileName)
+        {
+            Kind = kind;
+            Name = name;
+            Version = version;
+            Enabled = enabled;
+            FileName = fileName;
+        }
+
+        public string Kind { get; }
+
+        public string Name { get; }
+
+        public string Version { get; }
+
+        public bool Enabled { get; }
+
+        public string FileName { get; }
+
+        public string StateText => Enabled ? "已启用" : "已禁用";
+
+        public string DisplayText => Name + (Version.Length == 0 ? string.Empty : " " + Version)
+            + "（" + StateText + "）";
     }
 }

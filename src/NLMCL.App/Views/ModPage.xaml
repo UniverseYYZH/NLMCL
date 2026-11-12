@@ -54,6 +54,25 @@
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                            MaxWidth="520" ToolTip="{Binding ModsDirectoryText}" />
             </StackPanel>
+
+            <Border Margin="0,12,0,0" Padding="12,9" CornerRadius="8"
+                    Background="{DynamicResource Surface}"
+                    BorderBrush="{DynamicResource AmberBorder}" BorderThickness="1"
+                    Visibility="{Binding HasRendererMods, Converter={StaticResource BoolToVisibility}}">
+                <StackPanel>
+                    <TextBlock Text="渲染器 / 优化 Mod" FontSize="10" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Amber}" />
+                    <TextBlock Text="{Binding RendererSummary}" FontSize="10.5"
+                               Foreground="{DynamicResource Text}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <Border Margin="0,6,0,0" Padding="9,6" CornerRadius="6"
+                            Background="{DynamicResource AmberBg}"
+                            BorderBrush="{DynamicResource Error}" BorderThickness="1"
+                            Visibility="{Binding HasRendererWarning, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="{Binding RendererWarning}" FontSize="10"
+                                   Foreground="{DynamicResource Error}" TextWrapping="Wrap" />
+                    </Border>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource CardStyle}" Padding="8" Margin="0,16,0,0">
