@@ -89,5 +89,21 @@ namespace NLMCL.Tests
             Assert.True(AutoModpackSelector.MatchesVersion(
                 "automodpack-mc1.21.1-fabric-4.0.7.jar", "4"));
         }
+
+        [Fact]
+        public void Installed_jar_does_not_match_a_longer_patch_version()
+        {
+            Assert.False(AutoModpackSelector.MatchesVersion(
+                "automodpack-mc1.21.1-fabric-4.0.60.jar", "4.0.6"));
+            Assert.False(AutoModpackSelector.MatchesVersion(
+                "automodpack-mc1.21.1-fabric-4.0.6.1.jar", "4.0.6"));
+        }
+
+        [Fact]
+        public void Installed_jar_does_not_match_a_version_substring_of_a_larger_number()
+        {
+            Assert.False(AutoModpackSelector.MatchesVersion(
+                "automodpack-mc1.21.1-fabric-14.0.6.jar", "4.0.6"));
+        }
     }
 }

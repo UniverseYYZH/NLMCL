@@ -86,9 +86,16 @@ namespace NLMCL.Core.Servers
                 return false;
             }
 
-            if (file.IndexOf(wanted, StringComparison.OrdinalIgnoreCase) >= 0)
+            int index = file.IndexOf(wanted, StringComparison.OrdinalIgnoreCase);
+            while (index >= 0)
             {
-                return true;
+                int end = index + wanted.Length;
+                if (IsVersionBoundaryBefore(file, index) && IsVersionBoundaryAfter(file, end))
+                {
+                    return true;
+                }
+
+                index = file.IndexOf(wanted, index + 1, StringComparison.OrdinalIgnoreCase);
             }
 
             int dot = wanted.IndexOf('.');
@@ -103,6 +110,43 @@ namespace NLMCL.Core.Servers
             return file.StartsWith("automodpack-" + majorPrefix, StringComparison.OrdinalIgnoreCase)
                 || file.IndexOf("-" + majorPrefix, StringComparison.OrdinalIgnoreCase) >= 0
                 || file.IndexOf("_" + majorPrefix, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>版本号前一位不能紧贴数字或另一个版本段。</summary>
+        private static bool IsVersionBoundaryBefore(string file, int index)
+        {
+            if (index == 0)
+            {
+                return true;
+            }
+
+            char previous = file[index - 1];
+            if (char.IsDigit(previous))
+            {
+                return false;
+            }
+
+            return previous != '.' || index < 2 || !char.IsDigit(file[index - 2]);
+        }
+
+        /// <summary>
+        /// 版本号后一位不能紧贴数字（4.0.60 不是 4.0.6），
+        /// 也不能紧贴下一段版本（4.0.6.1 不是 4.0.6）；`.jar`、`-beta` 仍可匹配。
+        /// </summary>
+        private static bool IsVersionBoundaryAfter(string file, int end)
+        {
+            if (end >= file.Length)
+            {
+                return true;
+            }
+
+            char next = file[end];
+            if (char.IsDigit(next))
+            {
+                return false;
+            }
+
+            return next != '.' || end + 1 >= file.Length || !char.IsDigit(file[end + 1]);
         }
     }
 }
