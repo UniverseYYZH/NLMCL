@@ -1636,6 +1636,7 @@ namespace NLMCL.App.ViewModels
             if (item.Section == ShellSection.World)
             {
                 RefreshInstanceContent();
+                _ = RefreshLaunchPreflightAsync();
             }
 
             foreach (NavigationGroup group in NavigationGroups)
@@ -4080,9 +4081,17 @@ namespace NLMCL.App.ViewModels
             HasSelection = true;
             StatusText = "已选择 " + item.Name;
 
-            // 切版本时把该实例的设置带出来
-            _ = LoadInstanceSettingsAsync(item);
-            _ = RefreshLaunchPreflightAsync();
+            // 切版本时先带出实例设置，再按最新代理/模组状态做预检，避免读到上一个实例的配置
+            _ = LoadInstanceSettingsAndPreflightAsync(item);
+        }
+
+        private async Task LoadInstanceSettingsAndPreflightAsync(VersionItem item)
+        {
+            await LoadInstanceSettingsAsync(item);
+            if (ReferenceEquals(SelectedVersion, item))
+            {
+                await RefreshLaunchPreflightAsync();
+            }
         }
 
         /// <summary>启动前预检结果。只读扫描，不改 Mod 文件。</summary>
@@ -4112,6 +4121,7 @@ namespace NLMCL.App.ViewModels
 
             if (version == null)
             {
+                IsLaunchPreflightBusy = false;
                 LaunchPreflightSummary = "先选择一个实例。";
                 return;
             }
