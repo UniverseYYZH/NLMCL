@@ -2930,6 +2930,11 @@ namespace NLMCL.App.ViewModels
             catch (IOException)
             {
             }
+            catch (UnauthorizedAccessException)
+            {
+                // 游戏目录在无权限的盘符/被安全软件锁定时，检查项应显示“未安装”，
+                // 不能让 RefreshJoinChecks 在账号切换等 UI 路径上抛出。
+            }
 
             return null;
         }
