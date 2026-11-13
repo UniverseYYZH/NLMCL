@@ -99,6 +99,9 @@
                 <Button Content="崩溃分析" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
                         ToolTip="读取崩溃报告 / latest.log，指出可疑原因"
                         Command="{Binding AnalyzeCrashCommand}" />
+                <Button Content="导出诊断包" Style="{StaticResource GhostButton}" Margin="8,0,0,0"
+                        ToolTip="打包日志、崩溃报告、Mod 列表和环境信息，自动脱敏"
+                        Click="ExportDiagnostics_Click" />
             </StackPanel>
             </Border>
         </Grid>

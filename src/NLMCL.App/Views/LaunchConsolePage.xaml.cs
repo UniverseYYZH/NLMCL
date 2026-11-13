@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -80,6 +81,42 @@ namespace NLMCL.App.Views
             catch (Exception ex)
             {
                 vm.StatusText = "复制日志失败：" + ex.Message;
+            }
+        }
+
+        private async void ExportDiagnostics_Click(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is not ViewModels.LaunchConsoleViewModel vm)
+            {
+                return;
+            }
+
+            string? path = await vm.ExportDiagnosticPackageAsync();
+            if (string.IsNullOrEmpty(path))
+            {
+                return;
+            }
+
+            try
+            {
+                Clipboard.SetText(path);
+            }
+            catch (Exception)
+            {
+                // 剪贴板被其他程序占用不影响诊断包本身
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo(
+                    "explorer.exe", "/select,\"" + path + "\"")
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                vm.StatusText = "诊断包已生成，但无法打开目录：" + ex.Message;
             }
         }
     }

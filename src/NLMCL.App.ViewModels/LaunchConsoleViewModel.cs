@@ -56,6 +56,12 @@ namespace NLMCL.App.ViewModels
         /// <summary>外置登录所需的 authlib-injector（单测里可为 null）。</summary>
         private readonly IAuthlibInjector? _authlibInjector;
 
+        /// <summary>诊断包生成服务（单测里可为 null）。</summary>
+        private readonly IDiagnosticPackageService? _diagnostics;
+
+        /// <summary>把实例目录解析成实际游戏目录，和启动/Mod 管理保持一致。</summary>
+        private readonly IInstancePathResolver? _instancePaths;
+
         /// <summary>控制台里的会话列表（多开；退出的也保留，方便回看日志）。</summary>
         public ObservableCollection<GameSessionItem> Sessions { get; } = new ObservableCollection<GameSessionItem>();
 
@@ -112,7 +118,9 @@ namespace NLMCL.App.ViewModels
             IAppPaths paths,
             IUiDispatcher dispatcher,
             IJavaRuntimeInstaller? javaInstaller = null,
-            IAuthlibInjector? authlibInjector = null)
+            IAuthlibInjector? authlibInjector = null,
+            IDiagnosticPackageService? diagnostics = null,
+            IInstancePathResolver? instancePaths = null)
         {
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
             _javaLocator = javaLocator ?? throw new ArgumentNullException(nameof(javaLocator));
@@ -120,6 +128,8 @@ namespace NLMCL.App.ViewModels
             _dispatcher = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
             _javaInstaller = javaInstaller;
             _authlibInjector = authlibInjector;
+            _diagnostics = diagnostics;
+            _instancePaths = instancePaths;
 
             GameDirectory = paths.DefaultMinecraftDirectory;
 
@@ -207,6 +217,84 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>本次会话的日志文件路径（为空表示还没写过）。</summary>
         public string LogFilePath { get; private set; } = string.Empty;
+
+        /// <summary>最近一次成功导出的诊断包路径（供页面复制/定位）。</summary>
+        public string LastDiagnosticPackagePath { get; private set; } = string.Empty;
+
+        /// <summary>
+        /// 生成诊断包。返回 null 表示失败，失败原因已写入 StatusText。
+        /// 页面负责在成功后复制路径并打开资源管理器，ViewModel 不直接碰 WPF。
+        /// </summary>
+        public async Task<string?> ExportDiagnosticPackageAsync(CancellationToken cancellationToken = default)
+        {
+            if (_diagnostics == null)
+            {
+                StatusText = "诊断包服务未初始化，无法导出。";
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(GameDirectory) || string.IsNullOrWhiteSpace(VersionId))
+            {
+                StatusText = "请先选择一个实例，再导出诊断包。";
+                return null;
+            }
+
+            StatusText = "正在收集日志并生成诊断包…";
+
+            try
+            {
+                string gameDirectory = _instancePaths?.GetGameDirectory(GameDirectory, VersionId)
+                    ?? Path.Combine(GameDirectory, "versions", VersionId);
+
+                IReadOnlyList<string> javas;
+                try
+                {
+                    javas = (await _javaLocator.FindInstalledAsync(cancellationToken).ConfigureAwait(true))
+                        .Select(java => java.ToString())
+                        .ToList();
+                }
+                catch (Exception ex)
+                {
+                    javas = new[] { "Java 探测失败：" + ex.Message };
+                }
+
+                DiagnosticPackageRequest request = new DiagnosticPackageRequest(
+                    GameDirectory,
+                    VersionId,
+                    gameDirectory,
+                    Path.Combine(gameDirectory, "mods"),
+                    Path.Combine(GameDirectory, "versions", VersionId, "nlmcl-settings.json"))
+                {
+                    AppVersion = typeof(LaunchConsoleViewModel).Assembly.GetName().Version?.ToString() ?? string.Empty,
+                    JavaHomes = javas
+                };
+
+                string folder = Path.Combine(_paths.DataRoot, "diagnostics");
+                Directory.CreateDirectory(folder);
+                string zipPath = Path.Combine(
+                    folder, "NLMCL-diagnostics-" + DateTime.Now.ToString("yyyyMMdd-HHmmssfff") + ".zip");
+
+                DiagnosticPackageResult result = await _diagnostics
+                    .CreateAsync(request, zipPath, cancellationToken)
+                    .ConfigureAwait(true);
+
+                LastDiagnosticPackagePath = result.ZipPath;
+                StatusText = result.Missing.Count == 0
+                    ? "诊断包已生成：" + result.ZipPath
+                    : "诊断包已生成（" + result.Missing.Count + " 项缺失，见 README）：" + result.ZipPath;
+                return result.ZipPath;
+            }
+            catch (OperationCanceledException)
+            {
+                StatusText = "诊断包导出已取消。";
+                return null;
+            }
+            catch (Exception ex)
+            {
+                StatusText = "导出诊断包失败：" + ex.Message;
+                return null;
+            }
+        }
 
 
 

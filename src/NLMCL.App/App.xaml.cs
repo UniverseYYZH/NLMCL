@@ -19,6 +19,7 @@ using NLMCL.Core.Settings;
 using NLMCL.Core.Snapshots;
 using NLMCL.Core.Resources;
 using NLMCL.Core.Maintenance;
+using NLMCL.Core.Diagnostics;
 
 namespace NLMCL.App
 {
@@ -272,6 +273,7 @@ namespace NLMCL.App
             services.AddSingleton<IDownloadTuning, PclDownloadTuning>();
             services.AddSingleton<IJavaLocator, PclJavaLocator>();
             services.AddSingleton<IJavaRuntimeInstaller, JavaRuntimeInstaller>();
+            services.AddSingleton<IDiagnosticPackageService, DiagnosticPackageService>();
             services.AddSingleton<IGameLauncher>(provider => new PclGameLauncher
             {
                 LogDirectory = System.IO.Path.Combine(
