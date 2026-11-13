@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -11,11 +12,13 @@ namespace NLMCL.App.ViewModels
     public sealed partial class DownloadQueueItem : ObservableObject
     {
         private readonly Action _cancelWaiting;
+        private readonly Action? _dismiss;
 
-        public DownloadQueueItem(string title, Action cancelWaiting)
+        public DownloadQueueItem(string title, Action cancelWaiting, Action? dismiss = null)
         {
             Title = title ?? string.Empty;
             _cancelWaiting = cancelWaiting ?? throw new ArgumentNullException(nameof(cancelWaiting));
+            _dismiss = dismiss;
         }
 
         public string Title { get; }
@@ -26,21 +29,58 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isActive;
 
-        public bool CanCancel => !IsActive;
+        [ObservableProperty]
+        private bool _isPaused;
+
+        [ObservableProperty]
+        private bool _isFailed;
+
+        public bool CanCancel => !IsActive && !IsPaused && !IsFailed;
+
+        public bool CanDismiss => IsPaused || IsFailed;
 
         partial void OnIsActiveChanged(bool value)
         {
             OnPropertyChanged(nameof(CanCancel));
         }
 
+        partial void OnIsPausedChanged(bool value)
+        {
+            OnPropertyChanged(nameof(CanCancel));
+            OnPropertyChanged(nameof(CanDismiss));
+        }
+
+        partial void OnIsFailedChanged(bool value)
+        {
+            OnPropertyChanged(nameof(CanCancel));
+            OnPropertyChanged(nameof(CanDismiss));
+        }
+
+        public void MarkPaused()
+        {
+            IsActive = false;
+            IsPaused = true;
+            Status = "已暂停";
+        }
+
+        public void MarkFailed(string message)
+        {
+            IsActive = false;
+            IsFailed = true;
+            Status = string.IsNullOrWhiteSpace(message) ? "失败" : "失败：" + message;
+        }
+
         [RelayCommand]
         private void Cancel()
         {
-            if (!IsActive)
+            if (CanCancel)
             {
                 _cancelWaiting();
             }
         }
+
+        [RelayCommand]
+        private void Dismiss() => _dismiss?.Invoke();
     }
 
     /// <summary>
@@ -76,16 +116,37 @@ namespace NLMCL.App.ViewModels
                     return ActiveTitle + " · 排队 " + WaitingCount;
                 }
 
+                int paused = Items.Count(item => item.IsPaused);
+                int failed = Items.Count(item => item.IsFailed);
+
                 if (!string.IsNullOrEmpty(ActiveTitle))
                 {
-                    return ActiveTitle;
+                    return ActiveTitle
+                        + (paused > 0 ? " · " + paused + " 个已暂停" : string.Empty)
+                        + (failed > 0 ? " · " + failed + " 个失败" : string.Empty);
+                }
+
+                if (paused > 0)
+                {
+                    return "已暂停 " + paused + " 个任务";
+                }
+
+                if (failed > 0)
+                {
+                    return failed + " 个任务失败";
                 }
 
                 return WaitingCount > 0 ? "排队 " + WaitingCount + " 个任务" : string.Empty;
             }
         }
 
-        public async Task RunAsync(string title, Func<Task> work, CancellationToken cancellationToken)
+        public async Task RunAsync(
+            string title,
+            Func<Task> work,
+            CancellationToken cancellationToken,
+            Action<DownloadQueueItem>? started = null,
+            Action? dismiss = null,
+            Func<bool>? isPaused = null)
         {
             if (work == null)
             {
@@ -93,8 +154,12 @@ namespace NLMCL.App.ViewModels
             }
 
             using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            DownloadQueueItem item = new DownloadQueueItem(title, linked.Cancel);
+            DownloadQueueItem item = new DownloadQueueItem(title, linked.Cancel, dismiss);
             Items.Add(item);
+
+            // 拥有者需要从排队阶段就能清除/恢复这一项；若等到真正开始才回调，
+            // “排队中暂停”会把 item 留在面板里，而 ViewModel 拿不到引用。
+            started?.Invoke(item);
 
             Interlocked.Increment(ref _waiting);
             WaitingCount = _waiting;
@@ -119,7 +184,20 @@ namespace NLMCL.App.ViewModels
             }
             catch (OperationCanceledException)
             {
-                item.Status = "已取消";
+                if (isPaused?.Invoke() == true)
+                {
+                    item.MarkPaused();
+                }
+                else
+                {
+                    item.Status = "已取消";
+                }
+
+                throw;
+            }
+            catch (Exception ex)
+            {
+                item.MarkFailed(ex.Message);
                 throw;
             }
             finally
@@ -136,6 +214,22 @@ namespace NLMCL.App.ViewModels
                     _gate.Release();
                 }
 
+                // 有清除入口时，暂停/失败的任务留在队列里，用户明确“清除”后才移除。
+                bool keep = item.IsPaused || (item.IsFailed && dismiss != null);
+                if (!keep)
+                {
+                    Items.Remove(item);
+                }
+
+                OnPropertyChanged(nameof(Summary));
+            }
+        }
+
+        /// <summary>移除一个已暂停/失败的任务；由拥有它的视图模型在清理后调用。</summary>
+        public void Dismiss(DownloadQueueItem? item)
+        {
+            if (item != null)
+            {
                 Items.Remove(item);
                 OnPropertyChanged(nameof(Summary));
             }

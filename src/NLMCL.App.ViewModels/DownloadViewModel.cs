@@ -440,10 +440,42 @@ namespace NLMCL.App.ViewModels
             await LoadVersionsAsync().ConfigureAwait(true);
         }
         private CancellationTokenSource? _installCts;
+        private DownloadQueueItem? _activeQueueItem;
+        private bool _pauseRequested;
 
         /// <summary>下载/安装过程中是否允许取消。</summary>
         [ObservableProperty]
         private bool _canCancel;
+
+        /// <summary>当前安装已被用户暂停；分块/临时文件保留，可继续。</summary>
+        [ObservableProperty]
+        private bool _isPaused;
+
+        /// <summary>暂停请求已发出，等待当前下载分块收尾。</summary>
+        [ObservableProperty]
+        private bool _isPausing;
+
+        public bool CanPause => IsBusy && !IsPaused && !IsPausing;
+
+        public bool CanResume => IsPaused && !IsBusy;
+
+        public bool CanStartInstall => !IsBusy && !IsPaused;
+
+        partial void OnIsBusyChanged(bool value)
+        {
+            OnPropertyChanged(nameof(CanPause));
+            OnPropertyChanged(nameof(CanStartInstall));
+            OnPropertyChanged(nameof(CanResume));
+        }
+
+        partial void OnIsPausedChanged(bool value)
+        {
+            OnPropertyChanged(nameof(CanPause));
+            OnPropertyChanged(nameof(CanStartInstall));
+            OnPropertyChanged(nameof(CanResume));
+        }
+
+        partial void OnIsPausingChanged(bool value) => OnPropertyChanged(nameof(CanPause));
 
         [ObservableProperty]
         private bool _hasPendingJob;
@@ -462,11 +494,13 @@ namespace NLMCL.App.ViewModels
             try
             {
                 _pendingJob = await _jobs.LoadAsync(CancellationToken.None).ConfigureAwait(true);
+                IsPaused = _pendingJob?.Paused == true;
                 UpdatePendingJobState();
             }
             catch (Exception)
             {
                 _pendingJob = null;
+                IsPaused = false;
                 UpdatePendingJobState();
             }
         }
@@ -479,7 +513,8 @@ namespace NLMCL.App.ViewModels
                 : _pendingJob.VersionId + " · " + _pendingJob.Loader
                     + (string.IsNullOrWhiteSpace(_pendingJob.LoaderVersion)
                         ? string.Empty
-                        : " " + _pendingJob.LoaderVersion);
+                        : " " + _pendingJob.LoaderVersion)
+                    + (_pendingJob.Paused ? "（已暂停）" : string.Empty);
         }
 
         [RelayCommand]
@@ -513,21 +548,136 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         private async Task DismissPendingJobAsync()
         {
+            string root = _pendingJob?.TargetDirectory ?? TargetDirectory;
+
+            int removed = await CleanPartialsAsync(root).ConfigureAwait(true);
+
             if (_jobs != null)
             {
                 await _jobs.ClearAsync(CancellationToken.None).ConfigureAwait(true);
             }
 
+            _queue.Dismiss(_activeQueueItem);
+            _activeQueueItem = null;
             _pendingJob = null;
+            IsPaused = false;
             UpdatePendingJobState();
+            HasProgress = false;
+            Progress = 0;
+            ProgressDetails = string.Empty;
+            StatusText = removed > 0
+                ? "已忽略未完成的安装，并清理了未完成的分块文件。"
+                : "已忽略未完成的安装。";
+        }
+
+        /// <summary>暂停当前安装；分块文件保留，稍后可继续。</summary>
+        [RelayCommand]
+        private void PauseInstall()
+        {
+            if (!CanPause)
+            {
+                return;
+            }
+
+            _pauseRequested = true;
+            IsPausing = true;
+            StatusText = "正在暂停…";
+            _installCts?.Cancel();
+        }
+
+        /// <summary>继续当前暂停的安装。</summary>
+        [RelayCommand]
+        private async Task ResumeInstallAsync()
+        {
+            if (!CanResume)
+            {
+                return;
+            }
+
+            _queue.Dismiss(_activeQueueItem);
+            _activeQueueItem = null;
+            IsPaused = false;
+            await InstallAsync().ConfigureAwait(true);
         }
 
         /// <summary>取消正在进行的下载（给用户反悔的机会）。</summary>
         [RelayCommand]
         private void CancelInstall()
         {
+            if (IsPaused)
+            {
+                _ = DiscardPausedInstallAsync();
+                return;
+            }
+
+            _pauseRequested = false;
+            IsPausing = false;
             _installCts?.Cancel();
             StatusText = "正在取消…";
+        }
+
+        private async Task DiscardPausedInstallAsync()
+        {
+            string root = _pendingJob?.TargetDirectory ?? TargetDirectory;
+            int removed = await CleanPartialsAsync(root).ConfigureAwait(true);
+
+            _queue.Dismiss(_activeQueueItem);
+            _activeQueueItem = null;
+            await ClearPendingJobAsync().ConfigureAwait(true);
+
+            IsPaused = false;
+            IsPausing = false;
+            HasProgress = false;
+            Progress = 0;
+            ProgressDetails = string.Empty;
+            StatusText = removed > 0
+                ? "已取消安装；临时文件已清理，可重新安装。"
+                : "已取消安装，可重新安装。";
+        }
+
+        private async Task DismissQueueItemAsync()
+        {
+            DownloadQueueItem? item = _activeQueueItem;
+
+            if (item == null)
+            {
+                return;
+            }
+
+            string root = _pendingJob?.TargetDirectory ?? TargetDirectory;
+            int removed = await CleanPartialsAsync(root).ConfigureAwait(true);
+
+            _queue.Dismiss(item);
+            _activeQueueItem = null;
+
+            await ClearPendingJobAsync().ConfigureAwait(true);
+
+            IsPaused = false;
+            HasProgress = false;
+            Progress = 0;
+            ProgressDetails = string.Empty;
+            StatusText = removed > 0
+                ? "已清除未完成的安装，并清理了临时文件。"
+                : "已清除未完成的安装。";
+        }
+
+        private static async Task<int> CleanPartialsAsync(string root)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                return 0;
+            }
+
+            try
+            {
+                return await Task.Run(
+                    () => NLMCL.Core.Installing.DownloadTemporaryCleaner.Clean(root))
+                    .ConfigureAwait(true);
+            }
+            catch (Exception)
+            {
+                return 0;
+            }
         }
 
         /// <summary>安装当前选中的版本。</summary>
@@ -555,6 +705,9 @@ namespace NLMCL.App.ViewModels
 
             IsBusy = true;
             CanCancel = true;
+            IsPaused = false;
+            IsPausing = false;
+            _pauseRequested = false;
             HasProgress = true;
             Progress = 0;
             ProgressDetails = string.Empty;
@@ -572,6 +725,7 @@ namespace NLMCL.App.ViewModels
                     LoaderVersion = LoaderVersion,
                     TargetDirectory = TargetDirectory,
                     Parallelism = Parallelism,
+                    Paused = false,
                     CreatedAt = DateTimeOffset.Now
                 };
                 UpdatePendingJobState();
@@ -614,22 +768,64 @@ namespace NLMCL.App.ViewModels
                         Progress = 100;
                         StatusText = "已安装 " + target!.Id + " 到 " + TargetDirectory;
                     }
-                }, token).ConfigureAwait(true);
+                }, token,
+                    item => _activeQueueItem = item,
+                    () => _ = DismissQueueItemAsync(),
+                    () => _pauseRequested).ConfigureAwait(true);
+
+                _activeQueueItem = null;
 
                 await MarkInstalledFromCatalogAsync().ConfigureAwait(true);
                 ApplyFilter();
                 IsInstallPanelOpen = false;
+                IsPaused = false;
 
                 await ClearPendingJobAsync().ConfigureAwait(true);
                 InstallCompleted?.Invoke(this, EventArgs.Empty);
             }
             catch (OperationCanceledException)
             {
-                HasProgress = false;
-                Progress = 0;
-                ProgressDetails = string.Empty;
-                StatusText = "已取消安装；已下载的文件会保留，可点“安装”重试";
-                await ClearPendingJobAsync().ConfigureAwait(true);
+                if (_pauseRequested)
+                {
+                    IsPaused = true;
+                    IsPausing = false;
+                    CanCancel = true;
+                    HasProgress = true;
+
+                    if (_pendingJob != null)
+                    {
+                        _pendingJob.Paused = true;
+                        UpdatePendingJobState();
+
+                        if (_jobs != null)
+                        {
+                            try
+                            {
+                                await _jobs
+                                    .SaveAsync(_pendingJob, CancellationToken.None)
+                                    .ConfigureAwait(true);
+                            }
+                            catch (Exception)
+                            {
+                                // 暂停状态保存在内存里也能继续；持久化失败不阻断暂停。
+                            }
+                        }
+                    }
+
+                    StatusText = "已暂停；已下载的分块会保留，点“继续”接着下载。";
+                }
+                else
+                {
+                    int removed = await CleanPartialsAsync(TargetDirectory).ConfigureAwait(true);
+                    HasProgress = false;
+                    Progress = 0;
+                    ProgressDetails = string.Empty;
+                    IsPaused = false;
+                    StatusText = removed > 0
+                        ? "已取消安装；临时文件已清理，可重新安装。"
+                        : "已取消安装，可重新安装。";
+                    await ClearPendingJobAsync().ConfigureAwait(true);
+                }
             }
             catch (Exception ex)
             {
@@ -640,7 +836,9 @@ namespace NLMCL.App.ViewModels
             {
                 _installCts?.Dispose();
                 _installCts = null;
-                CanCancel = false;
+                _pauseRequested = false;
+                IsPausing = false;
+                CanCancel = IsPaused;
                 IsBusy = false;
             }
         }

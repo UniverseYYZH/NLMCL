@@ -332,14 +332,28 @@
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
                         <Button Content="取消" Style="{StaticResource GhostButton}"
                                 Padding="14,7" Command="{Binding CloseInstallCommand}" />
+                        <Button Content="暂停" Style="{StaticResource GhostButton}"
+                                Padding="14,7" Margin="0,0,8,0"
+                                Command="{Binding PauseInstallCommand}"
+                                IsEnabled="{Binding CanPause}"
+                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                        <Button Content="继续" Style="{StaticResource GhostButton}"
+                                Padding="14,7" Margin="0,0,8,0"
+                                Command="{Binding ResumeInstallCommand}"
+                                IsEnabled="{Binding CanResume}"
+                                Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}" />
                         <Button Content="停止下载" Style="{StaticResource GhostButton}"
                                 Padding="14,7" Margin="0,0,8,0"
                                 Command="{Binding CancelInstallCommand}"
                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                        <Button Content="丢弃任务" Style="{StaticResource GhostButton}"
+                                Padding="14,7" Margin="0,0,8,0"
+                                Command="{Binding CancelInstallCommand}"
+                                Visibility="{Binding IsPaused, Converter={StaticResource BoolToVisibility}}" />
                         <Button Content="开始安装" Style="{StaticResource PrimaryButton}"
                                 Padding="18,8" Margin="8,0,0,0"
                                 Command="{Binding InstallCommand}"
-                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}" />
+                                IsEnabled="{Binding CanStartInstall}" />
                     </StackPanel>
                 </StackPanel>
             </Border>

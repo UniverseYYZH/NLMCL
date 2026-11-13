@@ -44,6 +44,78 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Paused_task_stays_visible_until_dismissed()
+        {
+            DownloadQueue queue = new DownloadQueue();
+            TaskCompletionSource<bool> started = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            bool pauseRequested = false;
+            DownloadQueueItem? item = null;
+
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            Task task = queue.RunAsync(
+                "版本安装",
+                async () =>
+                {
+                    started.TrySetResult(true);
+                    await Task.Delay(Timeout.Infinite, cts.Token);
+                },
+                cts.Token,
+                created => item = created,
+                dismiss: () => { },
+                isPaused: () => pauseRequested);
+
+            await started.Task;
+            pauseRequested = true;
+            cts.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+
+            Assert.Single(queue.Items);
+            Assert.NotNull(item);
+            Assert.True(item!.IsPaused);
+            Assert.Equal("已暂停", item.Status);
+            Assert.True(item.CanDismiss);
+            Assert.Contains("已暂停", queue.Summary);
+
+            queue.Dismiss(item);
+            Assert.Empty(queue.Items);
+        }
+
+        [Fact]
+        public async Task Waiting_item_is_exposed_to_its_owner_before_it_starts()
+        {
+            DownloadQueue queue = new DownloadQueue();
+            TaskCompletionSource<bool> firstStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            TaskCompletionSource<bool> releaseFirst = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            DownloadQueueItem? waiting = null;
+
+            Task first = queue.RunAsync("版本安装", async () =>
+            {
+                firstStarted.TrySetResult(true);
+                await releaseFirst.Task;
+            }, CancellationToken.None);
+
+            await firstStarted.Task;
+
+            using CancellationTokenSource cts = new CancellationTokenSource();
+            Task second = queue.RunAsync(
+                "Mod 安装",
+                () => Task.CompletedTask,
+                cts.Token,
+                created => waiting = created);
+
+            Assert.NotNull(waiting);
+            Assert.False(waiting!.IsActive);
+            Assert.True(waiting.CanCancel);
+
+            cts.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => second);
+
+            releaseFirst.TrySetResult(true);
+            await first;
+        }
+
+        [Fact]
         public async Task Cancelling_a_waiting_item_from_the_ui_removes_it()
         {
             DownloadQueue queue = new DownloadQueue();

@@ -86,6 +86,7 @@ namespace NLMCL.Abstractions
         public string LoaderVersion { get; set; } = string.Empty;
         public string TargetDirectory { get; set; } = string.Empty;
         public int Parallelism { get; set; }
+        public bool Paused { get; set; }
         public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.Now;
     }
 

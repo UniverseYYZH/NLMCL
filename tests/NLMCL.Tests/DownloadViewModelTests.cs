@@ -75,6 +75,30 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class BlockingInstaller : IVersionInstaller
+        {
+            private int _calls;
+
+            public TaskCompletionSource<bool> Started { get; } =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public int Calls => Volatile.Read(ref _calls);
+
+            public async Task InstallAsync(InstallRequest request, IProgress<InstallProgress> progress,
+                CancellationToken cancellationToken)
+            {
+                int call = Interlocked.Increment(ref _calls);
+
+                if (call == 1)
+                {
+                    Started.TrySetResult(true);
+                    await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                }
+
+                progress?.Report(new InstallProgress("安装完成", 100, 0));
+            }
+        }
+
         private sealed class MemoryJobStore : IDownloadJobStore
         {
             public DownloadJob? Job { get; set; }
@@ -99,12 +123,13 @@ namespace NLMCL.Tests
             }
         }
 
-        private static DownloadViewModel Create(IVersionInstaller installer, IDownloadJobStore? jobs = null)
+        private static DownloadViewModel Create(
+            IVersionInstaller installer, IDownloadJobStore? jobs = null, IAppPaths? paths = null)
         {
             return new DownloadViewModel(
                 new MojangVersionListProvider(new FakeDownload(Manifest)),
                 installer,
-                new AppPaths(@"C:\Temp\roaming"),
+                paths ?? new AppPaths(@"C:\Temp\roaming"),
                 jobs: jobs);
         }
 
@@ -262,6 +287,114 @@ namespace NLMCL.Tests
             Assert.False(vm.HasPendingJob);
             Assert.Null(jobs.Job);
             Assert.True(jobs.Clears > 0);
+        }
+
+        [Fact]
+        public async Task Pausing_keeps_the_resumable_job_and_resume_finishes()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-pause-");
+            AppPaths paths = new AppPaths(root);
+            string parts = Path.Combine(paths.DefaultMinecraftDirectory, "client.jar.parts");
+            Directory.CreateDirectory(parts);
+            File.WriteAllText(Path.Combine(parts, "0"), "partial");
+
+            MemoryJobStore jobs = new MemoryJobStore();
+            BlockingInstaller installer = new BlockingInstaller();
+            DownloadViewModel vm = Create(installer, jobs, paths);
+            await vm.LoadVersionsAsync();
+            vm.SelectedVersion = vm.Versions.Single(v => v.Id == "1.21.1");
+
+            Task install = vm.InstallAsync();
+            Task finished = await Task.WhenAny(installer.Started.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.Same(installer.Started.Task, finished);
+            Assert.True(vm.CanPause);
+
+            vm.PauseInstallCommand.Execute(null);
+            await install;
+
+            Assert.True(vm.IsPaused);
+            Assert.False(vm.IsBusy);
+            Assert.True(vm.CanResume);
+            Assert.True(Directory.Exists(parts));
+            Assert.True(vm.HasPendingJob);
+            Assert.NotNull(jobs.Job);
+            Assert.True(jobs.Job!.Paused);
+            Assert.Contains("已暂停", vm.StatusText);
+
+            await vm.ResumeInstallCommand.ExecuteAsync(null);
+
+            Assert.Equal(2, installer.Calls);
+            Assert.False(vm.IsPaused);
+            Assert.Equal(100, vm.Progress);
+            Assert.False(vm.HasPendingJob);
+            Assert.Contains("已安装", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Loading_a_paused_job_reports_it_and_resumes()
+        {
+            MemoryJobStore jobs = new MemoryJobStore
+            {
+                Job = new DownloadJob
+                {
+                    VersionId = "1.21.1",
+                    Loader = "原版",
+                    TargetDirectory = @"C:\Temp\roaming\.minecraft",
+                    Paused = true
+                }
+            };
+
+            FakeInstaller installer = new FakeInstaller();
+            DownloadViewModel vm = Create(installer, jobs);
+            await vm.LoadPendingJobAsync();
+
+            Assert.True(vm.IsPaused);
+            Assert.True(vm.HasPendingJob);
+            Assert.Contains("已暂停", vm.PendingJobText);
+            Assert.False(vm.CanStartInstall);
+
+            await vm.ResumePendingJobCommand.ExecuteAsync(null);
+
+            Assert.Equal(1, installer.Calls);
+            Assert.False(vm.IsPaused);
+            Assert.False(vm.HasPendingJob);
+            Assert.Contains("已安装", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Cancelling_a_paused_install_removes_partial_files_and_job()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-cancel-");
+            AppPaths paths = new AppPaths(root);
+            string parts = Path.Combine(paths.DefaultMinecraftDirectory, "client.jar.parts");
+            Directory.CreateDirectory(parts);
+            File.WriteAllText(Path.Combine(parts, "0"), "partial");
+            string temporary = Path.Combine(paths.DefaultMinecraftDirectory, "client.jar.nlmcl-tmp");
+            File.WriteAllText(temporary, "temporary");
+
+            MemoryJobStore jobs = new MemoryJobStore();
+            BlockingInstaller installer = new BlockingInstaller();
+            DownloadViewModel vm = Create(installer, jobs, paths);
+            await vm.LoadVersionsAsync();
+            vm.SelectedVersion = vm.Versions.Single(v => v.Id == "1.21.1");
+
+            Task install = vm.InstallAsync();
+            Task finished = await Task.WhenAny(installer.Started.Task, Task.Delay(TimeSpan.FromSeconds(5)));
+            Assert.Same(installer.Started.Task, finished);
+
+            vm.PauseInstallCommand.Execute(null);
+            await install;
+            Assert.True(vm.IsPaused);
+
+            vm.CancelInstallCommand.Execute(null);
+            await Task.Delay(300);
+
+            Assert.False(vm.IsPaused);
+            Assert.False(vm.HasPendingJob);
+            Assert.False(Directory.Exists(parts));
+            Assert.False(File.Exists(temporary));
+            Assert.Null(jobs.Job);
+            Assert.Contains("已取消安装", vm.StatusText);
         }
 
         [Fact]
