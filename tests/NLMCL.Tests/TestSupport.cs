@@ -484,7 +484,9 @@ namespace NLMCL.Tests
             IResourceCatalog? resourceCatalog = null,
             IInstancePathResolver? instancePaths = null,
             ISafeModeService? safeMode = null,
-            IVersionRepairer? repairer = null)
+            IVersionRepairer? repairer = null,
+            IModpackUpdateService? modpackUpdates = null,
+            IModpackInstaller? modpackInstaller = null)
         {
             return new MainViewModel(
                 catalog,
@@ -519,7 +521,9 @@ namespace NLMCL.Tests
                 resourceCatalog: resourceCatalog,
                 instancePaths: instancePaths,
                 safeMode: safeMode,
-                repairer: repairer);
+                repairer: repairer,
+                modpackUpdates: modpackUpdates,
+                modpackInstaller: modpackInstaller);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {

@@ -5223,7 +5223,7 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            if (!_dialogs.Confirm(
+            if (_dialogs != null && !_dialogs.Confirm(
                     "更新整合包",
                     "将先备份当前实例，再应用 " + update.Summary
                     + "。\n\n更新失败会保留原实例。继续吗？"))
