@@ -184,6 +184,9 @@ namespace NLMCL.App
         {
             // 自有核心
             services.AddSingleton<IAppPaths, AppPaths>();
+            // 安全模式租约：本次启动把 mods 改成 .disabled，退出/崩溃后按 journal 恢复。
+            services.AddSingleton<ISafeModeService>(sp =>
+                new NLMCL.Core.SafeMode.SafeModeService(sp.GetRequiredService<IAppPaths>().DataRoot));
             services.AddSingleton<IAccountStore, JsonAccountStore>();
             services.AddSingleton<IInstanceSettingsStore, JsonInstanceSettingsStore>();
             services.AddSingleton<IAppSettingsStore, JsonAppSettingsStore>();

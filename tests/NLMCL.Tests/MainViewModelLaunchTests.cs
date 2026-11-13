@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using NLMCL.Abstractions;
 using NLMCL.App.ViewModels;
 using NLMCL.Core;
+using NLMCL.Core.SafeMode;
 using Xunit;
 
 namespace NLMCL.Tests
@@ -100,13 +101,16 @@ namespace NLMCL.Tests
         private static MainViewModel Create(
             IVersionCatalog catalog, IGameLauncher launcher, IJavaLocator javas,
             IInstanceSettingsStore? instanceSettings = null,
-            ModsViewModel? mods = null, IDialogService? dialogs = null)
+            ModsViewModel? mods = null, IDialogService? dialogs = null,
+            IGameSessionLauncher? sessionLauncher = null,
+            AppPaths? paths = null,
+            ISafeModeService? safeMode = null)
         {
-            AppPaths paths = new AppPaths(@"C:\Temp\roaming");
+            paths = paths ?? new AppPaths(@"C:\Temp\roaming");
             return new MainViewModel(
                 catalog, paths, new DownloadViewModel(new TestSupport.EmptyProvider(), new TestSupport.NoopInstaller(), paths),
                 TestSupport.CreateConsole(paths), launcher, javas, new TestSupport.MemoryAccountStore(), new TestSupport.NoopAuthenticator(), instanceSettings ?? new TestSupport.MemoryInstanceSettingsStore(), new TestSupport.FakeNetwork(), new TestSupport.FakeClipboard(), new TestSupport.FakeFolderPicker(), new TestSupport.FakeAppSettings(),
-                mods: mods, dialogs: dialogs);
+                mods: mods, dialogs: dialogs, sessionLauncher: sessionLauncher, safeMode: safeMode);
         }
 
         private sealed class ConflictModManager : IModManager
@@ -761,6 +765,61 @@ namespace NLMCL.Tests
             await Task.Delay(100);
 
             Assert.True(catalog.Calls > before, "安装完成后应重新扫描本地版本");
+        }
+
+        [Fact]
+        public async Task Safe_mode_disables_mods_and_restores_after_session_exit()
+        {
+            string root = TestSupport.CreateTemporaryDirectory("nlmcl-safe-mode-vm-");
+            AppPaths paths = new AppPaths(root);
+            string modsDirectory = Path.Combine(
+                paths.DefaultMinecraftDirectory, "versions", "1.21.1", "mods");
+            Directory.CreateDirectory(modsDirectory);
+            string jar = Path.Combine(modsDirectory, "sodium.jar");
+            File.WriteAllText(jar, "sodium");
+
+            SafeModeService service = new SafeModeService(Path.Combine(root, "data"));
+            StubSessionLauncher sessions = new StubSessionLauncher();
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            RecordingLauncher launcher = new RecordingLauncher();
+            MainViewModel vm = Create(
+                catalog,
+                launcher,
+                new FixedJavaLocator(TestSupport.CreateJava(21)),
+                sessionLauncher: sessions,
+                paths: paths,
+                safeMode: service);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LoadInstanceSettingsAsync(vm.Versions[0]);
+
+            await vm.LaunchSafeModeAsync();
+
+            Assert.Null(launcher.LastRequest);
+            Assert.False(File.Exists(jar));
+            Assert.True(File.Exists(jar + ".disabled"));
+            Assert.Contains("已暂时禁用", vm.SafeModeMessage);
+            Assert.True(vm.HasSafeModeMessage);
+            Assert.Contains("已启动", vm.StatusText);
+
+            sessions.Session.RaiseExit(0);
+
+            for (int i = 0; i < 100; i++)
+            {
+                if (File.Exists(jar) && vm.SafeModeMessage.Contains("已恢复"))
+                {
+                    break;
+                }
+
+                await Task.Delay(20);
+            }
+
+            Assert.True(File.Exists(jar));
+            Assert.False(File.Exists(jar + ".disabled"));
+            Assert.Contains("已恢复", vm.SafeModeMessage);
+            Assert.True(vm.HasSafeModeMessage);
         }
 
         private sealed class StubSession : IGameSession

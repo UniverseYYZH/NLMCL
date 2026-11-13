@@ -140,7 +140,18 @@
                                     Margin="8,0,0,0" Command="{Binding OpenGameDirectoryCommand}" />
                             <Button Content="创建快照" Style="{StaticResource GhostButton}" Padding="16,10"
                                     Margin="8,0,0,0" Command="{Binding CreateSnapshotCommand}" />
+                            <Button Content="安全模式" Style="{StaticResource GhostButton}" Padding="16,10"
+                                    Margin="8,0,0,0" Command="{Binding LaunchSafeModeCommand}"
+                                    IsEnabled="{Binding IsLaunching, Converter={StaticResource InverseBool}}"
+                                    ToolTip="本次启动禁用全部 Mod，游戏退出或启动失败后自动恢复" />
                         </StackPanel>
+
+                        <Border Background="#1FF8D818" BorderBrush="#66F8D818" BorderThickness="1"
+                                CornerRadius="8" Padding="10,7" Margin="0,10,0,0"
+                                Visibility="{Binding HasSafeModeMessage, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding SafeModeMessage}" FontSize="11"
+                                       Foreground="#FFF3C4" TextWrapping="Wrap" />
+                        </Border>
                     </StackPanel>
 
                     <!-- 右侧抽象世界插画 -->

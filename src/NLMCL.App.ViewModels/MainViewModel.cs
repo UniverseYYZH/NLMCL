@@ -129,6 +129,9 @@ namespace NLMCL.App.ViewModels
         /// <summary>Mod 管理页。</summary>
         private readonly ModsViewModel? _mods;
 
+        /// <summary>安全模式：本次启动禁用全部 Mod，游戏退出/启动失败后恢复。</summary>
+        private readonly ISafeModeService? _safeMode;
+
         /// <summary>版本修复。</summary>
         private readonly IVersionRepairer? _repairer;
 
@@ -201,7 +204,8 @@ namespace NLMCL.App.ViewModels
             IVersionDetailsService? versionDetails = null,
             IInstancePackageService? instancePackages = null,
             IInstanceContentService? instanceContent = null,
-            IUiDispatcher? dispatcher = null)
+            IUiDispatcher? dispatcher = null,
+            ISafeModeService? safeMode = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -240,6 +244,7 @@ namespace NLMCL.App.ViewModels
             _instancePackages = instancePackages;
             _instanceContent = instanceContent;
             _dispatcher = dispatcher;
+            _safeMode = safeMode;
             _resource = resource;
             _skin = skin;
             _lanScan = lanScan;
@@ -724,6 +729,17 @@ namespace NLMCL.App.ViewModels
         /// <summary>是否正在启动（防止重复点击）。</summary>
         [ObservableProperty]
         private bool _isLaunching;
+
+        /// <summary>安全模式的结果提示；空字符串表示没有需要提示的内容。</summary>
+        [ObservableProperty]
+        private string _safeModeMessage = string.Empty;
+
+        public bool HasSafeModeMessage => !string.IsNullOrEmpty(SafeModeMessage);
+
+        partial void OnSafeModeMessageChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasSafeModeMessage));
+        }
 
         /// <summary>是否正在执行“进模组服”的准备流程（挑入口/安装/AutoModpack）。</summary>
         [ObservableProperty]
@@ -4105,6 +4121,31 @@ namespace NLMCL.App.ViewModels
 
             await LoadAccountAsync().ConfigureAwait(true);
             await LoadServerProfilesAsync().ConfigureAwait(true);
+
+            // 上次安全模式可能被强杀/断电，没走到退出恢复；启动时先按 journal 补恢复。
+            if (_safeMode != null)
+            {
+                try
+                {
+                    SafeModeRecoveryResult recovery = await _safeMode
+                        .RecoverPendingAsync(CancellationToken.None)
+                        .ConfigureAwait(true);
+
+                    if (recovery.Journals > 0)
+                    {
+                        SafeModeMessage = "上次安全模式异常结束，已恢复 " + recovery.Restored + " 个 Mod。";
+                        if (recovery.Warnings.Count > 0)
+                        {
+                            SafeModeMessage += " 有 " + recovery.Warnings.Count + " 个文件需要手动检查。";
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    SafeModeMessage = "安全模式恢复检查失败：" + ex.Message;
+                }
+            }
+
             await RefreshAsync().ConfigureAwait(true);
         }
 
@@ -4965,14 +5006,35 @@ namespace NLMCL.App.ViewModels
             return LaunchCoreAsync(null);
         }
 
+        /// <summary>安全模式：本次启动临时禁用全部 Mod，退出或失败后自动恢复。</summary>
+        [RelayCommand]
+        public Task LaunchSafeModeAsync()
+        {
+            return LaunchCoreAsync(null, safeMode: true);
+        }
+
         /// <summary>启动的统一入口：普通启动传 null，联机启动传对方地址。</summary>
-        private async Task LaunchCoreAsync(string? serverAddress, bool fromJoin = false)
+        private async Task LaunchCoreAsync(string? serverAddress, bool fromJoin = false, bool safeMode = false)
         {
             // 进服准备（挑入口/安装）已经从用户手里拿走了这次操作；此时再点普通启动
             // 会把状态和游戏进程抢过去。进服流程自己的启动传 fromJoin=true。
             if (!fromJoin && (IsJoiningProfile || Volatile.Read(ref _lobbyGate) != 0))
             {
                 StatusText = "正在准备进入服务器，请稍候…";
+                return;
+            }
+
+            if (safeMode && _safeMode == null)
+            {
+                SafeModeMessage = "安全模式服务未初始化，无法启动。";
+                StatusText = SafeModeMessage;
+                return;
+            }
+
+            if (safeMode && _sessionLauncher == null)
+            {
+                SafeModeMessage = "安全模式需要会话式启动，当前启动方式不支持。";
+                StatusText = SafeModeMessage;
                 return;
             }
 
@@ -5002,7 +5064,7 @@ namespace NLMCL.App.ViewModels
 
             // 渲染器冲突不会阻止游戏启动，但通常会在进入世界后黑屏/崩溃。
             // 启动前给一次可取消的提醒，不篡改玩家装好的 Mod。
-            if (_mods != null && _dialogs != null)
+            if (!safeMode && _mods != null && _dialogs != null)
             {
                 try
                 {
@@ -5040,6 +5102,9 @@ namespace NLMCL.App.ViewModels
 
             StatusText = "正在查找 Java…";
             VersionItem launchedVersion = SelectedVersion;
+
+            SafeModeSession? safeSession = null;
+            bool safeModeHandedOff = false;
 
             try
             {
@@ -5133,6 +5198,29 @@ namespace NLMCL.App.ViewModels
 
                 await CreateAutoSnapshotAsync().ConfigureAwait(true);
 
+                if (safeMode)
+                {
+                    try
+                    {
+                        string modsDirectory = Path.Combine(
+                            ResolveGameDirectory(_instancePaths, CurrentGameDirectory, SelectedVersion.FolderName),
+                            "mods");
+                        safeSession = await _safeMode!
+                            .BeginAsync(modsDirectory, CancellationToken.None)
+                            .ConfigureAwait(true);
+                        SafeModeMessage = "安全模式：已暂时禁用 " + safeSession.DisabledCount
+                            + " 个 Mod，退出游戏后自动恢复。";
+                        RefreshModsInstance();
+                    }
+                    catch (Exception ex)
+                    {
+                        SafeModeMessage = "安全模式准备失败：" + ex.Message
+                            + " 请确认启动器对实例的 mods 目录有写权限。";
+                        StatusText = SafeModeMessage;
+                        return;
+                    }
+                }
+
                 StatusText = "正在启动 " + SelectedVersion.Name + "（内存 " + MemoryMb + " MB）…";
 
                 Account launchAccount = Account ?? BuildImplicitOfflineAccount();
@@ -5182,12 +5270,15 @@ namespace NLMCL.App.ViewModels
                         .StartAsync(request, CancellationToken.None)
                         .ConfigureAwait(true);
 
-                    Console.Attach(session);
-                    await RecordLastLaunchAsync(launchedVersion).ConfigureAwait(true);
-
+                    // 会话已经拿到进程：从这一刻起安全模式由会话退出事件负责恢复。
+                    // 后续 Console.Attach / 写最后启动时间即使失败，也不能在游戏运行时把 Mod 放回去。
+                    safeModeHandedOff = safeSession != null;
                     StatusText = "已启动 " + SelectedVersion.Name
                         + "（PID " + session.ProcessId + "），日志见「启动与日志」";
-                    WatchSessionForStatus(session);
+                    WatchSessionForStatus(session, safeSession);
+
+                    Console.Attach(session);
+                    await RecordLastLaunchAsync(launchedVersion).ConfigureAwait(true);
                     return;
                 }
 
@@ -5210,6 +5301,13 @@ namespace NLMCL.App.ViewModels
             }
             finally
             {
+                // 安全模式已经改了磁盘上的 .jar 名字；只要没把会话交出去，
+                // 取消、Java 选择失败、启动异常都必须立刻恢复，不能等下次启动。
+                if (safeSession != null && !safeModeHandedOff)
+                {
+                    await RestoreSafeModeAsync(safeSession).ConfigureAwait(true);
+                }
+
                 IsLaunching = false;
             }
             }
@@ -5224,12 +5322,19 @@ namespace NLMCL.App.ViewModels
         /// 游戏退出后更新主状态栏。控制台有自己的详细退出/崩溃状态，但世界库页面的
         /// “已启动”不能一直挂着——否则用户关掉游戏后还会以为进程仍在跑。
         /// </summary>
-        private void WatchSessionForStatus(IGameSession session)
+        private void WatchSessionForStatus(IGameSession session, SafeModeSession? safeMode = null)
         {
+            int safeModeRestoreStarted = 0;
             EventHandler<int> handler = null!;
             handler = (sender, exitCode) =>
             {
                 session.Exited -= handler;
+
+                if (safeMode != null
+                    && Interlocked.Exchange(ref safeModeRestoreStarted, 1) == 0)
+                {
+                    _ = RestoreSafeModeAsync(safeMode);
+                }
 
                 int remaining;
                 long version;
@@ -5304,6 +5409,49 @@ namespace NLMCL.App.ViewModels
             if (session.ExitCode.HasValue)
             {
                 handler(session, session.ExitCode.Value);
+            }
+        }
+
+        /// <summary>恢复安全模式改名的 Mod；失败时保留提示，下一次启动还会按 journal 重试。</summary>
+        private async Task RestoreSafeModeAsync(SafeModeSession session)
+        {
+            if (_safeMode == null)
+            {
+                return;
+            }
+
+            string message;
+            try
+            {
+                SafeModeRestoreResult result = await Task
+                    .Run(() => _safeMode.RestoreAsync(session, CancellationToken.None))
+                    .ConfigureAwait(true);
+
+                message = "安全模式已恢复 " + result.Restored + " 个 Mod。";
+                if (result.Warnings.Count > 0)
+                {
+                    message += " 有 " + result.Warnings.Count + " 个文件需要手动检查。";
+                }
+            }
+            catch (Exception ex)
+            {
+                message = "安全模式恢复失败：" + ex.Message + "。下次启动会继续尝试。";
+            }
+
+            void Apply()
+            {
+                SafeModeMessage = message;
+                // 恢复后列表必须重新读盘，否则会停留在“安全模式期间 0 个 Mod”的旧快照。
+                RefreshModsInstance();
+            }
+
+            if (_dispatcher != null)
+            {
+                _dispatcher.Post(Apply);
+            }
+            else
+            {
+                Apply();
             }
         }
 
