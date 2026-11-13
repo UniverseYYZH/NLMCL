@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -73,11 +74,43 @@ public sealed class InviteLinkTests
             Assert.Equal("朋友的服务器", vm.InviteServerName);
             Assert.Equal("example.com", vm.InviteServerAddress);
             Assert.True(vm.InviteRequiresAutoModpack);
+            Assert.Contains("模组", vm.InviteHint);
             Assert.Equal(0, launcher.Calls);
 
             vm.CancelInvite();
             Assert.False(vm.IsInvitePromptOpen);
             Assert.Equal(0, launcher.Calls);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task Accepting_an_invite_launches_with_the_invited_address()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "nlmcl-invite-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var launcher = new RecordingLauncher();
+            string javaHome = Path.Combine(root, "java");
+            Directory.CreateDirectory(Path.Combine(javaHome, "bin"));
+            File.WriteAllText(Path.Combine(javaHome, "bin", "java.exe"), string.Empty);
+            NLMCL.App.ViewModels.MainViewModel vm = TestSupport.CreateMain(
+                new OneVersionCatalog(), new AppPaths(root), javaLocator: new FixedJavaLocator(javaHome), launcher: launcher);
+
+            await vm.RefreshAsync();
+            vm.SelectedVersion = vm.Versions[0];
+            vm.ShowInvite(new InviteLink("example.com", 25566, "朋友的服务器", false));
+            await vm.AcceptInviteAsync();
+
+            Assert.False(vm.IsInvitePromptOpen);
+            Assert.True(launcher.Calls == 1, vm.StatusText);
+            Assert.Equal("example.com:25566", launcher.LastRequest!.ServerAddress);
         }
         finally
         {
@@ -116,13 +149,42 @@ public sealed class InviteLinkTests
         await Task.WhenAny(server, Task.Delay(1000));
     }
 
+    private sealed class OneVersionCatalog : IVersionCatalog
+    {
+        public Task<IReadOnlyList<MinecraftVersion>> GetInstalledAsync(
+            string minecraftDirectory, CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<MinecraftVersion>>(new[]
+            {
+                new MinecraftVersion("Test", "Test", VersionKind.Release, null, hasClientJar: true)
+            });
+    }
+
+    private sealed class FixedJavaLocator : IJavaLocator
+    {
+        private readonly string _home;
+
+        public FixedJavaLocator(string home)
+        {
+            _home = home;
+        }
+
+        public Task<IReadOnlyList<JavaRuntime>> FindInstalledAsync(CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<JavaRuntime>>(new[]
+            {
+                new JavaRuntime(_home, new Version(21, 0))
+            });
+    }
+
     private sealed class RecordingLauncher : IGameLauncher
     {
         public int Calls { get; private set; }
 
+        public LaunchRequest? LastRequest { get; private set; }
+
         public Task<LaunchResult> LaunchAsync(LaunchRequest request, CancellationToken cancellationToken)
         {
             Calls++;
+            LastRequest = request;
             return Task.FromResult(new LaunchResult(0, true, "not started in this test"));
         }
     }

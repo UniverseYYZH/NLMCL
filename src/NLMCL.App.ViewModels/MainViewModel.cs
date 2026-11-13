@@ -807,7 +807,7 @@ namespace NLMCL.App.ViewModels
             InviteServerAddress = invite.Address;
             InviteRequiresAutoModpack = invite.RequiresAutoModpack;
             InviteHint = invite.RequiresAutoModpack
-                ? "邀请标记为模组服；确认后会先准备实例，再启动游戏。"
+                ? "对方标记为模组服；请先确认已安装服务器要求的整合包或模组，再确认加入。"
                 : "确认后才会启动游戏并连接该地址。";
             IsInvitePromptOpen = true;
             StatusText = "收到服务器邀请：" + invite.DisplayName;
