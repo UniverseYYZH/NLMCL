@@ -5126,18 +5126,20 @@ namespace NLMCL.App.ViewModels
 
                 StatusText = "正在启动 " + SelectedVersion.Name + "（内存 " + MemoryMb + " MB）…";
 
+                Account launchAccount = Account ?? BuildImplicitOfflineAccount();
                 LaunchRequest request = new LaunchRequest(CurrentGameDirectory, SelectedVersion.FolderName)
                 {
                     JavaExecutable = javaExecutable,
                     JavaVersion = javaVersion,
                     MaximumMemoryMb = MemoryMb,
                     ServerAddress = serverAddress
-                }.WithAccount(Account ?? BuildImplicitOfflineAccount());
+                }.WithAccount(launchAccount);
 
-            request.ExtraGameArguments = BuildExtraGameArguments();
-            request.WindowWidth = WindowWidth;
-            request.WindowHeight = WindowHeight;
-            request.Fullscreen = Fullscreen;
+                request.UserType = launchAccount.Type == NLMCL.Abstractions.AccountType.Offline ? "legacy" : "msa";
+                request.ExtraGameArguments = BuildExtraGameArguments();
+                request.WindowWidth = WindowWidth;
+                request.WindowHeight = WindowHeight;
+                request.Fullscreen = Fullscreen;
 
                 // 外置登录：把 authlib-injector 挂到 JVM 上。
                 // 失败就明确报错，不要带着空身份启动（服务器会直接踢人，日志还看不出原因）。

@@ -202,6 +202,12 @@ namespace NLMCL.Abstractions
         /// <summary>访问令牌；离线账号传占位值即可。</summary>
         public string? AccessToken { get; set; }
 
+        /// <summary>
+        /// 传给游戏的 <c>--userType</c>。离线账号用 <c>legacy</c>，避免 Realms
+        /// 把占位令牌当 JWT 解析；正版/外置登录仍用 <c>msa</c>。
+        /// </summary>
+        public string UserType { get; set; } = "msa";
+
         /// <summary>从账号一次性填好身份三件套。</summary>
         public LaunchRequest WithAccount(Account? account)
         {

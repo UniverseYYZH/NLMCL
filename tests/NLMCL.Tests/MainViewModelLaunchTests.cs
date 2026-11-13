@@ -359,6 +359,7 @@ namespace NLMCL.Tests
 
             // 两个 Java 中应该挑高版本（这里断言的是"挑中了哪一个实例"）
             Assert.Equal(java21.ExecutablePath, launcher.LastRequest.JavaExecutable);
+            Assert.Equal("legacy", launcher.LastRequest.UserType);
             Assert.Contains("已启动", vm.StatusText);
         }
 

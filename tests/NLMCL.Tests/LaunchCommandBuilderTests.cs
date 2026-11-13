@@ -206,6 +206,28 @@ namespace NLMCL.Tests
             });
         }
 
+        [Fact]
+        public void Offline_accounts_use_legacy_user_type()
+        {
+            RunSta(() =>
+            {
+                McInstance instance = new McInstance(_versionDirectory);
+                var request = new LaunchRequest(_root, "1.21.1")
+                {
+                    PlayerName = "Alex",
+                    PlayerUuid = "00000000-0000-0000-0000-000000000000",
+                    AccessToken = "0",
+                    UserType = "legacy"
+                };
+
+                string command = PclLaunchCommandBuilder.BuildCommand(
+                    instance, request, @"C:\jdk17", new Version(17, 0));
+
+                Assert.Contains("--userType legacy", command);
+                Assert.DoesNotContain("--userType msa", command);
+            });
+        }
+
         /// <summary>
         /// 回归：界面上的"内存 (MB)"曾经只写进启动日志，命令行永远是 -Xmx2048m。
         /// 这条测试直接断言 PCL 参数管线产出的 -Xmx。
