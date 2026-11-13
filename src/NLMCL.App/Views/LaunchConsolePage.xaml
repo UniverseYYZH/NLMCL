@@ -123,7 +123,9 @@
                         CornerRadius="7" Padding="10,6"
                         ToolTip="在「世界库」选择要启动的实例">
                     <TextBox Text="{Binding VersionId, Mode=OneWay}"
-                             IsReadOnly="True" Background="Transparent" BorderThickness="0"
+                             IsReadOnly="True" IsTabStop="False"
+                             AutomationProperties.Name="当前实例版本"
+                             Background="Transparent" BorderThickness="0"
                              FontSize="11.5" Foreground="{DynamicResource Text}"
                              ToolTip="在「世界库」选择要启动的实例" />
                 </Border>
