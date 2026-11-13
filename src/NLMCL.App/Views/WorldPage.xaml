@@ -377,6 +377,12 @@
                                         IsEnabled="{Binding IsModpackUpdateBusy, Converter={StaticResource InverseBool}}"
                                         Visibility="{Binding HasModpackUpdateAvailable, Converter={StaticResource BoolToVisibility}}"
                                         ToolTip="先备份，再下载新版并原地更新；失败不会改动原实例" />
+                                <Button Content="回滚备份" Style="{StaticResource GhostButton}" Padding="8,5"
+                                        FontSize="9.5" Margin="6,0,0,0"
+                                        Command="{Binding RollbackModpackUpdateCommand}"
+                                        IsEnabled="{Binding IsModpackUpdateBusy, Converter={StaticResource InverseBool}}"
+                                        Visibility="{Binding HasModpackBackup, Converter={StaticResource BoolToVisibility}}"
+                                        ToolTip="把当前实例恢复到刚才自动备份的状态" />
                             </StackPanel>
                         </StackPanel>
                     </Border>

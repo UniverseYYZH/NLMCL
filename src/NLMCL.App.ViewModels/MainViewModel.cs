@@ -4680,6 +4680,7 @@ namespace NLMCL.App.ViewModels
             SelectedVersion = item;
             HasSelection = true;
             StatusText = "已选择 " + item.Name;
+            OnPropertyChanged(nameof(HasModpackBackup));
 
             // 旧实例的预检结果立刻作废。实例设置是异步读的，等它读完再刷新会让上一个
             // 实例的“代理不完整”等告警短暂挂在新实例上，看起来像新实例也有问题。
@@ -4743,8 +4744,14 @@ namespace NLMCL.App.ViewModels
         private bool _isModpackUpdateBusy;
 
         private ModpackUpdateInfo? _availableModpackUpdate;
+        private string? _lastModpackBackup;
+        private string? _lastModpackBackupFolder;
 
         public bool HasModpackUpdateAvailable => _availableModpackUpdate != null;
+
+        public bool HasModpackBackup =>
+            !string.IsNullOrWhiteSpace(_lastModpackBackup)
+            && string.Equals(SelectedVersion?.FolderName, _lastModpackBackupFolder, StringComparison.OrdinalIgnoreCase);
 
         public bool HasModpackUpdateMessage => !string.IsNullOrWhiteSpace(ModpackUpdateMessage);
 
@@ -4869,6 +4876,9 @@ namespace NLMCL.App.ViewModels
 
                 if (ReferenceEquals(SelectedVersion, version))
                 {
+                    _lastModpackBackup = path;
+                    _lastModpackBackupFolder = version.FolderName;
+                    OnPropertyChanged(nameof(HasModpackBackup));
                     ModpackUpdateMessage = "整合包备份已保存：" + path;
                     StatusText = "整合包备份已保存：" + path;
                 }
@@ -4918,6 +4928,9 @@ namespace NLMCL.App.ViewModels
                 string backup = await _modpackUpdates
                     .BackupAsync(version.InstancePath, CancellationToken.None)
                     .ConfigureAwait(true);
+                _lastModpackBackup = backup;
+                _lastModpackBackupFolder = version.FolderName;
+                OnPropertyChanged(nameof(HasModpackBackup));
 
                 ModpackUpdateMessage = "正在应用新版：" + update.Summary + "（已备份）";
                 IProgress<InstallProgress> progress = new Progress<InstallProgress>(value =>
@@ -4971,6 +4984,67 @@ namespace NLMCL.App.ViewModels
                 catch (UnauthorizedAccessException)
                 {
                 }
+            }
+        }
+
+        /// <summary>把更新前备份原子恢复回当前实例；失败时原实例保持不动。</summary>
+        [RelayCommand]
+        public async Task RollbackModpackUpdateAsync()
+        {
+            VersionItem? version = SelectedVersion;
+            string? backup = _lastModpackBackup;
+
+            if (version == null || string.IsNullOrWhiteSpace(backup) || !HasModpackBackup)
+            {
+                ModpackUpdateMessage = "没有当前实例的更新前备份。";
+                return;
+            }
+
+            if (_instancePackages == null)
+            {
+                ModpackUpdateMessage = "实例包服务不可用。";
+                return;
+            }
+
+            if (IsLaunching || Console.IsRunning)
+            {
+                ModpackUpdateMessage = "先关闭游戏，再回滚整合包。";
+                return;
+            }
+
+            IsModpackUpdateBusy = true;
+            try
+            {
+                ModpackUpdateMessage = "正在回滚到更新前备份…";
+                await _instancePackages
+                    .RestoreAsync(backup, version.InstancePath, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                string folder = version.FolderName;
+                _lastModpackBackup = null;
+                _lastModpackBackupFolder = null;
+                OnPropertyChanged(nameof(HasModpackBackup));
+
+                await RefreshAsync().ConfigureAwait(true);
+                VersionItem? refreshed = Versions.FirstOrDefault(item =>
+                    string.Equals(item.FolderName, folder, StringComparison.OrdinalIgnoreCase));
+
+                if (refreshed != null)
+                {
+                    SelectVersion(refreshed);
+                }
+
+                ModpackUpdateMessage = "已回滚到更新前备份。";
+                StatusText = "整合包已回滚：" + version.Name;
+            }
+            catch (Exception ex)
+            {
+                ModpackUpdateMessage = "回滚失败：" + ex.Message + "（原实例未改动）";
+                StatusText = "整合包回滚失败：" + ex.Message;
+            }
+            finally
+            {
+                IsModpackUpdateBusy = false;
             }
         }
 

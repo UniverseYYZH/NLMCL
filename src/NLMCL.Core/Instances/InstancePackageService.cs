@@ -30,6 +30,11 @@ namespace NLMCL.Core.Instances
             return Task.Run(() => Import(packageZip, versionsDirectory, cancellationToken), cancellationToken);
         }
 
+        public Task RestoreAsync(string packageZip, string instanceDirectory, CancellationToken cancellationToken = default)
+        {
+            return Task.Run(() => Restore(packageZip, instanceDirectory, cancellationToken), cancellationToken);
+        }
+
         private static string Export(string instancePath, string destinationZip, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(instancePath) || !Directory.Exists(instancePath))
@@ -154,6 +159,79 @@ namespace NLMCL.Core.Instances
             }
         }
 
+        private static void Restore(string packageZip, string instanceDirectory, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(packageZip) || !File.Exists(packageZip))
+            {
+                throw new FileNotFoundException("实例备份不存在：" + packageZip);
+            }
+
+            if (string.IsNullOrWhiteSpace(instanceDirectory) || !Directory.Exists(instanceDirectory))
+            {
+                throw new DirectoryNotFoundException("实例目录不存在：" + instanceDirectory);
+            }
+
+            string target = Path.GetFullPath(instanceDirectory);
+            string staging = target + ".nlmcl-restore-" + Guid.NewGuid().ToString("N");
+            string old = target + ".nlmcl-rollback-" + Guid.NewGuid().ToString("N");
+
+            try
+            {
+                using (var archive = ZipFile.OpenRead(packageZip))
+                {
+                    PackageManifest manifest = ReadManifest(archive, packageZip);
+                    Directory.CreateDirectory(staging);
+
+                    foreach (ZipArchiveEntry entry in archive.Entries)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        if (string.Equals(entry.FullName, ManifestName, StringComparison.OrdinalIgnoreCase) ||
+                            string.IsNullOrEmpty(entry.Name))
+                        {
+                            continue;
+                        }
+
+                        string relative = entry.FullName.Replace('/', Path.DirectorySeparatorChar)
+                            .Replace('\\', Path.DirectorySeparatorChar);
+                        string full = Path.GetFullPath(Path.Combine(staging, relative));
+                        if (!IsInside(full, staging))
+                        {
+                            throw new InvalidDataException("实例备份包含非法路径：" + entry.FullName);
+                        }
+
+                        string? directory = Path.GetDirectoryName(full);
+                        if (!string.IsNullOrWhiteSpace(directory))
+                        {
+                            Directory.CreateDirectory(directory);
+                        }
+
+                        entry.ExtractToFile(full, overwrite: true);
+                    }
+
+                    string sourceFolder = SanitizeName(
+                        string.IsNullOrWhiteSpace(manifest.SourceFolder) ? manifest.Name : manifest.SourceFolder);
+                    RenameVersionJson(staging, sourceFolder, Path.GetFileName(target));
+                }
+
+                Directory.Move(target, old);
+                try
+                {
+                    Directory.Move(staging, target);
+                }
+                catch
+                {
+                    Directory.Move(old, target);
+                    throw;
+                }
+
+                TryDeleteDirectory(old);
+            }
+            finally
+            {
+                TryDeleteDirectory(staging);
+            }
+        }
+
         private static PackageManifest ReadManifest(ZipArchive archive, string packageZip)
         {
             ZipArchiveEntry? entry = archive.Entries
@@ -258,6 +336,23 @@ namespace NLMCL.Core.Instances
                 if (File.Exists(path))
                 {
                     File.Delete(path);
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+        }
+
+        private static void TryDeleteDirectory(string path)
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    Directory.Delete(path, recursive: true);
                 }
             }
             catch (IOException)

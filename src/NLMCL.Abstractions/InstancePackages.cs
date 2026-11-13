@@ -13,5 +13,11 @@ namespace NLMCL.Abstractions
 
         /// <summary>返回新实例目录的绝对路径。</summary>
         Task<string> ImportAsync(string packageZip, string versionsDirectory, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 把实例包内容原子替换回现有实例目录。失败时原实例保持不动。
+        /// 仅用于本机备份回滚，不导入成新实例。
+        /// </summary>
+        Task RestoreAsync(string packageZip, string instanceDirectory, CancellationToken cancellationToken = default);
     }
 }

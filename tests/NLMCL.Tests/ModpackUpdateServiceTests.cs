@@ -146,6 +146,12 @@ namespace NLMCL.Tests
             {
                 throw new NotSupportedException("本测试不导入实例包。");
             }
+
+            public Task RestoreAsync(
+                string packageZip, string instanceDirectory, CancellationToken cancellationToken = default)
+            {
+                throw new NotSupportedException("本测试不回滚实例包。");
+            }
         }
     }
 }

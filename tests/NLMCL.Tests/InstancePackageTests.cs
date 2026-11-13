@@ -50,6 +50,31 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Restore_replaces_the_instance_with_the_backup_contents()
+        {
+            string instance = Path.Combine(_root, "versions", "my-instance");
+            Directory.CreateDirectory(Path.Combine(instance, "mods"));
+            File.WriteAllText(Path.Combine(instance, "my-instance.json"), "{\"id\":\"my-instance\"}");
+            File.WriteAllText(Path.Combine(instance, "mods", "test.jar"), "old");
+
+            string zip = Path.Combine(_root, "backup.zip");
+            var service = new InstancePackageService();
+            await service.ExportAsync(instance, zip, CancellationToken.None);
+
+            File.WriteAllText(Path.Combine(instance, "mods", "test.jar"), "new");
+            File.WriteAllText(Path.Combine(instance, "mods", "added-later.jar"), "added");
+
+            await service.RestoreAsync(zip, instance, CancellationToken.None);
+
+            Assert.Equal("old", File.ReadAllText(Path.Combine(instance, "mods", "test.jar")));
+            Assert.False(File.Exists(Path.Combine(instance, "mods", "added-later.jar")));
+            JObject json = JObject.Parse(File.ReadAllText(Path.Combine(instance, "my-instance.json")));
+            Assert.Equal("my-instance", (string?)json["id"]);
+            Assert.Empty(Directory.GetDirectories(Path.GetDirectoryName(instance)!, "my-instance.nlmcl-restore-*"));
+            Assert.Empty(Directory.GetDirectories(Path.GetDirectoryName(instance)!, "my-instance.nlmcl-rollback-*"));
+        }
+
+        [Fact]
         public async Task Import_rejects_entries_that_escape_the_instance_directory()
         {
             string zip = Path.Combine(_root, "evil.zip");
