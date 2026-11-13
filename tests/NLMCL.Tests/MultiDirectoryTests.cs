@@ -282,6 +282,46 @@ namespace NLMCL.Tests
             }
         }
 
+        [Fact]
+        public async Task Initialize_keeps_the_saved_current_directory_when_scanning_multiple_directories()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-multi-current-" + Guid.NewGuid().ToString("N"));
+            string first = System.IO.Path.Combine(root, "one");
+            string second = System.IO.Path.Combine(root, "two");
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(first);
+                System.IO.Directory.CreateDirectory(second);
+
+                TestSupport.FakeAppSettings settings = new TestSupport.FakeAppSettings();
+                settings.Current.GameDirectory = second;
+                settings.Current.GameDirectories = new List<string> { first, second };
+
+                MainViewModel vm = TestSupport.CreateMain(
+                    new MultiCatalog(first, second),
+                    new NLMCL.Core.AppPaths(root),
+                    appSettings: settings);
+
+                await vm.InitializeAsync();
+
+                Assert.Equal(second, vm.CurrentGameDirectory);
+                Assert.NotNull(vm.SelectedVersion);
+                Assert.Equal(second, vm.SelectedVersion!.GameDirectory);
+            }
+            finally
+            {
+                try
+                {
+                    System.IO.Directory.Delete(root, true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+
         private sealed class MultiCatalog : IVersionCatalog
         {
             private readonly string _first;

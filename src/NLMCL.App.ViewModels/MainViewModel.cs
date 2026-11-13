@@ -6695,7 +6695,12 @@ namespace NLMCL.App.ViewModels
                             && string.Equals(item.GameDirectory, SelectedVersion.GameDirectory, StringComparison.OrdinalIgnoreCase));
 
                     // 刷新会重建 VersionItem；必须重新指向列表里的新对象，否则列表没有高亮。
-                    SelectVersion(previous ?? Versions[0]);
+                    // 首次没有 previous 时优先选当前目录里的版本：多目录扫描时 Versions[0]
+                    // 可能来自别的目录，SelectVersion 会把活动目录改回去，表现为“目录自己变了”。
+                    VersionItem? inCurrentDirectory = Versions.FirstOrDefault(item =>
+                        string.Equals(item.GameDirectory, CurrentGameDirectory, StringComparison.OrdinalIgnoreCase));
+
+                    SelectVersion(previous ?? inCurrentDirectory ?? Versions[0]);
                 }
                 else
                 {
