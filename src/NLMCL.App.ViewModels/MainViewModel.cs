@@ -5196,6 +5196,11 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task ApplyModpackUpdateAsync()
         {
+            if (IsModpackUpdateBusy)
+            {
+                return;
+            }
+
             VersionItem? version = SelectedVersion;
             ModpackUpdateInfo? update = _availableModpackUpdate;
 
@@ -5208,6 +5213,22 @@ namespace NLMCL.App.ViewModels
             if (_modpackUpdates == null || _modpackInstaller == null || _fileDownloader == null)
             {
                 ModpackUpdateMessage = "整合包更新服务不可用。";
+                return;
+            }
+
+            if (IsLaunching || Console.IsRunning || HasRunningSelectedInstance)
+            {
+                ModpackUpdateMessage = "游戏正在运行，请先关闭当前实例再更新整合包。";
+                StatusText = "整合包更新已取消：请先关闭游戏。";
+                return;
+            }
+
+            if (!_dialogs.Confirm(
+                    "更新整合包",
+                    "将先备份当前实例，再应用 " + update.Summary
+                    + "。\n\n更新失败会保留原实例。继续吗？"))
+            {
+                ModpackUpdateMessage = "已取消整合包更新。";
                 return;
             }
 
@@ -5306,6 +5327,11 @@ namespace NLMCL.App.ViewModels
         [RelayCommand]
         public async Task RollbackModpackUpdateAsync()
         {
+            if (IsModpackUpdateBusy)
+            {
+                return;
+            }
+
             VersionItem? version = SelectedVersion;
             string? backup = _lastModpackBackup;
 
@@ -5321,9 +5347,10 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
-            if (IsLaunching || Console.IsRunning)
+            if (IsLaunching || Console.IsRunning || HasRunningSelectedInstance)
             {
                 ModpackUpdateMessage = "先关闭游戏，再回滚整合包。";
+                StatusText = "整合包回滚已取消：请先关闭游戏。";
                 return;
             }
 
