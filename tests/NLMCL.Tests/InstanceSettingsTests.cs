@@ -25,7 +25,15 @@ namespace NLMCL.Tests
             try
             {
                 await store.SaveAsync(root, "1.21.1",
-                    new InstanceSettings { MemoryMb = 6144, JavaPath = @"C:\jdk21\bin\javaw.exe" },
+                    new InstanceSettings
+                    {
+                        MemoryMb = 6144,
+                        JavaPath = @"C:\jdk21\bin\javaw.exe",
+                        UseProxy = true,
+                        ProxyHost = "127.0.0.1",
+                        ProxyPort = 7890,
+                        SoftwareOpenGl = true
+                    },
                     CancellationToken.None);
 
                 await store.SaveAsync(root, "1.20.1",
@@ -36,6 +44,10 @@ namespace NLMCL.Tests
                 InstanceSettings first = await store.LoadAsync(root, "1.21.1", CancellationToken.None);
                 Assert.Equal(6144, first.MemoryMb);
                 Assert.Equal(@"C:\jdk21\bin\javaw.exe", first.JavaPath);
+                Assert.True(first.UseProxy);
+                Assert.Equal("127.0.0.1", first.ProxyHost);
+                Assert.Equal(7890, first.ProxyPort);
+                Assert.True(first.SoftwareOpenGl);
 
                 InstanceSettings second = await store.LoadAsync(root, "1.20.1", CancellationToken.None);
                 Assert.Equal(2048, second.MemoryMb);

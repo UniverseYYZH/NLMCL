@@ -43,7 +43,11 @@ namespace NLMCL.Core.Settings
                     ServerAddress = root.Value<string>("serverAddress"),
                     WindowWidth = root.Value<int?>("windowWidth") ?? 0,
                     WindowHeight = root.Value<int?>("windowHeight") ?? 0,
-                    Fullscreen = root.Value<bool?>("fullscreen") ?? false
+                    Fullscreen = root.Value<bool?>("fullscreen") ?? false,
+                    UseProxy = root.Value<bool?>("useProxy") ?? false,
+                    ProxyHost = root.Value<string>("proxyHost"),
+                    ProxyPort = root.Value<int?>("proxyPort") ?? 0,
+                    SoftwareOpenGl = root.Value<bool?>("softwareOpenGl") ?? false
                 };
 
                 return Task.FromResult(settings);
@@ -89,7 +93,11 @@ namespace NLMCL.Core.Settings
                 ["serverAddress"] = settings.ServerAddress,
                 ["windowWidth"] = settings.WindowWidth,
                 ["windowHeight"] = settings.WindowHeight,
-                ["fullscreen"] = settings.Fullscreen
+                ["fullscreen"] = settings.Fullscreen,
+                ["useProxy"] = settings.UseProxy,
+                ["proxyHost"] = settings.ProxyHost,
+                ["proxyPort"] = settings.ProxyPort,
+                ["softwareOpenGl"] = settings.SoftwareOpenGl
             };
 
             File.WriteAllText(file, root.ToString(Formatting.Indented), Encoding.UTF8);
