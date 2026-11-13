@@ -4782,6 +4782,14 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
+                _lastModpackBackup = manifest?.LastBackup;
+                _lastModpackBackupFolder = item.FolderName;
+                if (string.IsNullOrWhiteSpace(_lastModpackBackup) || !File.Exists(_lastModpackBackup))
+                {
+                    _lastModpackBackup = null;
+                }
+
+                OnPropertyChanged(nameof(HasModpackBackup));
                 ModpackUpdateMessage = manifest == null
                     ? string.Empty
                     : "整合包：" + manifest.Name + " · " + manifest.Summary;

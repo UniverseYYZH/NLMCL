@@ -141,8 +141,16 @@ namespace NLMCL.Core.Installing
                 root,
                 safe + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + ".zip");
 
-            return await _packages.ExportAsync(instanceDirectory, destination, cancellationToken)
+            string backup = await _packages.ExportAsync(instanceDirectory, destination, cancellationToken)
                 .ConfigureAwait(false);
+            ModpackManifest? manifest = ModpackManifestStore.Read(instanceDirectory);
+            if (manifest != null)
+            {
+                manifest.LastBackup = backup;
+                ModpackManifestStore.Write(instanceDirectory, manifest);
+            }
+
+            return backup;
         }
 
         private async Task<string> ResolveProjectIdAsync(

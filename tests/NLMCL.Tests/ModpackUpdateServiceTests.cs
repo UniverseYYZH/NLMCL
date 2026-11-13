@@ -82,6 +82,13 @@ namespace NLMCL.Tests
         {
             string instance = Path.Combine(_root, "versions", "Backup Pack");
             Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                VersionId = "v1",
+                Name = "Backup Pack",
+                MinecraftVersion = "1.21.1",
+                Loader = "Fabric"
+            });
 
             FakePackages packages = new FakePackages();
             AppPaths paths = new AppPaths(Path.Combine(_root, "data"), portable: true);
@@ -93,6 +100,7 @@ namespace NLMCL.Tests
             Assert.StartsWith(Path.Combine(paths.DataRoot, "modpack-backups"), backup);
             Assert.True(File.Exists(backup));
             Assert.Equal(instance, packages.LastExportSource);
+            Assert.Equal(backup, ModpackManifestStore.Read(instance)?.LastBackup);
         }
 
         public void Dispose()

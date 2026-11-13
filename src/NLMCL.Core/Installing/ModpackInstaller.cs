@@ -250,6 +250,7 @@ namespace NLMCL.Core.Installing
                 Loader = info.Loader.ToString(),
                 LoaderVersion = info.LoaderVersion,
                 InstalledAt = DateTimeOffset.Now,
+                LastBackup = previous?.LastBackup,
                 ModFiles = (index["files"] as JArray)?
                     .OfType<JObject>()
                     .Where(item => !string.Equals(

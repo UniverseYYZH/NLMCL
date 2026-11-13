@@ -92,6 +92,9 @@ namespace NLMCL.Abstractions
 
         public DateTimeOffset InstalledAt { get; set; }
 
+        /// <summary>最近一次更新前备份的绝对路径；用于重启后仍能一键回滚。</summary>
+        public string? LastBackup { get; set; }
+
         /// <summary>整合包自己安装的 mods 相对路径，用于更新时保留玩家额外加的 Mod。</summary>
         public List<string> ModFiles { get; set; } = new List<string>();
 
