@@ -84,6 +84,7 @@ namespace NLMCL.App.ViewModels
         private readonly IFileSavePicker? _saveFilePicker;
         private readonly IInstancePackageService? _instancePackages;
         private readonly IModpackUpdateService? _modpackUpdates;
+        private readonly IModpackInstaller? _modpackInstaller;
         private readonly IInstanceContentService? _instanceContent;
 
         /// <summary>常用服务器（快捷入口）。</summary>
@@ -205,6 +206,7 @@ namespace NLMCL.App.ViewModels
             IVersionDetailsService? versionDetails = null,
             IInstancePackageService? instancePackages = null,
             IModpackUpdateService? modpackUpdates = null,
+            IModpackInstaller? modpackInstaller = null,
             IInstanceContentService? instanceContent = null,
             IUiDispatcher? dispatcher = null,
             ISafeModeService? safeMode = null)
@@ -245,6 +247,7 @@ namespace NLMCL.App.ViewModels
             _saveFilePicker = saveFilePicker;
             _instancePackages = instancePackages;
             _modpackUpdates = modpackUpdates;
+            _modpackInstaller = modpackInstaller;
             _instanceContent = instanceContent;
             _dispatcher = dispatcher;
             _safeMode = safeMode;
@@ -4739,6 +4742,10 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isModpackUpdateBusy;
 
+        private ModpackUpdateInfo? _availableModpackUpdate;
+
+        public bool HasModpackUpdateAvailable => _availableModpackUpdate != null;
+
         public bool HasModpackUpdateMessage => !string.IsNullOrWhiteSpace(ModpackUpdateMessage);
 
         partial void OnModpackUpdateMessageChanged(string value)
@@ -4748,8 +4755,12 @@ namespace NLMCL.App.ViewModels
 
         private async Task RefreshModpackInfoAsync(VersionItem item)
         {
+            _availableModpackUpdate = null;
+            OnPropertyChanged(nameof(HasModpackUpdateAvailable));
+
             if (_modpackUpdates == null)
             {
+                ModpackUpdateMessage = string.Empty;
                 return;
             }
 
@@ -4807,6 +4818,9 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
+                _availableModpackUpdate = update;
+                OnPropertyChanged(nameof(HasModpackUpdateAvailable));
+
                 if (update == null)
                 {
                     ModpackUpdateMessage = "没有可用的整合包更新，或该实例不是 Modrinth 整合包。";
@@ -4814,7 +4828,7 @@ namespace NLMCL.App.ViewModels
                 else
                 {
                     ModpackUpdateMessage = "发现整合包新版：" + update.Summary
-                        + "。先点“备份整合包”，再按新版发布页更新。";
+                        + "。可点“备份整合包”留档，再点“安装更新”。";
                     StatusText = "发现整合包新版：" + update.Summary;
                 }
             }
@@ -4866,6 +4880,97 @@ namespace NLMCL.App.ViewModels
             finally
             {
                 IsModpackUpdateBusy = false;
+            }
+        }
+
+        /// <summary>下载新版 → 备份 → staging 更新 → 刷新实例；失败时原实例保持不动。</summary>
+        [RelayCommand]
+        public async Task ApplyModpackUpdateAsync()
+        {
+            VersionItem? version = SelectedVersion;
+            ModpackUpdateInfo? update = _availableModpackUpdate;
+
+            if (version == null || update == null)
+            {
+                ModpackUpdateMessage = "先检查整合包更新。";
+                return;
+            }
+
+            if (_modpackUpdates == null || _modpackInstaller == null || _fileDownloader == null)
+            {
+                ModpackUpdateMessage = "整合包更新服务不可用。";
+                return;
+            }
+
+            IsModpackUpdateBusy = true;
+            string temporary = Path.Combine(
+                _paths.DataRoot, "modpack-downloads", Guid.NewGuid().ToString("N") + ".mrpack");
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(temporary)!);
+
+                ModpackUpdateMessage = "正在下载新版：" + update.Summary;
+                await _fileDownloader
+                    .DownloadAsync(update.DownloadUrl, temporary, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                string backup = await _modpackUpdates
+                    .BackupAsync(version.InstancePath, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                ModpackUpdateMessage = "正在应用新版：" + update.Summary + "（已备份）";
+                IProgress<InstallProgress> progress = new Progress<InstallProgress>(value =>
+                {
+                    if (ReferenceEquals(SelectedVersion, version))
+                    {
+                        ModpackUpdateMessage = "正在更新整合包：" + value.Stage
+                            + (value.Percent > 0 ? " · " + value.Percent + "%" : string.Empty);
+                    }
+                });
+
+                await _modpackInstaller
+                    .UpdateAsync(temporary, version.InstancePath, progress, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                string folder = version.FolderName;
+                _availableModpackUpdate = null;
+                OnPropertyChanged(nameof(HasModpackUpdateAvailable));
+
+                await RefreshAsync().ConfigureAwait(true);
+                VersionItem? refreshed = Versions.FirstOrDefault(item =>
+                    string.Equals(item.FolderName, folder, StringComparison.OrdinalIgnoreCase));
+
+                if (refreshed != null)
+                {
+                    SelectVersion(refreshed);
+                }
+
+                ModpackUpdateMessage = "整合包已更新到 " + update.Summary + "；备份：" + backup;
+                StatusText = "整合包已更新：" + update.Summary;
+            }
+            catch (Exception ex)
+            {
+                ModpackUpdateMessage = "整合包更新失败：" + ex.Message + "（原实例未改动）";
+                StatusText = "整合包更新失败：" + ex.Message;
+            }
+            finally
+            {
+                IsModpackUpdateBusy = false;
+
+                try
+                {
+                    if (File.Exists(temporary))
+                    {
+                        File.Delete(temporary);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
         }
 

@@ -371,6 +371,12 @@
                                         Command="{Binding BackupModpackCommand}"
                                         IsEnabled="{Binding IsModpackUpdateBusy, Converter={StaticResource InverseBool}}"
                                         ToolTip="把当前实例导出到数据目录的 modpack-backups" />
+                                <Button Content="安装更新" Style="{StaticResource PrimaryButton}" Padding="10,5"
+                                        FontSize="9.5" Margin="6,0,0,0"
+                                        Command="{Binding ApplyModpackUpdateCommand}"
+                                        IsEnabled="{Binding IsModpackUpdateBusy, Converter={StaticResource InverseBool}}"
+                                        Visibility="{Binding HasModpackUpdateAvailable, Converter={StaticResource BoolToVisibility}}"
+                                        ToolTip="先备份，再下载新版并原地更新；失败不会改动原实例" />
                             </StackPanel>
                         </StackPanel>
                     </Border>

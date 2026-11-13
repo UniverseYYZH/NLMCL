@@ -59,6 +59,13 @@ namespace NLMCL.Abstractions
             string javaExecutable,
             IProgress<InstallProgress>? progress,
             CancellationToken cancellationToken);
+
+        /// <summary>原地更新已安装实例。下载/解压先写 staging，失败不碰原实例。</summary>
+        Task UpdateAsync(
+            string mrpackPath,
+            string instanceDirectory,
+            IProgress<InstallProgress>? progress,
+            CancellationToken cancellationToken);
     }
 
     /// <summary>已安装整合包的本地元数据；实例目录下的 .nlmcl-modpack.json。</summary>

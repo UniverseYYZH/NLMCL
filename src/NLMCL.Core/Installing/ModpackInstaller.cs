@@ -137,6 +137,160 @@ namespace NLMCL.Core.Installing
             return versionId;
         }
 
+        public async Task UpdateAsync(
+            string mrpackPath,
+            string instanceDirectory,
+            IProgress<InstallProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            if (!File.Exists(mrpackPath))
+            {
+                throw new FileNotFoundException("找不到整合包文件。", mrpackPath);
+            }
+
+            ModpackManifest? previous = ModpackManifestStore.Read(instanceDirectory);
+
+            if (previous == null)
+            {
+                throw new InvalidDataException("这个实例没有整合包元数据，不能原地更新。");
+            }
+
+            using ZipArchive archive = ZipFile.OpenRead(mrpackPath);
+            JObject index = ReadIndex(archive);
+            ModpackInfo info = Parse(index);
+
+            if (!string.Equals(previous.MinecraftVersion, info.MinecraftVersion, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(previous.Loader, info.Loader.ToString(), StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(previous.LoaderVersion ?? string.Empty, info.LoaderVersion ?? string.Empty,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException(
+                    "新版整合包的 Minecraft/加载器与当前实例不一致。请新建实例，不能原地更新。");
+            }
+
+            ModpackManifest next = BuildManifest(info, index, mrpackPath, previous);
+            string staging = instanceDirectory + ".nlmcl-staging-" + Guid.NewGuid().ToString("N");
+
+            progress?.Report(new InstallProgress("复制现有实例到临时目录", 20, 0));
+
+            try
+            {
+                CopyDirectory(instanceDirectory, staging);
+
+                if (IsCurseForgeManifest(index))
+                {
+                    await DownloadCurseForgeFilesAsync(
+                        index, staging, progress, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    await DownloadModrinthFilesAsync(
+                        index, staging, progress, cancellationToken).ConfigureAwait(false);
+                }
+
+                progress?.Report(new InstallProgress("展开 overrides", 88, 0));
+                string overridesPrefix = (index.Value<string>("overrides") ?? "overrides").TrimEnd('/') + "/";
+                ExtractOverrides(archive, staging, overridesPrefix);
+
+                // 只删旧整合包清单里的 mod；玩家自己加的 mod 不在 old.ModFiles 中，原样保留。
+                foreach (string relative in previous.ModFiles)
+                {
+                    if (next.ModFiles.Contains(relative, StringComparer.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    string stale = SafeCombine(staging, relative);
+
+                    if (File.Exists(stale))
+                    {
+                        File.Delete(stale);
+                    }
+                }
+
+                ModpackManifestStore.Write(staging, next);
+
+                string oldDirectory = instanceDirectory + ".nlmcl-old-" + Guid.NewGuid().ToString("N");
+                Directory.Move(instanceDirectory, oldDirectory);
+
+                try
+                {
+                    Directory.Move(staging, instanceDirectory);
+                }
+                catch
+                {
+                    Directory.Move(oldDirectory, instanceDirectory);
+                    throw;
+                }
+
+                TryDeleteDirectory(oldDirectory);
+                progress?.Report(new InstallProgress("整合包更新完成", 100, 0));
+            }
+            catch
+            {
+                TryDeleteDirectory(staging);
+                throw;
+            }
+        }
+
+        private static ModpackManifest BuildManifest(
+            ModpackInfo info,
+            JObject index,
+            string mrpackPath,
+            ModpackManifest? previous = null)
+        {
+            return new ModpackManifest
+            {
+                Source = IsCurseForgeManifest(index) ? "curseforge" : "modrinth",
+                ProjectId = previous?.ProjectId ?? string.Empty,
+                VersionId = info.VersionId ?? string.Empty,
+                Name = info.Name,
+                FileName = Path.GetFileName(mrpackPath) ?? string.Empty,
+                MinecraftVersion = info.MinecraftVersion,
+                Loader = info.Loader.ToString(),
+                LoaderVersion = info.LoaderVersion,
+                InstalledAt = DateTimeOffset.Now,
+                ModFiles = (index["files"] as JArray)?
+                    .OfType<JObject>()
+                    .Where(item => !string.Equals(
+                        item.SelectToken("env.client")?.Value<string>(),
+                        "unsupported", StringComparison.OrdinalIgnoreCase))
+                    .Select(item => item.Value<string>("path"))
+                    .Where(path => !string.IsNullOrWhiteSpace(path)
+                        && path!.StartsWith("mods/", StringComparison.OrdinalIgnoreCase))
+                    .Select(path => path!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList() ?? new List<string>()
+            };
+        }
+
+        private static void CopyDirectory(string source, string destination)
+        {
+            Directory.CreateDirectory(destination);
+
+            foreach (string directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+            {
+                string relative = directory.Substring(source.Length).TrimStart(
+                    Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                Directory.CreateDirectory(Path.Combine(destination, relative));
+            }
+
+            foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+            {
+                string relative = file.Substring(source.Length).TrimStart(
+                    Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                string target = Path.Combine(destination, relative);
+
+                string? parent = Path.GetDirectoryName(target);
+                if (!string.IsNullOrEmpty(parent))
+                {
+                    Directory.CreateDirectory(parent!);
+                }
+
+                File.Copy(file, target, overwrite: true);
+            }
+        }
+
         private static void WriteManifest(
             string instanceDirectory,
             ModpackInfo info,

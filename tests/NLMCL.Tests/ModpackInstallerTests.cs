@@ -244,7 +244,7 @@ namespace NLMCL.Tests
                 => Task.FromResult("neoforge-" + loaderVersion);
         }
 
-        private static string BuildMrpack(string directory)
+        private static string BuildMrpack(string directory, string index = FabricIndex)
         {
             string path = Path.Combine(directory, "pack.mrpack");
 
@@ -261,7 +261,7 @@ namespace NLMCL.Tests
                     }
                 }
 
-                Add("modrinth.index.json", FabricIndex);
+                Add("modrinth.index.json", index);
                 Add("overrides/config/mod.toml", "a=1");
                 Add("overrides/", string.Empty);
             }
@@ -361,6 +361,61 @@ namespace NLMCL.Tests
 
                 string instance = Path.Combine(mc, "versions", "Curse-Test-Pack");
                 Assert.False(Directory.Exists(instance), "失败后不应留下空壳实例目录");
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Updates_in_place_removes_old_pack_mods_and_keeps_player_mods()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-update-" + Guid.NewGuid().ToString("N"));
+            string mc = Path.Combine(root, ".minecraft");
+            Directory.CreateDirectory(mc);
+
+            try
+            {
+                ModpackInstaller installer = new ModpackInstaller(
+                    new FakeDownload(), new FakeVersions(), new FakeLoaders(), new FakeFileDownloader());
+                string versionId = await installer.InstallAsync(
+                    BuildMrpack(root), mc, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
+                string instance = Path.Combine(mc, "versions", versionId);
+                string mods = Path.Combine(instance, "mods");
+                Directory.CreateDirectory(mods);
+                File.WriteAllText(Path.Combine(mods, "player.jar"), "player");
+
+                const string nextIndex = @"{
+                    ""formatVersion"": 1,
+                    ""name"": ""Fabulously Optimized"",
+                    ""versionId"": ""5.0.1"",
+                    ""files"": [
+                        { ""path"": ""mods/sodium-new.jar"", ""downloads"": [""https://cdn/sodium-new.jar""] }
+                    ],
+                    ""dependencies"": { ""minecraft"": ""1.20.1"", ""fabric-loader"": ""0.16.9"" }
+                }";
+                string nextDir = Path.Combine(root, "next");
+                Directory.CreateDirectory(nextDir);
+
+                await installer.UpdateAsync(
+                    BuildMrpack(nextDir, nextIndex), instance, null, CancellationToken.None);
+
+                Assert.False(File.Exists(Path.Combine(mods, "sodium.jar")), "旧整合包 mod 应被移除");
+                Assert.True(File.Exists(Path.Combine(mods, "sodium-new.jar")), "新版整合包 mod 应安装");
+                Assert.True(File.Exists(Path.Combine(mods, "player.jar")), "玩家自加 mod 必须保留");
+
+                ModpackManifest? manifest = ModpackManifestStore.Read(instance);
+                Assert.NotNull(manifest);
+                Assert.Equal("5.0.1", manifest!.VersionId);
+                Assert.Contains("mods/sodium-new.jar", manifest.ModFiles);
+                Assert.True(File.Exists(Path.Combine(instance, versionId + ".json")));
             }
             finally
             {
