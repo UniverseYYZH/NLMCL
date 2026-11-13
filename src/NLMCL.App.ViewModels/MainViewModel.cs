@@ -85,6 +85,7 @@ namespace NLMCL.App.ViewModels
         private readonly IInstancePackageService? _instancePackages;
         private readonly IModpackUpdateService? _modpackUpdates;
         private readonly IModpackInstaller? _modpackInstaller;
+        private readonly ILauncherUpdateService? _launcherUpdates;
         private readonly IInstanceContentService? _instanceContent;
 
         /// <summary>常用服务器（快捷入口）。</summary>
@@ -142,6 +143,13 @@ namespace NLMCL.App.ViewModels
 
         /// <summary>设置加载完成前不要回写，否则初始化时会把默认值覆盖用户配置。</summary>
         private bool _settingsLoaded;
+
+        private string _updateFeedUrl = string.Empty;
+        private bool _checkLauncherUpdatesOnStartup;
+        private bool _launcherUpdateBusy;
+        private string _launcherUpdateMessage = string.Empty;
+        private string? _launcherUpdateNotes;
+        private string? _launcherDownloadUrl;
 
         /// <summary>缩放滑块的防抖令牌（拖动中不断取消上一次）。</summary>
         private CancellationTokenSource? _scaleDebounce;
@@ -209,7 +217,8 @@ namespace NLMCL.App.ViewModels
             IModpackInstaller? modpackInstaller = null,
             IInstanceContentService? instanceContent = null,
             IUiDispatcher? dispatcher = null,
-            ISafeModeService? safeMode = null)
+            ISafeModeService? safeMode = null,
+            ILauncherUpdateService? launcherUpdates = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -248,6 +257,7 @@ namespace NLMCL.App.ViewModels
             _instancePackages = instancePackages;
             _modpackUpdates = modpackUpdates;
             _modpackInstaller = modpackInstaller;
+            _launcherUpdates = launcherUpdates;
             _instanceContent = instanceContent;
             _dispatcher = dispatcher;
             _safeMode = safeMode;
@@ -784,6 +794,175 @@ namespace NLMCL.App.ViewModels
         private string _settingsReadOnlyWarning = string.Empty;
 
         private bool _settingsFileReadOnly;
+
+        /// <summary>启动器更新源；空表示不检查。只接受 http/https。</summary>
+        public string UpdateFeedUrl
+        {
+            get => _updateFeedUrl;
+            set
+            {
+                string normalized = value ?? string.Empty;
+                if (string.Equals(_updateFeedUrl, normalized, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _updateFeedUrl = normalized;
+                OnPropertyChanged();
+                if (_settingsLoaded)
+                {
+                    _ = SaveAppearanceAsync();
+                }
+            }
+        }
+
+        /// <summary>启动时在后台检查更新，不阻塞进入主界面。</summary>
+        public bool CheckLauncherUpdatesOnStartup
+        {
+            get => _checkLauncherUpdatesOnStartup;
+            set
+            {
+                if (_checkLauncherUpdatesOnStartup == value)
+                {
+                    return;
+                }
+
+                _checkLauncherUpdatesOnStartup = value;
+                OnPropertyChanged();
+                if (_settingsLoaded)
+                {
+                    _ = SaveAppearanceAsync();
+                }
+            }
+        }
+
+        public string LauncherUpdateMessage
+        {
+            get => _launcherUpdateMessage;
+            private set
+            {
+                if (string.Equals(_launcherUpdateMessage, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _launcherUpdateMessage = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public string? LauncherUpdateNotes
+        {
+            get => _launcherUpdateNotes;
+            private set
+            {
+                if (string.Equals(_launcherUpdateNotes, value, StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                _launcherUpdateNotes = value;
+                OnPropertyChanged();
+            }
+        }
+
+        public bool HasLauncherUpdate => !string.IsNullOrWhiteSpace(_launcherDownloadUrl);
+
+        public bool IsLauncherUpdateBusy
+        {
+            get => _launcherUpdateBusy;
+            private set
+            {
+                if (_launcherUpdateBusy == value)
+                {
+                    return;
+                }
+
+                _launcherUpdateBusy = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanCheckLauncherUpdate));
+            }
+        }
+
+        public bool CanCheckLauncherUpdate => !IsLauncherUpdateBusy;
+
+        /// <summary>手动检查更新；只在 UI 上展示结果，不下载、不替换 exe。</summary>
+        [RelayCommand]
+        private async Task CheckLauncherUpdatesAsync()
+        {
+            if (IsLauncherUpdateBusy)
+            {
+                return;
+            }
+
+            if (_launcherUpdates == null)
+            {
+                LauncherUpdateMessage = "更新检查服务未启用。";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(UpdateFeedUrl))
+            {
+                LauncherUpdateMessage = "未配置更新源。可填写维护者提供的更新 JSON 地址。";
+                return;
+            }
+
+            IsLauncherUpdateBusy = true;
+            LauncherUpdateMessage = "正在检查更新…";
+            LauncherUpdateNotes = null;
+            _launcherDownloadUrl = null;
+            OnPropertyChanged(nameof(HasLauncherUpdate));
+
+            try
+            {
+                LauncherUpdateInfo? info = await _launcherUpdates
+                    .CheckAsync(UpdateFeedUrl.Trim(), CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (info == null)
+                {
+                    LauncherUpdateMessage = "已是最新版本，或更新源暂不可用。";
+                    return;
+                }
+
+                _launcherDownloadUrl = info.DownloadUrl;
+                LauncherUpdateNotes = info.Notes;
+                LauncherUpdateMessage = info.Summary + "。下载由你确认，不会自动替换当前程序。";
+                OnPropertyChanged(nameof(HasLauncherUpdate));
+            }
+            catch (Exception ex)
+            {
+                LauncherUpdateMessage = "检查更新失败：" + ex.Message;
+            }
+            finally
+            {
+                IsLauncherUpdateBusy = false;
+            }
+        }
+
+        /// <summary>打开更新源提供的下载页；不执行下载文件。</summary>
+        [RelayCommand]
+        private void OpenLauncherDownload()
+        {
+            if (string.IsNullOrWhiteSpace(_launcherDownloadUrl))
+            {
+                return;
+            }
+
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = _launcherDownloadUrl,
+                    UseShellExecute = true
+                });
+                LauncherUpdateMessage = "已打开下载页；请手动下载并核对版本。";
+            }
+            catch (Exception ex)
+            {
+                LauncherUpdateMessage = "打开下载页失败：" + ex.Message;
+            }
+        }
 
         public bool HasSettingsReadOnlyWarning => !string.IsNullOrEmpty(SettingsReadOnlyWarning);
 
@@ -1637,6 +1816,8 @@ namespace NLMCL.App.ViewModels
                 int snapshotRetention = SnapshotRetention;
                 string closeBehavior = CloseBehaviorKey(SelectedCloseBehavior);
                 bool reduceMotion = ReduceMotion;
+                string? updateFeedUrl = string.IsNullOrWhiteSpace(UpdateFeedUrl) ? null : UpdateFeedUrl.Trim();
+                bool checkLauncherUpdates = CheckLauncherUpdatesOnStartup;
 
                 await _appSettings.UpdateAsync(settings =>
                 {
@@ -1655,6 +1836,8 @@ namespace NLMCL.App.ViewModels
                     settings.AutoSnapshotBeforeLaunch = autoSnapshot;
                     settings.SnapshotRetention = snapshotRetention;
                     settings.CloseBehavior = closeBehavior;
+                    settings.UpdateFeedUrl = updateFeedUrl;
+                    settings.CheckLauncherUpdatesOnStartup = checkLauncherUpdates;
                 }, CancellationToken.None).ConfigureAwait(true);
 
                 if (_mirror != null)
@@ -4119,6 +4302,12 @@ namespace NLMCL.App.ViewModels
                 ApplySettingsToUi(settings);
                 ApplyStartupPage(settings);
                 _settingsLoaded = true;
+
+                // 后台检查，不阻塞进入主界面；失败/离线只更新设置页提示。
+                if (CheckLauncherUpdatesOnStartup && !string.IsNullOrWhiteSpace(UpdateFeedUrl))
+                {
+                    _ = CheckLauncherUpdatesAsync();
+                }
             }
             catch (Exception ex)
             {
@@ -4191,6 +4380,8 @@ namespace NLMCL.App.ViewModels
                 DefaultJvmArgs = settings.DefaultJvmArgs ?? string.Empty;
                 DefaultGameArgs = settings.DefaultGameArgs ?? string.Empty;
                 DefaultJavaPath = settings.DefaultJavaPath;
+                UpdateFeedUrl = settings.UpdateFeedUrl ?? string.Empty;
+                CheckLauncherUpdatesOnStartup = settings.CheckLauncherUpdatesOnStartup;
 
                 if (_mirror != null)
                 {

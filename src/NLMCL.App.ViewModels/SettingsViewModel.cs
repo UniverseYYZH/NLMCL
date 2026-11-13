@@ -73,7 +73,7 @@ namespace NLMCL.App.ViewModels
             ("appearance", "外观 主题 缩放 窗口 动效 高对比度"),
             ("download", "下载 线程 限速 镜像 网络 BMCLAPI"),
             ("logs", "日志 诊断 目录 诊断包"),
-            ("data", "数据 备份 导入 导出 缓存 清理 重置 自动 快照 保留 启动前 恢复 默认")
+            ("data", "数据 备份 导入 导出 缓存 清理 重置 自动 快照 保留 启动前 恢复 默认 更新 启动器 版本")
         };
 
         public bool HasSettingsSearchText => !string.IsNullOrEmpty(SettingsSearchText);
@@ -278,6 +278,33 @@ namespace NLMCL.App.ViewModels
         public string LogDirectory => _paths != null
             ? Path.Combine(_paths.DataRoot, "logs")
             : _host.LogDirectory;
+
+        /// <summary>启动器更新源；由 MainViewModel 持久化。</summary>
+        public string UpdateFeedUrl
+        {
+            get => _host.UpdateFeedUrl;
+            set => _host.UpdateFeedUrl = value;
+        }
+
+        public bool CheckLauncherUpdatesOnStartup
+        {
+            get => _host.CheckLauncherUpdatesOnStartup;
+            set => _host.CheckLauncherUpdatesOnStartup = value;
+        }
+
+        public bool IsLauncherUpdateBusy => _host.IsLauncherUpdateBusy;
+
+        public bool CanCheckLauncherUpdate => _host.CanCheckLauncherUpdate;
+
+        public string LauncherUpdateMessage => _host.LauncherUpdateMessage;
+
+        public string? LauncherUpdateNotes => _host.LauncherUpdateNotes;
+
+        public bool HasLauncherUpdate => _host.HasLauncherUpdate;
+
+        public IRelayCommand CheckLauncherUpdatesCommand => _host.CheckLauncherUpdatesCommand;
+
+        public IRelayCommand OpenLauncherDownloadCommand => _host.OpenLauncherDownloadCommand;
 
         public string DownloadSourceText => UseMirror ? "镜像（元数据）+ 官方 CDN" : "官方源";
 

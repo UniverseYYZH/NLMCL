@@ -198,6 +198,9 @@ namespace NLMCL.App
             services.AddSingleton<IVersionDetailsService, VersionDetailsService>();
             services.AddSingleton<IInstancePackageService, NLMCL.Core.Instances.InstancePackageService>();
             services.AddSingleton<IModpackUpdateService, NLMCL.Core.Installing.ModpackUpdateService>();
+            services.AddSingleton<ILauncherUpdateService>(sp => new NLMCL.Core.Updates.LauncherUpdateService(
+                sp.GetRequiredService<IDownloadService>(),
+                typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0.0"));
             services.AddSingleton<IInstanceContentService, NLMCL.Core.Instances.InstanceContentService>();
             services.AddSingleton<ILocalNetworkInfo, LocalNetworkInfo>();
             services.AddSingleton<IClipboard, Services.WpfClipboard>();

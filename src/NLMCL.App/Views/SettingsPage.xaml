@@ -794,7 +794,7 @@
 
         </StackPanel>
 
-        <StackPanel Tag="数据 备份 导入 导出 缓存 清理 重置 自动 快照 保留 启动前 恢复 默认">
+        <StackPanel Tag="数据 备份 导入 导出 缓存 清理 重置 自动 快照 保留 启动前 恢复 默认 更新 启动器 版本">
             <StackPanel.Visibility>
                 <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
                     <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
@@ -803,6 +803,54 @@
             </StackPanel.Visibility>
         <TextBlock Text="数据与备份" FontSize="11.5" FontWeight="SemiBold"
                    Foreground="{DynamicResource Muted}" Margin="2,8,0,7" />
+
+        <!-- 启动器更新：只检查，不下载/替换 exe -->
+        <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"
+                Tag="更新 启动器 版本 检查 feed">
+            <Border.Visibility>
+                <MultiBinding Converter="{StaticResource SettingsSearchVisibility}">
+                    <Binding Path="Tag" RelativeSource="{RelativeSource Self}" />
+                    <Binding Path="SettingsSearchText" />
+                </MultiBinding>
+            </Border.Visibility>
+            <StackPanel>
+                <TextBlock Text="启动器更新" FontSize="13" FontWeight="SemiBold"
+                           Foreground="{DynamicResource Text}" />
+                <TextBlock Text="只检查版本并打开下载页，不会静默替换当前 exe。"
+                           FontSize="9.5" Foreground="{DynamicResource Faint}"
+                           Margin="0,4,0,0" TextWrapping="Wrap" />
+
+                <TextBlock Text="更新源 JSON" FontSize="10.5" Foreground="{DynamicResource Muted}"
+                           Margin="0,10,0,0" />
+                <TextBox Text="{Binding UpdateFeedUrl, UpdateSourceTrigger=LostFocus}"
+                         AutomationProperties.Name="启动器更新源地址"
+                         Margin="0,5,0,0" Padding="8,6" FontSize="11"
+                         ToolTip="维护者提供的 JSON：version/notes/url/sha256/publishedAt" />
+
+                <CheckBox Content="启动时在后台检查更新（不阻塞启动）"
+                          IsChecked="{Binding CheckLauncherUpdatesOnStartup}"
+                          AutomationProperties.Name="启动时检查启动器更新"
+                          Foreground="{DynamicResource Text}" FontSize="11"
+                          Margin="0,10,0,0" />
+
+                <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                    <Button Content="检查更新" Style="{StaticResource PrimaryButton}"
+                            Padding="14,6" Command="{Binding CheckLauncherUpdatesCommand}"
+                            IsEnabled="{Binding CanCheckLauncherUpdate}" />
+                    <Button Content="打开下载页" Style="{StaticResource GhostButton}"
+                            Padding="12,6" Margin="8,0,0,0"
+                            Command="{Binding OpenLauncherDownloadCommand}"
+                            Visibility="{Binding HasLauncherUpdate, Converter={StaticResource BoolToVisibility}}" />
+                </StackPanel>
+
+                <TextBlock Text="{Binding LauncherUpdateMessage}" FontSize="10"
+                           Foreground="{DynamicResource Muted}" Margin="0,8,0,0"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{Binding LauncherUpdateNotes}" FontSize="9.5"
+                           Foreground="{DynamicResource Faint}" Margin="0,4,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
 
         <!-- 自动快照 -->
         <Border Style="{StaticResource CardStyle}" Padding="16,14" Margin="0,0,0,10"

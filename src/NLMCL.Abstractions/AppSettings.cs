@@ -9,7 +9,7 @@ namespace NLMCL.Abstractions
     public sealed class AppSettings
     {
         /// <summary>当前程序支持的设置结构版本。</summary>
-        public const int CurrentSchemaVersion = 8;
+        public const int CurrentSchemaVersion = 9;
 
         /// <summary>设置结构版本；旧配置没有此字段时按 1 处理。</summary>
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
@@ -109,6 +109,15 @@ namespace NLMCL.Abstractions
 
         /// <summary>关闭窗口行为："exit" / "tray" / "ask"。</summary>
         public string CloseBehavior { get; set; } = "exit";
+
+        /// <summary>
+        /// 启动器更新源 JSON 地址；为空表示不检查。
+        /// 只允许 http/https，程序只打开下载页，不自动替换 exe。
+        /// </summary>
+        public string? UpdateFeedUrl { get; set; }
+
+        /// <summary>启动时在后台检查启动器更新（不阻塞启动）。</summary>
+        public bool CheckLauncherUpdatesOnStartup { get; set; }
     }
 
     /// <summary>应用设置的持久化。</summary>
