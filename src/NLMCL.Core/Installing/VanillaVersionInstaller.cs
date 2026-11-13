@@ -263,15 +263,21 @@ namespace NLMCL.Core.Installing
                             .DownloadAsync(file.Url, temporary, byteProgress!, cancellationToken)
                             .ConfigureAwait(false);
                     }
-                    catch (TimeoutException ex)
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
                     {
                         DownloadDiagnostics.Write(
-                            "timeout " + file.Url + " after " + watch.ElapsedMilliseconds + "ms: " + ex.Message);
-                        // PCL Loader 偶发卡住：退回带超时/重试的 ResilientDownload。
-                        await ResilientDownload
-                            .DownloadAsync(_download, file.Url, temporary, cancellationToken, fallback: _files)
-                            .ConfigureAwait(false);
+                            "byte-path fallback " + file.Url + " after " + watch.ElapsedMilliseconds + "ms: "
+                            + ex.GetType().Name + ": " + ex.Message);
+                        // PCL Loader 会先写 %TEMP%\PCL\Download；低权限/受限环境会直接拒绝。
+                        // 不只处理超时，任何传输失败都改走自带 HTTP 下载，避免安装卡死。
                         usedPclBytePath = false;
+                        await _files
+                            .DownloadAsync(file.Url, temporary, cancellationToken)
+                            .ConfigureAwait(false);
                     }
                 }
                 else

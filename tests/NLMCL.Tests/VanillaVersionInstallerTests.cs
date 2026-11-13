@@ -46,6 +46,7 @@ namespace NLMCL.Tests
             public readonly Dictionary<string, byte[]> Content = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             public readonly List<string> Requested = new List<string>();
             public bool FailVersionJson { get; set; }
+            public bool FailByteDownload { get; set; }
 
             public override Task DownloadFileAsync(string url, string localPath, CancellationToken cancellationToken)
             {
@@ -66,6 +67,11 @@ namespace NLMCL.Tests
                 IProgress<FileDownloadProgress>? progress,
                 CancellationToken cancellationToken)
             {
+                if (FailByteDownload)
+                {
+                    throw new UnauthorizedAccessException("模拟 PCL 临时目录写入被拒");
+                }
+
                 int size = Content.TryGetValue(url, out byte[]? bytes) ? bytes.Length : 0;
                 progress?.Report(new FileDownloadProgress(size, size));
                 return DownloadFileAsync(url, localPath, cancellationToken);
@@ -150,7 +156,7 @@ namespace NLMCL.Tests
         private const string IndexUrl = "https://nlmcl.test/assets/index.json";
         private const string ResourcesBase = "https://nlmcl.test/resources";
 
-        private FakeDownloadService BuildFixture()
+        private FakeDownloadService BuildFixture(long clientSize = 3)
         {
             string assetHash = Sha1Hex(AssetBytes);
 
@@ -162,7 +168,7 @@ namespace NLMCL.Tests
 
             string versionJson = @"{
                 ""id"": ""1.21.1"",
-                ""downloads"": { ""client"": { ""url"": """ + JarUrl + @""", ""sha1"": """ + Sha1Hex(JarBytes) + @""", ""size"": 3 } },
+                ""downloads"": { ""client"": { ""url"": """ + JarUrl + @""", ""sha1"": """ + Sha1Hex(JarBytes) + @""", ""size"": " + clientSize + @" } },
                 ""assetIndex"": { ""id"": ""5"", ""url"": """ + IndexUrl + @""", ""sha1"": """ + indexHash + @""" },
                 ""libraries"": [
                     { ""name"": ""a:b:1"", ""downloads"": { ""artifact"": { ""url"": """ + LibUrl + @""", ""sha1"": """ + Sha1Hex(LibBytes) + @""", ""size"": 3, ""path"": ""a/b/1/b-1.jar"" } } },
@@ -252,6 +258,23 @@ namespace NLMCL.Tests
 
             Assert.Contains(VersionJsonUrl, fallback.Requests);
             Assert.True(File.Exists(Path.Combine(_root, "versions", "1.21.1", "1.21.1.json")));
+            Assert.Equal(JarBytes, File.ReadAllBytes(Path.Combine(_root, "versions", "1.21.1", "1.21.1.jar")));
+        }
+
+        [Fact]
+        public async Task Byte_progress_download_falls_back_to_direct_http()
+        {
+            FakeDownloadService fake = BuildFixture(clientSize: 1024 * 1024 + 1);
+            fake.FailByteDownload = true;
+            ContentFileDownloader fallback = new ContentFileDownloader(fake.Content);
+            VanillaVersionInstaller installer = new VanillaVersionInstaller(fake, Options(), fallback);
+
+            await installer.InstallAsync(
+                new InstallRequest(_root, "1.21.1"),
+                new ProgressCollector(),
+                CancellationToken.None);
+
+            Assert.True(fallback.Requests.Contains(JarUrl));
             Assert.Equal(JarBytes, File.ReadAllBytes(Path.Combine(_root, "versions", "1.21.1", "1.21.1.jar")));
         }
 
