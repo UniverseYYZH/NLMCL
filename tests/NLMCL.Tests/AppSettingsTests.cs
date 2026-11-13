@@ -40,6 +40,8 @@ namespace NLMCL.Tests
                         AutoSnapshotBeforeLaunch = true,
                         SnapshotRetention = 10,
                         CloseBehavior = "tray",
+                        UpdateFeedUrl = "https://example.invalid/nlmcl-update.json",
+                        CheckLauncherUpdatesOnStartup = true,
                         LastLaunched = new Dictionary<string, DateTimeOffset>
                         {
                             [@"D:\games\.minecraft\versions\1.21.1"] =
@@ -58,6 +60,8 @@ namespace NLMCL.Tests
                 Assert.True(loaded.AutoSnapshotBeforeLaunch);
                 Assert.Equal(10, loaded.SnapshotRetention);
                 Assert.Equal("tray", loaded.CloseBehavior);
+                Assert.Equal("https://example.invalid/nlmcl-update.json", loaded.UpdateFeedUrl);
+                Assert.True(loaded.CheckLauncherUpdatesOnStartup);
                 Assert.Equal(
                     new DateTimeOffset(2026, 11, 10, 22, 30, 0, TimeSpan.FromHours(8)),
                     loaded.LastLaunched[@"D:\games\.minecraft\versions\1.21.1"]);

@@ -64,7 +64,9 @@ namespace NLMCL.Core.Settings
                         StringComparer.OrdinalIgnoreCase),
                     AutoSnapshotBeforeLaunch = root.Value<bool?>("autoSnapshotBeforeLaunch") ?? false,
                     SnapshotRetention = root.Value<int?>("snapshotRetention") ?? 5,
-                    CloseBehavior = root.Value<string>("closeBehavior") ?? "exit"
+                    CloseBehavior = root.Value<string>("closeBehavior") ?? "exit",
+                    UpdateFeedUrl = root.Value<string>("updateFeedUrl"),
+                    CheckLauncherUpdatesOnStartup = root.Value<bool?>("checkLauncherUpdatesOnStartup") ?? false
                 };
 
                 if (schemaVersion > AppSettings.CurrentSchemaVersion)
@@ -172,7 +174,9 @@ namespace NLMCL.Core.Settings
                     settings.LastLaunched ?? new Dictionary<string, DateTimeOffset>()),
                 ["autoSnapshotBeforeLaunch"] = settings.AutoSnapshotBeforeLaunch,
                 ["snapshotRetention"] = settings.SnapshotRetention,
-                ["closeBehavior"] = settings.CloseBehavior
+                ["closeBehavior"] = settings.CloseBehavior,
+                ["updateFeedUrl"] = settings.UpdateFeedUrl,
+                ["checkLauncherUpdatesOnStartup"] = settings.CheckLauncherUpdatesOnStartup
             };
 
             // 原子替换：先写临时文件，再换名。直接 WriteAllText 会在写到一半时被截断，
