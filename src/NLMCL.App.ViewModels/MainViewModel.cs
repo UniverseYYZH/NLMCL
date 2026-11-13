@@ -2084,10 +2084,11 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            // 先重绑当前目录，再按实例加载；否则切换目录后仍会读上一个 .minecraft。
+            _resource.SyncFromInstance(CurrentGameDirectory, SelectedVersion?.FolderName ?? string.Empty);
             string? gameVersion = SelectedVersion?.MinecraftVersion;
             string? loader = SelectedVersion?.LoaderHint;
             _ = _resource.EnsureLoadedForInstanceAsync(gameVersion, loader);
-            _resource.SyncFromInstance(CurrentGameDirectory, SelectedVersion?.FolderName ?? string.Empty);
         }
 
         /// <summary>下载中心的「Mod 管理」标签激活时调用。</summary>

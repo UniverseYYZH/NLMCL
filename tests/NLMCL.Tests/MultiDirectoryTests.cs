@@ -238,6 +238,50 @@ namespace NLMCL.Tests
             }
         }
 
+        [Fact]
+        public async Task Activating_resource_tab_rebinds_the_current_directory()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-resource-" + Guid.NewGuid().ToString("N"));
+            string first = System.IO.Path.Combine(root, "one");
+            string second = System.IO.Path.Combine(root, "two");
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(first);
+                System.IO.Directory.CreateDirectory(second);
+
+                TestSupport.FakeAppSettings settings = new TestSupport.FakeAppSettings();
+                settings.Current.GameDirectory = first;
+                settings.Current.GameDirectories = new List<string> { first, second };
+
+                ResourceViewModel resource = new ResourceViewModel(
+                    new TestSupport.NoopResourceCatalog(),
+                    new TestSupport.NoopResourceInstaller());
+                MainViewModel vm = TestSupport.CreateMain(
+                    new MultiCatalog(first, second),
+                    new NLMCL.Core.AppPaths(root),
+                    appSettings: settings,
+                    resource: resource);
+                await vm.InitializeAsync();
+
+                vm.CurrentGameDirectory = second;
+                vm.ActivateResourceTab();
+
+                Assert.Equal(second, resource.MinecraftDirectory);
+            }
+            finally
+            {
+                try
+                {
+                    System.IO.Directory.Delete(root, true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+
         private sealed class MultiCatalog : IVersionCatalog
         {
             private readonly string _first;
