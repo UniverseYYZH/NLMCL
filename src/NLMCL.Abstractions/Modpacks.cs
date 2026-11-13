@@ -113,7 +113,8 @@ namespace NLMCL.Abstractions
             string versionName,
             string downloadUrl,
             string fileName,
-            DateTimeOffset? publishedAt)
+            DateTimeOffset? publishedAt,
+            string? sha1 = null)
         {
             Installed = installed;
             VersionId = versionId ?? string.Empty;
@@ -121,6 +122,7 @@ namespace NLMCL.Abstractions
             DownloadUrl = downloadUrl ?? string.Empty;
             FileName = fileName ?? string.Empty;
             PublishedAt = publishedAt;
+            Sha1 = sha1 ?? string.Empty;
         }
 
         public ModpackManifest Installed { get; }
@@ -134,6 +136,9 @@ namespace NLMCL.Abstractions
         public string FileName { get; }
 
         public DateTimeOffset? PublishedAt { get; }
+
+        /// <summary>新版文件的 SHA1；为空表示源站没有提供，不能安全更新。</summary>
+        public string Sha1 { get; }
 
         public string Summary => string.IsNullOrEmpty(VersionName)
             ? VersionId

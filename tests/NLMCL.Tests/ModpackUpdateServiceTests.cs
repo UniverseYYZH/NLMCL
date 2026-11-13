@@ -40,7 +40,8 @@ namespace NLMCL.Tests
                 ""files"": [ { ""url"": ""https://cdn/v1.mrpack"", ""filename"": ""v1.mrpack"", ""primary"": true } ] },
               { ""id"": ""v2"", ""version_number"": ""2.0.0"",
                 ""date_published"": ""2026-02-01T00:00:00Z"",
-                ""files"": [ { ""url"": ""https://cdn/v2.mrpack"", ""filename"": ""v2.mrpack"", ""primary"": true } ] }
+                ""files"": [ { ""url"": ""https://cdn/v2.mrpack"", ""filename"": ""v2.mrpack"", ""primary"": true,
+                  ""hashes"": { ""sha1"": ""abc123"" } } ] }
             ]";
 
             FakeDownload download = new FakeDownload(versions);
@@ -54,6 +55,7 @@ namespace NLMCL.Tests
             Assert.Equal("2.0.0", update.VersionName);
             Assert.Equal("https://cdn/v2.mrpack", update.DownloadUrl);
             Assert.Equal("v2.mrpack", update.FileName);
+            Assert.Equal("abc123", update.Sha1);
             Assert.Contains("game_versions=", download.LastUrl);
             Assert.Contains("loaders=", download.LastUrl);
         }

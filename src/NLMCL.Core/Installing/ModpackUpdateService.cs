@@ -109,13 +109,16 @@ namespace NLMCL.Core.Installing
                 return null;
             }
 
+            string sha1 = file?.SelectToken("hashes.sha1")?.Value<string>() ?? string.Empty;
+
             return new ModpackUpdateInfo(
                 manifest,
                 versionId,
                 latest.Value<string>("version_number") ?? latest.Value<string>("name") ?? versionId,
                 download,
                 file?.Value<string>("filename") ?? Path.GetFileName(new Uri(download).LocalPath),
-                PublishedAt(latest));
+                PublishedAt(latest),
+                sha1);
         }
 
         public async Task<string> BackupAsync(

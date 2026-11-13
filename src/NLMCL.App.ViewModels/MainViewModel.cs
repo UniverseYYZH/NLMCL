@@ -5224,6 +5224,22 @@ namespace NLMCL.App.ViewModels
                     .DownloadAsync(update.DownloadUrl, temporary, CancellationToken.None)
                     .ConfigureAwait(true);
 
+                if (string.IsNullOrWhiteSpace(update.Sha1))
+                {
+                    ModpackUpdateMessage = "新版文件缺少 SHA1，已停止更新。";
+                    StatusText = "整合包更新已停止：源站未提供校验值。";
+                    return;
+                }
+
+                bool checksumOk = await Task.Run(() => HasSha1(temporary, update.Sha1))
+                    .ConfigureAwait(true);
+                if (!checksumOk)
+                {
+                    ModpackUpdateMessage = "新版文件校验失败，已停止更新；原实例未改动。";
+                    StatusText = "整合包更新已停止：下载文件 SHA1 不匹配。";
+                    return;
+                }
+
                 string backup = await _modpackUpdates
                     .BackupAsync(version.InstancePath, CancellationToken.None)
                     .ConfigureAwait(true);
