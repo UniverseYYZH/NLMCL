@@ -497,13 +497,73 @@
                         <StackPanel>
                             <TextBlock Text="启动设置 / INSTANCE" FontFamily="{DynamicResource MonoFont}"
                                        FontSize="10.5" Foreground="{DynamicResource Faint}" />
-                            <TextBlock Text="{Binding MemoryMb, StringFormat=内存 {0} MB}"
-                                       FontSize="11.5" Foreground="{DynamicResource Text}" Margin="0,6,0,0" />
-                            <TextBlock Text="Java 自动选择" FontSize="10.5"
-                                       Foreground="{DynamicResource Muted}" Margin="0,2,0,0" />
-                            <Button Content="编辑启动设置" Style="{StaticResource GhostButton}" Padding="10,6"
-                                    FontSize="10.5" HorizontalAlignment="Left" Margin="0,8,0,0"
-                                    Click="OpenLaunchSettings_Click" />
+                            <Border Background="{DynamicResource AmberBg}" BorderBrush="{DynamicResource AmberBorder}"
+                                    BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,7,0,0"
+                                    Visibility="{Binding HasRunningSelectedInstance, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{Binding MultiInstanceWarning}" TextWrapping="Wrap"
+                                           FontSize="10" Foreground="{DynamicResource Text}" />
+                            </Border>
+                            <Expander Header="编辑内存 / 窗口 / 参数" Margin="0,7,0,0" IsExpanded="False">
+                                <StackPanel x:Name="InstanceSettingsEditor" Margin="0,6,0,0">
+                                    <StackPanel.Style>
+                                        <Style TargetType="StackPanel">
+                                            <Setter Property="IsEnabled" Value="True" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding HasRunningSelectedInstance}" Value="True">
+                                                    <Setter Property="IsEnabled" Value="False" />
+                                                    <Setter Property="IsHitTestVisible" Value="False" />
+                                                    <Setter Property="Opacity" Value="0.55" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </StackPanel.Style>
+                                    <Grid Margin="0,0,0,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="内存 MB" Foreground="{DynamicResource Muted}" FontSize="10"
+                                                   VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1" Text="{Binding MemoryMb, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontSize="10" Padding="6,4"
+                                                 AutomationProperties.Name="实例内存（MB）" />
+                                    </Grid>
+                                    <Grid Margin="0,0,0,5">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="窗口" Foreground="{DynamicResource Muted}" FontSize="10"
+                                                   VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <TextBox Text="{Binding WindowWidth, UpdateSourceTrigger=PropertyChanged}" Width="48"
+                                                     FontSize="10" Padding="4,4"
+                                                     AutomationProperties.Name="游戏窗口宽度" />
+                                            <TextBlock Text="×" Foreground="{DynamicResource Muted}" Margin="5,0"
+                                                       VerticalAlignment="Center" />
+                                            <TextBox Text="{Binding WindowHeight, UpdateSourceTrigger=PropertyChanged}" Width="48"
+                                                     FontSize="10" Padding="4,4"
+                                                     AutomationProperties.Name="游戏窗口高度" />
+                                            <CheckBox Content="全屏" IsChecked="{Binding Fullscreen}" FontSize="10"
+                                                      Margin="8,0,0,0" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <Grid Margin="0,0,0,6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="56" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="额外参数" Foreground="{DynamicResource Muted}" FontSize="10"
+                                                   VerticalAlignment="Center" />
+                                        <TextBox Grid.Column="1" Text="{Binding ExtraArguments, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontSize="10" Padding="6,4"
+                                                 AutomationProperties.Name="额外游戏参数" />
+                                    </Grid>
+                                    <Button Content="保存启动设置" Style="{StaticResource GhostButton}" Padding="10,6"
+                                            FontSize="10.5" HorizontalAlignment="Left"
+                                            Command="{Binding SaveSettingsCommand}" />
+                                </StackPanel>
+                            </Expander>
                         </StackPanel>
                     </Border>
 

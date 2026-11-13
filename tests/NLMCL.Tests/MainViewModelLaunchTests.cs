@@ -869,8 +869,11 @@ namespace NLMCL.Tests
                 _sessions = new Queue<StubSession>(sessions);
             }
 
+            public int Starts { get; private set; }
+
             public Task<IGameSession> StartAsync(LaunchRequest request, CancellationToken cancellationToken)
             {
+                Starts++;
                 return Task.FromResult<IGameSession>(_sessions.Dequeue());
             }
         }
@@ -933,6 +936,45 @@ namespace NLMCL.Tests
 
             launcher.Session.Emit("[main/INFO] hello from main page");
             Assert.Contains(vm.Console.Lines, line => line.Text.Contains("hello from main page"));
+        }
+
+        [Fact]
+        public async Task Second_launch_of_same_instance_warns_and_can_cancel()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            StubSession first = new StubSession();
+            StubSession second = new StubSession();
+            QueueSessionLauncher launcher = new QueueSessionLauncher(first, second);
+            CancelDialog dialogs = new CancelDialog();
+
+            MainViewModel vm = TestSupport.CreateMain(
+                catalog,
+                new AppPaths(@"C:\Temp\roaming"),
+                new FixedJavaLocator(TestSupport.CreateJava(21)),
+                launcher,
+                dialogs: dialogs);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+
+            Assert.True(vm.HasRunningSelectedInstance);
+            Assert.False(vm.CanEditInstanceSettings);
+            Assert.Contains("多开", vm.MultiInstanceWarning);
+
+            await vm.LaunchSelectedAsync();
+
+            Assert.True(dialogs.Asked);
+            Assert.Equal("多开提醒", dialogs.LastTitle);
+            Assert.Equal(1, launcher.Starts);
+            Assert.Contains("已取消多开启动", vm.StatusText);
+
+            first.RaiseExit(0);
+
+            Assert.False(vm.HasRunningSelectedInstance);
+            Assert.True(vm.CanEditInstanceSettings);
+            Assert.Equal(string.Empty, vm.MultiInstanceWarning);
         }
 
         [Fact]

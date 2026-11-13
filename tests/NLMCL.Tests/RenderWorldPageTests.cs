@@ -119,5 +119,85 @@ namespace NLMCL.Tests
             Assert.True(new FileInfo(cleanOutput!).Length > 20_000);
             Assert.True(new FileInfo(warningOutput!).Length > 20_000);
         }
+
+        [Fact]
+        public void Multi_instance_locks_the_instance_settings_editor()
+        {
+            Exception? failure = null;
+            Thread thread = new Thread(() =>
+            {
+                try
+                {
+                    AppPaths paths = new AppPaths(@"C:\Temp\roaming");
+                    MainViewModel vm = TestSupport.CreateMain(
+                        new TwoVersionCatalog(),
+                        paths,
+                        new FixedJavaLocator(TestSupport.CreateJava(21)),
+                        new RunningSessionLauncher());
+
+                    vm.RefreshAsync().GetAwaiter().GetResult();
+                    vm.SelectVersion(vm.Versions[0]);
+                    vm.LaunchSelectedAsync().GetAwaiter().GetResult();
+
+                    Assert.True(vm.HasRunningSelectedInstance);
+
+                    NLMCL.App.Views.WorldPage page = new NLMCL.App.Views.WorldPage
+                    {
+                        DataContext = vm
+                    };
+                    page.Measure(new Size(1060, 760));
+                    page.Arrange(new Rect(0, 0, 1060, 760));
+                    page.UpdateLayout();
+
+                    FrameworkElement? editor = page.FindName("InstanceSettingsEditor") as FrameworkElement;
+                    Assert.NotNull(editor);
+                    Assert.False(editor!.IsEnabled);
+                    Assert.False(editor.IsHitTestVisible);
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+            });
+
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "UI 线程超时。");
+            Assert.Null(failure);
+        }
+
+        private sealed class FixedJavaLocator : IJavaLocator
+        {
+            private readonly JavaRuntime _java;
+
+            public FixedJavaLocator(JavaRuntime java)
+            {
+                _java = java;
+            }
+
+            public Task<IReadOnlyList<JavaRuntime>> FindInstalledAsync(CancellationToken cancellationToken)
+            {
+                return Task.FromResult<IReadOnlyList<JavaRuntime>>(new[] { _java });
+            }
+        }
+
+        private sealed class RunningSession : IGameSession
+        {
+            public event EventHandler<GameOutputLine>? Output;
+            public event EventHandler<int>? Exited;
+            public int ProcessId => 4242;
+            public bool IsRunning => true;
+            public int? ExitCode => null;
+            public void Stop() { }
+            public void Dispose() { }
+        }
+
+        private sealed class RunningSessionLauncher : IGameSessionLauncher
+        {
+            public Task<IGameSession> StartAsync(LaunchRequest request, CancellationToken cancellationToken)
+            {
+                return Task.FromResult<IGameSession>(new RunningSession());
+            }
+        }
     }
 }

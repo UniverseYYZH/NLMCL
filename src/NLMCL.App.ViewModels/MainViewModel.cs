@@ -109,6 +109,12 @@ namespace NLMCL.App.ViewModels
         private readonly Dictionary<IGameSession, EventHandler<int>> _statusHandlers =
             new Dictionary<IGameSession, EventHandler<int>>();
 
+        /// <summary>会话对应的实例目录名；用于判断同一实例是否已经多开。</summary>
+        private readonly Dictionary<IGameSession, string> _sessionVersions =
+            new Dictionary<IGameSession, string>();
+
+        /// <summary>多开提醒每次应用运行只弹一次，避免每次点启动都打断。</summary>
+        private bool _multiInstanceNoticeShown;
         private readonly object _statusGate = new object();
 
         /// <summary>最近一次由世界库启动的会话；它退出后才改写“已启动”状态。</summary>
@@ -548,6 +554,39 @@ namespace NLMCL.App.ViewModels
         /// <summary>允许 LWJGL2 回退到软件 OpenGL（旧显卡/驱动兼容）。</summary>
         [ObservableProperty]
         private bool _softwareOpenGl;
+
+        /// <summary>当前选中实例是否已有运行中的会话。多开时 PCL 的全局设置可能互相影响。</summary>
+        public bool HasRunningSelectedInstance
+        {
+            get
+            {
+                VersionItem? selected = SelectedVersion;
+                if (selected == null)
+                {
+                    return false;
+                }
+
+                lock (_statusGate)
+                {
+                    foreach (string folder in _sessionVersions.Values)
+                    {
+                        if (string.Equals(folder, selected.FolderName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        /// <summary>多开时内存/窗口等实例设置是否仍可编辑。</summary>
+        public bool CanEditInstanceSettings => !HasRunningSelectedInstance;
+
+        public string MultiInstanceWarning => HasRunningSelectedInstance
+            ? "该实例已在运行；多开时内存/窗口设置可能不生效，先关闭该实例再修改。"
+            : string.Empty;
 
         /// <summary>列表里被点中的版本。启动按钮用它决定启动哪个。</summary>
         [ObservableProperty]
@@ -4930,6 +4969,7 @@ namespace NLMCL.App.ViewModels
 
             SelectedVersion = item;
             HasSelection = true;
+            NotifyMultiInstanceStateChanged();
             StatusText = "已选择 " + item.Name;
             OnPropertyChanged(nameof(HasModpackBackup));
 
@@ -5625,6 +5665,21 @@ namespace NLMCL.App.ViewModels
             try
             {
                 _lastServerAddress = serverAddress;
+
+                // PCL 的部分启动设置是进程级全局状态。同一实例多开时，第二次启动可能
+                // 覆盖第一次的内存/窗口参数；提醒一次，但不阻止玩家多开。
+                if (!_multiInstanceNoticeShown && HasRunningSelectedInstance)
+                {
+                    _multiInstanceNoticeShown = true;
+                    if (_dialogs != null && !_dialogs.Confirm(
+                            "多开提醒",
+                            "这个实例已经有一个游戏在运行。多开时内存、窗口等设置可能只对其中一个生效。\n\n仍要再启动一个吗？"))
+                    {
+                        StatusText = "已取消多开启动。";
+                        return;
+                    }
+                }
+
                 IsLaunching = true;
 
             if (SelectedVersion == null)
@@ -5854,7 +5909,7 @@ namespace NLMCL.App.ViewModels
                     safeModeHandedOff = safeSession != null;
                     StatusText = "已启动 " + SelectedVersion.Name
                         + "（PID " + session.ProcessId + "），日志见「启动与日志」";
-                    WatchSessionForStatus(session, safeSession);
+                    WatchSessionForStatus(session, launchedVersion.FolderName, safeSession);
 
                     Console.Attach(session);
                     await RecordLastLaunchAsync(launchedVersion).ConfigureAwait(true);
@@ -5901,7 +5956,10 @@ namespace NLMCL.App.ViewModels
         /// 游戏退出后更新主状态栏。控制台有自己的详细退出/崩溃状态，但世界库页面的
         /// “已启动”不能一直挂着——否则用户关掉游戏后还会以为进程仍在跑。
         /// </summary>
-        private void WatchSessionForStatus(IGameSession session, SafeModeSession? safeMode = null)
+        private void WatchSessionForStatus(
+            IGameSession session,
+            string versionFolder,
+            SafeModeSession? safeMode = null)
         {
             int safeModeRestoreStarted = 0;
             EventHandler<int> handler = null!;
@@ -5917,13 +5975,22 @@ namespace NLMCL.App.ViewModels
 
                 int remaining;
                 long version;
+                bool removed;
                 lock (_statusGate)
                 {
-                    if (!_statusHandlers.Remove(session))
+                    removed = _statusHandlers.Remove(session);
+                    if (!removed)
                     {
                         return;
                     }
 
+                    _sessionVersions.Remove(session);
+                }
+
+                PostMultiInstanceStateChanged();
+
+                lock (_statusGate)
+                {
                     // 旧会话退出不能覆盖最新会话的“已启动”。等最新会话退出时，
                     // 再把状态交给仍然存活的会话。
                     if (!ReferenceEquals(_statusLatest, session))
@@ -5978,17 +6045,38 @@ namespace NLMCL.App.ViewModels
                 }
 
                 _statusHandlers.Add(session, handler);
+                _sessionVersions[session] = versionFolder;
                 _statusLatest = session;
                 _statusVersion++;
             }
 
             session.Exited += handler;
+            NotifyMultiInstanceStateChanged();
 
             // JVM 秒退时 Exited 可能在订阅前已经广播完，补查一次终态。
             if (session.ExitCode.HasValue)
             {
                 handler(session, session.ExitCode.Value);
             }
+        }
+
+        private void PostMultiInstanceStateChanged()
+        {
+            if (_dispatcher != null)
+            {
+                _dispatcher.Post(NotifyMultiInstanceStateChanged);
+            }
+            else
+            {
+                NotifyMultiInstanceStateChanged();
+            }
+        }
+
+        private void NotifyMultiInstanceStateChanged()
+        {
+            OnPropertyChanged(nameof(HasRunningSelectedInstance));
+            OnPropertyChanged(nameof(CanEditInstanceSettings));
+            OnPropertyChanged(nameof(MultiInstanceWarning));
         }
 
         /// <summary>恢复安全模式改名的 Mod；失败时保留提示，下一次启动还会按 journal 重试。</summary>
