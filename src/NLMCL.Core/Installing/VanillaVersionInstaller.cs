@@ -95,7 +95,9 @@ namespace NLMCL.Core.Installing
                     VersionPlanBuilder.BuildAssetFiles(
                         indexText, request.MinecraftDirectory, _options.ResourcesBaseUrl, _options.MaxAssetFiles));
 
-                await DownloadAllAsync(assets, relay, 60, 95, "下载游戏资源", parallelism, cancellationToken).ConfigureAwait(false);
+                await DownloadAllAsync(
+                    assets, relay, 60, 95, "下载游戏资源", parallelism, cancellationToken,
+                    preferDirect: true).ConfigureAwait(false);
             }
 
             // 5. natives 解压
@@ -127,7 +129,8 @@ namespace NLMCL.Core.Installing
             int toPercent,
             string stage,
             int maxParallelism,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool preferDirect = false)
         {
             if (files.Count == 0)
             {
@@ -174,7 +177,7 @@ namespace NLMCL.Core.Installing
                                 })
                                 : null;
 
-                            await EnsureFileAsync(current, byteSink, cancellationToken).ConfigureAwait(false);
+                            await EnsureFileAsync(current, byteSink, cancellationToken, preferDirect).ConfigureAwait(false);
                         }
                         finally
                         {
