@@ -202,7 +202,8 @@ namespace NLMCL.Tests
         public async Task Installs_vanilla_version_end_to_end()
         {
             FakeDownloadService fake = BuildFixture();
-            VanillaVersionInstaller installer = new VanillaVersionInstaller(fake, Options());
+            VanillaVersionInstaller installer = new VanillaVersionInstaller(
+                fake, Options(), new ContentFileDownloader(fake.Content));
             ProgressCollector progress = new ProgressCollector();
 
             await installer.InstallAsync(
@@ -282,7 +283,8 @@ namespace NLMCL.Tests
         public async Task Second_run_downloads_nothing_because_hashes_match()
         {
             FakeDownloadService fake = BuildFixture();
-            VanillaVersionInstaller installer = new VanillaVersionInstaller(fake, Options());
+            VanillaVersionInstaller installer = new VanillaVersionInstaller(
+                fake, Options(), new ContentFileDownloader(fake.Content));
 
             await installer.InstallAsync(new InstallRequest(_root, "1.21.1"), new ProgressCollector(), CancellationToken.None);
             int afterFirst = fake.Requested.Count;

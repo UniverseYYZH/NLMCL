@@ -88,7 +88,7 @@ namespace NLMCL.Core.Installing
             if (plan.AssetIndex != null)
             {
                 relay.Report("下载资源索引", 56);
-                await EnsureFileAsync(plan.AssetIndex, null, cancellationToken).ConfigureAwait(false);
+                await EnsureFileAsync(plan.AssetIndex, null, cancellationToken, preferDirect: true).ConfigureAwait(false);
 
                 string indexText = File.ReadAllText(plan.AssetIndex.TargetPath);
                 List<RemoteFile> assets = new List<RemoteFile>(
@@ -225,7 +225,8 @@ namespace NLMCL.Core.Installing
         private async Task EnsureFileAsync(
             RemoteFile file,
             IProgress<FileDownloadProgress>? byteProgress,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool preferDirect = false)
         {
             if (IsUpToDate(file))
             {
@@ -278,6 +279,17 @@ namespace NLMCL.Core.Installing
                         await _files
                             .DownloadAsync(file.Url, temporary, cancellationToken)
                             .ConfigureAwait(false);
+                    }
+                }
+                else if (preferDirect)
+                {
+                    // 资源索引优先直连：PCL 的 ModNet 在个别网络会对小请求
+                    // 长时间不返回，300 秒默认超时会让整个安装卡在“下载资源索引”。
+                    using (CancellationTokenSource timeout =
+                        CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                    {
+                        timeout.CancelAfter(TimeSpan.FromSeconds(60));
+                        await _files.DownloadAsync(file.Url, temporary, timeout.Token).ConfigureAwait(false);
                     }
                 }
                 else
