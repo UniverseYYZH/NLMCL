@@ -130,9 +130,43 @@ namespace NLMCL.Core.Installing
                 throw;
             }
 
+            WriteManifest(instanceDirectory, info, index, mrpackPath);
+
             progress?.Report(new InstallProgress("整合包安装完成", 100, 0));
 
             return versionId;
+        }
+
+        private static void WriteManifest(
+            string instanceDirectory,
+            ModpackInfo info,
+            JObject index,
+            string mrpackPath)
+        {
+            ModpackManifest manifest = new ModpackManifest
+            {
+                Source = IsCurseForgeManifest(index) ? "curseforge" : "modrinth",
+                VersionId = info.VersionId ?? string.Empty,
+                Name = info.Name,
+                FileName = Path.GetFileName(mrpackPath) ?? string.Empty,
+                MinecraftVersion = info.MinecraftVersion,
+                Loader = info.Loader.ToString(),
+                LoaderVersion = info.LoaderVersion,
+                InstalledAt = DateTimeOffset.Now,
+                ModFiles = (index["files"] as JArray)?
+                    .OfType<JObject>()
+                    .Where(item => !string.Equals(
+                        item.SelectToken("env.client")?.Value<string>(),
+                        "unsupported", StringComparison.OrdinalIgnoreCase))
+                    .Select(item => item.Value<string>("path"))
+                    .Where(path => !string.IsNullOrWhiteSpace(path)
+                        && path!.StartsWith("mods/", StringComparison.OrdinalIgnoreCase))
+                    .Select(path => path!)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList() ?? new List<string>()
+            };
+
+            ModpackManifestStore.Write(instanceDirectory, manifest);
         }
 
         private async Task DownloadModrinthFilesAsync(

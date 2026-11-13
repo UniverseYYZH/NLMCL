@@ -322,6 +322,10 @@ namespace NLMCL.Tests
                 string instanceDir = Path.Combine(mc, "versions", versionId);
                 Assert.True(File.Exists(Path.Combine(instanceDir, "resourcepacks", "cf.jar")));
                 Assert.True(File.Exists(Path.Combine(instanceDir, "config", "curse.toml")));
+                ModpackManifest? manifest = ModpackManifestStore.Read(instanceDir);
+                Assert.NotNull(manifest);
+                Assert.Equal("curseforge", manifest!.Source);
+                Assert.Equal("1.2.3", manifest.VersionId);
                 Assert.Contains(files.Downloaded, url => url.Contains("cf.jar"));
                 Assert.Contains(reports, item => item.BytesTotal > 0 && item.BytesReceived > 0);
             }
@@ -443,6 +447,13 @@ namespace NLMCL.Tests
                 Assert.True(File.Exists(Path.Combine(instanceDir, versionId + ".json")));
                 Assert.True(File.Exists(Path.Combine(instanceDir, "mods", "sodium.jar")));
                 Assert.True(File.Exists(Path.Combine(instanceDir, "config", "mod.toml")));
+
+                ModpackManifest? manifest = ModpackManifestStore.Read(instanceDir);
+                Assert.NotNull(manifest);
+                Assert.Equal("modrinth", manifest!.Source);
+                Assert.Equal("5.0.0", manifest.VersionId);
+                Assert.Contains("mods/sodium.jar", manifest.ModFiles);
+                Assert.DoesNotContain("mods/serveronly.jar", manifest.ModFiles);
 
                 // server-only 文件不应该被下载
                 Assert.DoesNotContain(downloader.Downloaded, url => url.Contains("server.jar"));

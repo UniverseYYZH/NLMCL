@@ -83,6 +83,7 @@ namespace NLMCL.App.ViewModels
         private readonly IFilePicker? _filePicker;
         private readonly IFileSavePicker? _saveFilePicker;
         private readonly IInstancePackageService? _instancePackages;
+        private readonly IModpackUpdateService? _modpackUpdates;
         private readonly IInstanceContentService? _instanceContent;
 
         /// <summary>常用服务器（快捷入口）。</summary>
@@ -203,6 +204,7 @@ namespace NLMCL.App.ViewModels
             IGameDirectoryScanner? directoryScanner = null,
             IVersionDetailsService? versionDetails = null,
             IInstancePackageService? instancePackages = null,
+            IModpackUpdateService? modpackUpdates = null,
             IInstanceContentService? instanceContent = null,
             IUiDispatcher? dispatcher = null,
             ISafeModeService? safeMode = null)
@@ -242,6 +244,7 @@ namespace NLMCL.App.ViewModels
             _filePicker = filePicker;
             _saveFilePicker = saveFilePicker;
             _instancePackages = instancePackages;
+            _modpackUpdates = modpackUpdates;
             _instanceContent = instanceContent;
             _dispatcher = dispatcher;
             _safeMode = safeMode;
@@ -4678,6 +4681,8 @@ namespace NLMCL.App.ViewModels
             // 旧实例的预检结果立刻作废。实例设置是异步读的，等它读完再刷新会让上一个
             // 实例的“代理不完整”等告警短暂挂在新实例上，看起来像新实例也有问题。
             ResetLaunchPreflightForSelection();
+            ModpackUpdateMessage = string.Empty;
+            _ = RefreshModpackInfoAsync(item);
 
             // 切版本时先带出实例设置，再按最新代理/模组状态做预检，避免读到上一个实例的配置
             if (loadSettings)
@@ -4727,6 +4732,142 @@ namespace NLMCL.App.ViewModels
         private bool _isLaunchPreflightBusy;
 
         private int _launchPreflightGeneration;
+
+        [ObservableProperty]
+        private string _modpackUpdateMessage = string.Empty;
+
+        [ObservableProperty]
+        private bool _isModpackUpdateBusy;
+
+        public bool HasModpackUpdateMessage => !string.IsNullOrWhiteSpace(ModpackUpdateMessage);
+
+        partial void OnModpackUpdateMessageChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasModpackUpdateMessage));
+        }
+
+        private async Task RefreshModpackInfoAsync(VersionItem item)
+        {
+            if (_modpackUpdates == null)
+            {
+                return;
+            }
+
+            try
+            {
+                ModpackManifest? manifest = await _modpackUpdates
+                    .ReadAsync(item.InstancePath, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (!ReferenceEquals(SelectedVersion, item))
+                {
+                    return;
+                }
+
+                ModpackUpdateMessage = manifest == null
+                    ? string.Empty
+                    : "整合包：" + manifest.Name + " · " + manifest.Summary;
+            }
+            catch (Exception)
+            {
+                if (ReferenceEquals(SelectedVersion, item))
+                {
+                    ModpackUpdateMessage = string.Empty;
+                }
+            }
+        }
+
+        /// <summary>只检查 Modrinth 来源的整合包；普通实例返回“没有元数据”。</summary>
+        [RelayCommand]
+        public async Task CheckModpackUpdateAsync()
+        {
+            VersionItem? version = SelectedVersion;
+
+            if (version == null)
+            {
+                ModpackUpdateMessage = "先选择一个实例。";
+                return;
+            }
+
+            if (_modpackUpdates == null)
+            {
+                ModpackUpdateMessage = "整合包更新检查不可用。";
+                return;
+            }
+
+            IsModpackUpdateBusy = true;
+            try
+            {
+                ModpackUpdateInfo? update = await _modpackUpdates
+                    .CheckAsync(version.InstancePath, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (!ReferenceEquals(SelectedVersion, version))
+                {
+                    return;
+                }
+
+                if (update == null)
+                {
+                    ModpackUpdateMessage = "没有可用的整合包更新，或该实例不是 Modrinth 整合包。";
+                }
+                else
+                {
+                    ModpackUpdateMessage = "发现整合包新版：" + update.Summary
+                        + "。先点“备份整合包”，再按新版发布页更新。";
+                    StatusText = "发现整合包新版：" + update.Summary;
+                }
+            }
+            catch (Exception ex)
+            {
+                ModpackUpdateMessage = "检查整合包更新失败：" + ex.Message;
+            }
+            finally
+            {
+                IsModpackUpdateBusy = false;
+            }
+        }
+
+        /// <summary>更新前的手动保险；不修改实例，只导出 zip。</summary>
+        [RelayCommand]
+        public async Task BackupModpackAsync()
+        {
+            VersionItem? version = SelectedVersion;
+
+            if (version == null)
+            {
+                ModpackUpdateMessage = "先选择一个实例。";
+                return;
+            }
+
+            if (_modpackUpdates == null)
+            {
+                ModpackUpdateMessage = "整合包备份不可用。";
+                return;
+            }
+
+            IsModpackUpdateBusy = true;
+            try
+            {
+                string path = await _modpackUpdates
+                    .BackupAsync(version.InstancePath, CancellationToken.None)
+                    .ConfigureAwait(true);
+
+                if (ReferenceEquals(SelectedVersion, version))
+                {
+                    ModpackUpdateMessage = "整合包备份已保存：" + path;
+                    StatusText = "整合包备份已保存：" + path;
+                }
+            }
+            catch (Exception ex)
+            {
+                ModpackUpdateMessage = "备份整合包失败：" + ex.Message;
+            }
+            finally
+            {
+                IsModpackUpdateBusy = false;
+            }
+        }
 
         /// <summary>
         /// 在世界页展示启动前会遇到的模组/实例问题，避免玩家点启动后才看到弹框。
