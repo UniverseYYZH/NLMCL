@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text;
 using System.Threading;
+using NLMCL.Abstractions;
 using NLMCL.Core.Pcl.Vb;
 using Xunit;
 
@@ -159,6 +160,49 @@ namespace NLMCL.Tests
             Assert.Contains("127.0.0.1:25565", command);
             Assert.Contains("--width", command);
             Assert.Contains("1280", command);
+            });
+        }
+
+        /// <summary>
+        /// 回归：Session 入口曾漏传窗口大小、全屏和额外游戏参数，
+        /// 实例设置里的 1280×720 实际永远以 854×480 启动。
+        /// 这条测试走两个入口共用的 Request 重载，防止再次只修一个入口。
+        /// </summary>
+        [Fact]
+        public void Applies_window_and_extra_game_args_from_launch_request()
+        {
+            RunSta(() =>
+            {
+                McInstance instance = new McInstance(_versionDirectory);
+                var request = new LaunchRequest(_root, "1.21.1")
+                {
+                    PlayerName = "Steve",
+                    PlayerUuid = "00000000-0000-0000-0000-000000000000",
+                    AccessToken = "test-token",
+                    WindowWidth = 1280,
+                    WindowHeight = 720,
+                    ExtraGameArguments = new[] { "--test-extra" }
+                };
+
+                string command = PclLaunchCommandBuilder.BuildCommand(
+                    instance, request, @"C:\jdk17", new Version(17, 0));
+
+                Assert.Contains("--width", command);
+                Assert.Contains("1280", command);
+                Assert.Contains("--height", command);
+                Assert.Contains("720", command);
+                Assert.Contains("--test-extra", command);
+
+                var fullscreen = new LaunchRequest(_root, "1.21.1")
+                {
+                    PlayerName = "Steve",
+                    PlayerUuid = "00000000-0000-0000-0000-000000000000",
+                    AccessToken = "test-token",
+                    Fullscreen = true
+                };
+                string fullscreenCommand = PclLaunchCommandBuilder.BuildCommand(
+                    instance, fullscreen, @"C:\jdk17", new Version(17, 0));
+                Assert.Contains("--fullscreen", fullscreenCommand);
             });
         }
 
