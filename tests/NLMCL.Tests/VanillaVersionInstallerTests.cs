@@ -45,6 +45,7 @@ namespace NLMCL.Tests
         {
             public readonly Dictionary<string, byte[]> Content = new Dictionary<string, byte[]>(StringComparer.Ordinal);
             public readonly List<string> Requested = new List<string>();
+            public bool FailVersionJson { get; set; }
 
             public override Task DownloadFileAsync(string url, string localPath, CancellationToken cancellationToken)
             {
@@ -73,12 +74,53 @@ namespace NLMCL.Tests
             public override Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
             {
                 Requested.Add(url);
+                if (FailVersionJson && url == VersionJsonUrl)
+                {
+                    throw new IOException("模拟 ModNet 拉取版本 JSON 失败");
+                }
+
                 if (!Content.TryGetValue(url, out byte[]? bytes))
                 {
                     throw new FileNotFoundException("测试未提供该地址：" + url, url);
                 }
 
                 return Task.FromResult(Encoding.UTF8.GetString(bytes));
+            }
+        }
+
+        /// <summary>模拟自带 HttpFileDownloader：只从内存内容取，不受 ModNet 故障开关影响。</summary>
+        private sealed class ContentFileDownloader : IFileDownloader
+        {
+            private readonly Dictionary<string, byte[]> _content;
+            public readonly List<string> Requests = new List<string>();
+
+            public ContentFileDownloader(Dictionary<string, byte[]> content)
+            {
+                _content = content;
+            }
+
+            public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
+            {
+                Requests.Add(url);
+                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                File.WriteAllBytes(targetPath, _content[url]);
+                return Task.CompletedTask;
+            }
+
+            public Task DownloadAsync(
+                string url,
+                string targetPath,
+                IProgress<double>? progress,
+                CancellationToken cancellationToken)
+            {
+                progress?.Report(1);
+                return DownloadAsync(url, targetPath, cancellationToken);
+            }
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+            {
+                Requests.Add(url);
+                return Task.FromResult(Encoding.UTF8.GetString(_content[url]));
             }
         }
 
@@ -193,6 +235,24 @@ namespace NLMCL.Tests
 
             Assert.Equal(100d, last);
             Assert.Contains(progress.Items, item => item.BytesTotal > 0 && item.BytesReceived > 0);
+        }
+
+        [Fact]
+        public async Task Falls_back_to_direct_http_for_version_json()
+        {
+            FakeDownloadService fake = BuildFixture();
+            fake.FailVersionJson = true;
+            ContentFileDownloader fallback = new ContentFileDownloader(fake.Content);
+            VanillaVersionInstaller installer = new VanillaVersionInstaller(fake, Options(), fallback);
+
+            await installer.InstallAsync(
+                new InstallRequest(_root, "1.21.1"),
+                new ProgressCollector(),
+                CancellationToken.None);
+
+            Assert.Contains(VersionJsonUrl, fallback.Requests);
+            Assert.True(File.Exists(Path.Combine(_root, "versions", "1.21.1", "1.21.1.json")));
+            Assert.Equal(JarBytes, File.ReadAllBytes(Path.Combine(_root, "versions", "1.21.1", "1.21.1.jar")));
         }
 
         [Fact]

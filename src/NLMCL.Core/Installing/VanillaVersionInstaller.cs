@@ -69,12 +69,12 @@ namespace NLMCL.Core.Installing
 
             // 1. 版本清单 → 该版本的 JSON 地址
             relay.Report("读取版本清单", 1);
-            string manifest = await _download.GetStringAsync(_options.ManifestUrl, cancellationToken).ConfigureAwait(false);
+            string manifest = await GetStringWithFallbackAsync(_options.ManifestUrl, cancellationToken).ConfigureAwait(false);
             string versionUrl = ResolveVersionUrl(manifest, request.VersionId);
 
             // 2. 版本 JSON
             relay.Report("下载版本定义", 3);
-            string jsonText = await _download.GetStringAsync(versionUrl, cancellationToken).ConfigureAwait(false);
+            string jsonText = await GetStringWithFallbackAsync(versionUrl, cancellationToken).ConfigureAwait(false);
 
             VersionInstallPlan plan = VersionPlanBuilder.Build(
                 request.VersionId, jsonText, request.MinecraftDirectory, _options);
@@ -195,6 +195,29 @@ namespace NLMCL.Core.Installing
                 }
 
                 await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// 元数据也走直连兜底：PCL ModNet 在部分网络下连不上 piston-meta，
+        /// 但清单/版本 JSON 都是公开小文件，系统 HTTP 栈可以直接取。
+        /// </summary>
+        private async Task<string> GetStringWithFallbackAsync(
+            string url,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await _download.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                DownloadDiagnostics.Write("metadata fallback " + url);
+                return await _files.GetStringAsync(url, cancellationToken).ConfigureAwait(false);
             }
         }
 
