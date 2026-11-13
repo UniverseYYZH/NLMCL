@@ -71,6 +71,51 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class FailingDownload : DownloadServiceStub
+        {
+            public override Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+            {
+                throw new InvalidOperationException("PCL ModNet 不可用：" + url);
+            }
+
+            public override Task DownloadFileAsync(string url, string localPath, CancellationToken cancellationToken)
+            {
+                throw new InvalidOperationException("PCL ModNet 不可用：" + url);
+            }
+        }
+
+        private sealed class DirectDownload : IFileDownloader
+        {
+            private readonly string _profile;
+
+            public DirectDownload(string profile)
+            {
+                _profile = profile;
+            }
+
+            public List<string> Files { get; } = new List<string>();
+
+            public Task DownloadAsync(string url, string targetPath, CancellationToken cancellationToken)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                File.WriteAllText(targetPath, "direct:" + url);
+                Files.Add(targetPath);
+                return Task.CompletedTask;
+            }
+
+            public Task DownloadAsync(
+                string url, string targetPath, IProgress<double>? progress, CancellationToken cancellationToken)
+            {
+                progress?.Report(1);
+                return DownloadAsync(url, targetPath, cancellationToken);
+            }
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+            {
+                return Task.FromResult(_profile);
+            }
+        }
+
         private static string NewRoot() => Path.Combine(Path.GetTempPath(), "nlmcl-fabric-" + Guid.NewGuid().ToString("N"));
 
         [Fact]
@@ -108,6 +153,33 @@ namespace NLMCL.Tests
                 // 3) 进度单调到达 100
                 Assert.NotEmpty(progress.Items);
                 Assert.Equal(100, progress.Items[progress.Items.Count - 1].Percent);
+            }
+            finally
+            {
+                TryDelete(root);
+            }
+        }
+
+        [Fact]
+        public async Task Falls_back_to_direct_http_when_pcl_download_fails()
+        {
+            string root = NewRoot();
+            WriteParent(root);
+            DirectDownload fallback = new DirectDownload(Profile);
+            FabricLoaderInstaller installer = new FabricLoaderInstaller(
+                new FailingDownload(), new VanillaVersionInstaller(new FailingDownload()), fallback);
+
+            try
+            {
+                await installer.InstallAsync(
+                    new InstallRequest(root, "1.21.1") { Loader = "fabric", LoaderVersion = "0.16.9" },
+                    new RecordingProgress(),
+                    CancellationToken.None);
+
+                string json = Path.Combine(root, "versions", "fabric-loader-0.16.9-1.21.1", "fabric-loader-0.16.9-1.21.1.json");
+                Assert.True(File.Exists(json), "元数据回退后仍应写入版本 JSON：" + json);
+                Assert.True(File.Exists(Path.Combine(root, "libraries", "org", "ow2", "asm", "asm", "9.6", "asm-9.6.jar")));
+                Assert.True(fallback.Files.Count >= 2, "库应由直连下载器补齐");
             }
             finally
             {

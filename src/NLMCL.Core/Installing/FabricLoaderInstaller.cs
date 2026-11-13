@@ -28,11 +28,16 @@ namespace NLMCL.Core.Installing
 
         private readonly IDownloadService _download;
         private readonly VanillaVersionInstaller _vanilla;
+        private readonly IFileDownloader? _fallback;
 
-        public FabricLoaderInstaller(IDownloadService download, VanillaVersionInstaller vanilla)
+        public FabricLoaderInstaller(
+            IDownloadService download,
+            VanillaVersionInstaller vanilla,
+            IFileDownloader? fallback = null)
         {
             _download = download ?? throw new ArgumentNullException(nameof(download));
             _vanilla = vanilla ?? throw new ArgumentNullException(nameof(vanilla));
+            _fallback = fallback;
         }
 
         public async Task InstallAsync(
@@ -63,7 +68,23 @@ namespace NLMCL.Core.Installing
                 request.LoaderVersion);
 
             progress?.Report(new InstallProgress("获取 Fabric 版本信息", 3, 0));
-            string profile = await _download.GetStringAsync(profileUrl, cancellationToken).ConfigureAwait(false);
+            string profile;
+
+            try
+            {
+                profile = await _download.GetStringAsync(profileUrl, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch when (_fallback != null)
+            {
+                // PCL ModNet 在部分网络/进程环境下会连不上 meta.fabricmc.net；
+                // 该接口只是公开 JSON，直接用系统 HTTP 栈兜底即可。
+                progress?.Report(new InstallProgress("PCL 下载失败，改走直连 Fabric 元数据", 4, 0));
+                profile = await _fallback!.GetStringAsync(profileUrl, cancellationToken).ConfigureAwait(false);
+            }
 
             JObject root = JObject.Parse(profile);
             string? id = root.Value<string>("id");
@@ -214,9 +235,24 @@ namespace NLMCL.Core.Installing
                 {
                     // Fabric 的 maven 没有国内镜像，普通下载会因超时/连接假死失败。
                     // 用带停滞检测的封装：只要文件还在变大就继续等，连续 30 秒不涨才重试。
-                    await ResilientDownload
-                        .DownloadAsync(_download, file.Url, tempPath, cancellationToken)
-                        .ConfigureAwait(false);
+                    try
+                    {
+                        await ResilientDownload
+                            .DownloadAsync(_download, file.Url, tempPath, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch when (_fallback != null)
+                    {
+                        progress?.Report(new InstallProgress(
+                            "PCL 下载失败，改走直连：" + Path.GetFileName(file.TargetPath), 0, 0));
+                        await _fallback!
+                            .DownloadAsync(file.Url, tempPath, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
 
                     if (!string.IsNullOrEmpty(file.Sha1))
                     {
