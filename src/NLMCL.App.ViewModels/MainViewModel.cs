@@ -99,6 +99,15 @@ namespace NLMCL.App.ViewModels
         /// <summary>上一次启动用的服务器地址（"重启游戏"要用）。</summary>
         private string? _lastServerAddress;
 
+        /// <summary>当前由世界库启动、用于回写主状态栏的会话。</summary>
+        private IGameSession? _statusSession;
+
+        /// <summary>主状态栏的退出订阅；换会话或退出后必须解绑。</summary>
+        private EventHandler<int>? _statusExitHandler;
+
+        /// <summary>把会话退出封送到 UI 线程；单测没有 UI 时直接执行。</summary>
+        private readonly IUiDispatcher? _dispatcher;
+
         /// <summary>实例绝对路径 → 最后一次成功启动时间。</summary>
         private Dictionary<string, DateTimeOffset> _lastLaunched =
             new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
@@ -182,7 +191,8 @@ namespace NLMCL.App.ViewModels
             IGameDirectoryScanner? directoryScanner = null,
             IVersionDetailsService? versionDetails = null,
             IInstancePackageService? instancePackages = null,
-            IInstanceContentService? instanceContent = null)
+            IInstanceContentService? instanceContent = null,
+            IUiDispatcher? dispatcher = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -220,6 +230,7 @@ namespace NLMCL.App.ViewModels
             _saveFilePicker = saveFilePicker;
             _instancePackages = instancePackages;
             _instanceContent = instanceContent;
+            _dispatcher = dispatcher;
             _resource = resource;
             _skin = skin;
             _lanScan = lanScan;
@@ -5165,6 +5176,7 @@ namespace NLMCL.App.ViewModels
 
                     StatusText = "已启动 " + SelectedVersion.Name
                         + "（PID " + session.ProcessId + "），日志见「启动与日志」";
+                    WatchSessionForStatus(session);
                     return;
                 }
 
@@ -5194,6 +5206,58 @@ namespace NLMCL.App.ViewModels
             {
                 IsLaunching = false;
                 Interlocked.Exchange(ref _launchGate, 0);
+            }
+        }
+
+        /// <summary>
+        /// 游戏退出后更新主状态栏。控制台有自己的详细退出/崩溃状态，但世界库页面的
+        /// “已启动”不能一直挂着——否则用户关掉游戏后还会以为进程仍在跑。
+        /// </summary>
+        private void WatchSessionForStatus(IGameSession session)
+        {
+            if (_statusExitHandler != null && _statusSession != null)
+            {
+                _statusSession.Exited -= _statusExitHandler;
+            }
+
+            _statusSession = session;
+
+            EventHandler<int> handler = null!;
+            handler = (sender, exitCode) =>
+            {
+                session.Exited -= handler;
+
+                void Apply()
+                {
+                    if (!ReferenceEquals(_statusSession, session))
+                    {
+                        return;
+                    }
+
+                    _statusSession = null;
+                    _statusExitHandler = null;
+                    StatusText = exitCode == 0
+                        ? "游戏已退出（PID " + session.ProcessId + "）"
+                        : "游戏已退出（退出码 " + exitCode + "），详情见「启动与日志」";
+                }
+
+                if (_dispatcher != null)
+                {
+                    _dispatcher.Post(Apply);
+                }
+                else
+                {
+                    Apply();
+                }
+            };
+
+            _statusExitHandler = handler;
+            session.Exited += handler;
+
+            // JVM 秒退时 Exited 可能在订阅前已经广播完，补查一次终态。
+            if (session.ExitCode.HasValue)
+            {
+                handler(session, session.ExitCode.Value);
             }
         }
 

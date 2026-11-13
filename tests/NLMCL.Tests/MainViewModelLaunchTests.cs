@@ -781,6 +781,13 @@ namespace NLMCL.Tests
             }
 
             public void Emit(string text) => Output?.Invoke(this, new GameOutputLine(text, false));
+
+            public void RaiseExit(int exitCode)
+            {
+                IsRunning = false;
+                ExitCode = exitCode;
+                Exited?.Invoke(this, exitCode);
+            }
         }
 
         private sealed class StubSessionLauncher : IGameSessionLauncher
@@ -851,6 +858,31 @@ namespace NLMCL.Tests
 
             launcher.Session.Emit("[main/INFO] hello from main page");
             Assert.Contains(vm.Console.Lines, line => line.Text.Contains("hello from main page"));
+        }
+
+        [Fact]
+        public async Task Session_exit_replaces_the_main_started_status()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            StubSessionLauncher launcher = new StubSessionLauncher();
+
+            MainViewModel vm = TestSupport.CreateMain(
+                catalog,
+                new AppPaths(@"C:\Temp\roaming"),
+                new FixedJavaLocator(TestSupport.CreateJava(21)),
+                launcher);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+
+            Assert.Contains("已启动", vm.StatusText);
+
+            launcher.Session.RaiseExit(1);
+
+            Assert.Contains("退出码 1", vm.StatusText);
+            Assert.DoesNotContain("已启动", vm.StatusText);
         }
     }
 }
