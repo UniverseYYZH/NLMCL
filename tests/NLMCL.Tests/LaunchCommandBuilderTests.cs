@@ -180,5 +180,28 @@ namespace NLMCL.Tests
                 Assert.Contains("-Xmx6144m", command);
             });
         }
+
+        [Fact]
+        public void Natives_path_repair_does_not_swallow_later_quoted_arguments()
+        {
+            string natives = Path.Combine(Path.GetTempPath(), "nlmcl-natives-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(natives);
+            File.WriteAllBytes(Path.Combine(natives, "lwjgl.dll"), new byte[] { 0 });
+            try
+            {
+                string command =
+                    @"-Djava.library.path=C:\old\natives -cp C:\lib\a.jar ""-DFabricMcEmu=net.minecraft.client.main.Main"" -Xmx1G";
+
+                string repaired = PclLaunchCommandBuilder.FixNativesLibraryPath(command, natives);
+
+                Assert.Contains("-Djava.library.path=" + natives, repaired);
+                Assert.Contains(" -cp C:\\lib\\a.jar ", repaired);
+                Assert.Contains("\"-DFabricMcEmu=net.minecraft.client.main.Main\"", repaired);
+            }
+            finally
+            {
+                try { Directory.Delete(natives, recursive: true); } catch { }
+            }
+        }
     }
 }
