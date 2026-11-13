@@ -808,6 +808,9 @@ namespace NLMCL.App.ViewModels
         }
 
         /// <summary>导入 .mrpack：读索引 → 装加载器 → 建隔离实例 → 落 mods/overrides。</summary>
+        /// <summary>整合包导入成功、版本目录已落盘；参数为版本目录名。</summary>
+        public event EventHandler<string>? ModpackImported;
+
         [RelayCommand]
         public async Task ImportModpackAsync()
         {
@@ -852,6 +855,7 @@ namespace NLMCL.App.ViewModels
 
                 Progress = 100;
                 StatusText = "已创建实例「" + versionId + "」，去「世界库」里启动它。";
+                ModpackImported?.Invoke(this, versionId);
             }
             catch (Exception ex)
             {

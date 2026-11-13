@@ -328,6 +328,11 @@ namespace NLMCL.App.ViewModels
             // 装完一个版本后自动重扫本地列表，省掉"回版本页再点扫描"这一步。
             Download.InstallCompleted += OnDownloadInstallCompleted;
 
+            if (_resource != null)
+            {
+                _resource.ModpackImported += OnModpackImported;
+            }
+
             Settings = new SettingsViewModel(
                 this, _javaLocator, _filePicker, _paths, Cache, Transfer, this);
             Settings.SaveRequested += (_, __) => _ = SaveAppearanceAsync();
@@ -394,6 +399,19 @@ namespace NLMCL.App.ViewModels
         {
             // 事件来自下载页，不 await：扫描失败会自己写进 StatusText。
             _ = RefreshAsync();
+        }
+
+        private void OnModpackImported(object? sender, string versionId)
+        {
+            // 导入页使用的可能是另一个 .minecraft；完成后必须重扫当前目录并选中新实例，
+            // 否则世界库还停在导入前的版本列表。
+            _ = RefreshAndSelectModpackAsync(versionId);
+        }
+
+        private async Task RefreshAndSelectModpackAsync(string versionId)
+        {
+            await RefreshAsync().ConfigureAwait(true);
+            SelectVersionByName(versionId);
         }
 
         public string ProductName => "NLMCL";
