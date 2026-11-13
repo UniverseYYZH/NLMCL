@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,15 +22,18 @@ namespace NLMCL.Core.Installing
         private readonly IDownloadService _download;
         private readonly IInstancePackageService _packages;
         private readonly IAppPaths _paths;
+        private readonly IFileDownloader? _files;
 
         public ModpackUpdateService(
             IDownloadService download,
             IInstancePackageService packages,
-            IAppPaths paths)
+            IAppPaths paths,
+            IFileDownloader? files = null)
         {
             _download = download ?? throw new ArgumentNullException(nameof(download));
             _packages = packages ?? throw new ArgumentNullException(nameof(packages));
             _paths = paths ?? throw new ArgumentNullException(nameof(paths));
+            _files = files;
         }
 
         public Task<ModpackManifest?> ReadAsync(string instanceDirectory, CancellationToken cancellationToken)
@@ -85,16 +89,50 @@ namespace NLMCL.Core.Installing
             JArray versions = JArray.Parse(await _download.GetStringAsync(url, cancellationToken)
                 .ConfigureAwait(false));
 
-            JObject? latest = versions
+            List<JObject> ordered = versions
                 .OfType<JObject>()
                 .Where(item => !string.IsNullOrWhiteSpace(item.Value<string>("id")))
                 .OrderByDescending(PublishedAt)
-                .FirstOrDefault();
+                .ToList();
 
-            if (latest == null || string.Equals(
-                    latest.Value<string>("id"), manifest.VersionId, StringComparison.Ordinal))
+            JObject? installed = ordered.FirstOrDefault(item => string.Equals(
+                item.Value<string>("id"), manifest.VersionId, StringComparison.Ordinal));
+            DateTimeOffset? installedAt = installed == null ? (DateTimeOffset?)null : PublishedAt(installed);
+
+            // 已是最新版本；不能跳过当前版本去拿列表里的旧版本。
+            if (ordered.Count == 0
+                || (installed != null && ReferenceEquals(ordered[0], installed)))
             {
-                // 已经是最新版本；不能跳过当前版本去拿列表里的旧版本。
+                return null;
+            }
+
+            JObject? latest = null;
+            foreach (JObject candidate in ordered)
+            {
+                string candidateId = candidate.Value<string>("id") ?? string.Empty;
+                if (string.Equals(candidateId, manifest.VersionId, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                DateTimeOffset? candidateAt = PublishedAt(candidate);
+                if (installedAt.HasValue && candidateAt.HasValue && candidateAt.Value <= installedAt.Value)
+                {
+                    // 不提供降级；列表里比当前更旧的版本直接跳过。
+                    continue;
+                }
+
+                if (await IsLoaderCompatibleAsync(candidate, manifest, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    latest = candidate;
+                    break;
+                }
+            }
+
+            if (latest == null)
+            {
+                // 有新版但都需要升级加载器；返回 null，避免把必然失败的更新推给用户。
                 return null;
             }
 
@@ -175,6 +213,99 @@ namespace NLMCL.Core.Installing
                 raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out DateTimeOffset parsed)
                 ? parsed
                 : (DateTimeOffset?)null;
+        }
+
+        private async Task<bool> IsLoaderCompatibleAsync(
+            JObject version, ModpackManifest manifest, CancellationToken cancellationToken)
+        {
+            if (_files == null || string.IsNullOrWhiteSpace(manifest.LoaderVersion))
+            {
+                return true;
+            }
+
+            string? dependency = LoaderDependencyKey(manifest.Loader);
+            if (dependency == null)
+            {
+                return true;
+            }
+
+            JObject? file = (version["files"] as JArray)?
+                .OfType<JObject>()
+                .FirstOrDefault(item => item.Value<bool?>("primary") == true)
+                ?? (version["files"] as JArray)?.OfType<JObject>().FirstOrDefault();
+            string url = file?.Value<string>("url") ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return false;
+            }
+
+            string temporary = Path.Combine(
+                Path.GetTempPath(), "nlmcl-update-check-" + Guid.NewGuid().ToString("N") + ".mrpack");
+            try
+            {
+                await _files.DownloadAsync(url, temporary, cancellationToken).ConfigureAwait(false);
+
+                using (ZipArchive archive = ZipFile.OpenRead(temporary))
+                {
+                    ZipArchiveEntry? entry = archive.GetEntry("modrinth.index.json");
+                    if (entry == null)
+                    {
+                        return false;
+                    }
+
+                    using (StreamReader reader = new StreamReader(entry.Open()))
+                    {
+                        JObject index = JObject.Parse(reader.ReadToEnd());
+                        string? required = index.SelectToken("dependencies." + dependency)?.Value<string>();
+                        return string.IsNullOrWhiteSpace(required)
+                            || string.Equals(required, manifest.LoaderVersion, StringComparison.OrdinalIgnoreCase);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 候选包无法下载/解析时跳过它，不阻断其余候选检查。
+                return false;
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(temporary))
+                    {
+                        File.Delete(temporary);
+                    }
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        private static string? LoaderDependencyKey(string? loader)
+        {
+            if (string.IsNullOrWhiteSpace(loader))
+            {
+                return null;
+            }
+
+            switch (loader.Trim().ToLowerInvariant())
+            {
+                case "fabric":
+                    return "fabric-loader";
+                case "quilt":
+                    return "quilt-loader";
+                case "forge":
+                    return "forge";
+                case "neoforge":
+                    return "neoforge";
+                default:
+                    return null;
+            }
         }
 
         private static string? LoaderFilter(string? loader)

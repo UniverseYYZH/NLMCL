@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Threading;
 using System.Threading.Tasks;
 using NLMCL.Abstractions;
@@ -110,6 +111,45 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Check_skips_versions_that_require_a_newer_loader()
+        {
+            string instance = Path.Combine(_root, "versions", "Loader Pack");
+            Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                ProjectId = "proj",
+                VersionId = "v1",
+                Name = "Loader Pack",
+                MinecraftVersion = "1.21.1",
+                Loader = "Fabric",
+                LoaderVersion = "0.16.10"
+            });
+
+            string versions = @"[
+              { ""id"": ""v3"", ""version_number"": ""2.0.0"",
+                ""date_published"": ""2026-02-01T00:00:00Z"",
+                ""files"": [ { ""url"": ""https://cdn/v3.mrpack"", ""filename"": ""v3.mrpack"", ""primary"": true } ] },
+              { ""id"": ""v2"", ""version_number"": ""1.5.0"",
+                ""date_published"": ""2026-01-15T00:00:00Z"",
+                ""files"": [ { ""url"": ""https://cdn/v2.mrpack"", ""filename"": ""v2.mrpack"", ""primary"": true } ] },
+              { ""id"": ""v1"", ""version_number"": ""1.0.0"",
+                ""date_published"": ""2026-01-01T00:00:00Z"",
+                ""files"": [ { ""url"": ""https://cdn/v1.mrpack"", ""filename"": ""v1.mrpack"", ""primary"": true } ] }
+            ]";
+
+            ModpackUpdateService service = new ModpackUpdateService(
+                new FakeDownload(versions), new FakePackages(),
+                new AppPaths(Path.Combine(_root, "data"), portable: true),
+                new FakeFiles());
+
+            ModpackUpdateInfo? update = await service.CheckAsync(instance, CancellationToken.None);
+
+            Assert.NotNull(update);
+            Assert.Equal("v2", update!.VersionId);
+            Assert.Equal("1.5.0", update.VersionName);
+        }
+
+        [Fact]
         public async Task Backup_creates_a_zip_under_the_modpack_backup_directory()
         {
             string instance = Path.Combine(_root, "versions", "Backup Pack");
@@ -166,6 +206,35 @@ namespace NLMCL.Tests
                 LastUrl = url;
                 return Task.FromResult(_body);
             }
+        }
+
+        private sealed class FakeFiles : IFileDownloader
+        {
+            public Task DownloadAsync(
+                string url, string targetPath, CancellationToken cancellationToken)
+                => DownloadAsync(url, targetPath, null, cancellationToken);
+
+            public Task DownloadAsync(
+                string url, string targetPath, IProgress<double>? progress,
+                CancellationToken cancellationToken)
+            {
+                string loader = url.Contains("v3") ? "0.19.3" : "0.16.10";
+                Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
+                using (FileStream stream = File.Create(targetPath))
+                using (ZipArchive archive = new ZipArchive(stream, ZipArchiveMode.Create))
+                {
+                    ZipArchiveEntry entry = archive.CreateEntry("modrinth.index.json");
+                    using (StreamWriter writer = new StreamWriter(entry.Open()))
+                    {
+                        writer.Write("{\"dependencies\":{\"fabric-loader\":\"" + loader + "\"}}");
+                    }
+                }
+
+                return Task.CompletedTask;
+            }
+
+            public Task<string> GetStringAsync(string url, CancellationToken cancellationToken)
+                => Task.FromResult("{}");
         }
 
         private sealed class FakePackages : IInstancePackageService
