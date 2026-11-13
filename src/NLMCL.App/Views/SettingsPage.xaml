@@ -24,6 +24,7 @@
                 <Setter Property="Margin" Value="0,0,0,4" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="FontSize" Value="13" />
+                <Setter Property="FocusVisualStyle" Value="{StaticResource KeyboardFocusVisual}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="ToggleButton">
@@ -40,7 +41,7 @@
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AmberBg}" />
                                     <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AmberBorder}" />
-                                    <Setter Property="Foreground" Value="{DynamicResource FrameRed}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Text}" />
                                     <Setter Property="FontWeight" Value="SemiBold" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -152,6 +153,7 @@
                            Margin="4,0,0,8" />
                 <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
+                              AutomationProperties.Name="全部设置"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter=""
                               IsChecked="{Binding IsAllGroupActive, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal">
@@ -162,6 +164,7 @@
                 </ToggleButton>
                 <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
+                              AutomationProperties.Name="通用设置"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="general"
                               IsChecked="{Binding IsGeneralGroupActive, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal">
@@ -172,6 +175,7 @@
                 </ToggleButton>
                 <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
+                              AutomationProperties.Name="游戏与 Java 设置"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="game"
                               IsChecked="{Binding IsGameGroupActive, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal">
@@ -182,6 +186,7 @@
                 </ToggleButton>
                 <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
+                              AutomationProperties.Name="外观设置"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="appearance"
                               IsChecked="{Binding IsAppearanceGroupActive, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal">
@@ -192,6 +197,7 @@
                 </ToggleButton>
                 <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
+                              AutomationProperties.Name="下载与网络设置"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="download"
                               IsChecked="{Binding IsDownloadGroupActive, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal">
@@ -202,6 +208,7 @@
                 </ToggleButton>
                 <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
+                              AutomationProperties.Name="日志与诊断设置"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="logs"
                               IsChecked="{Binding IsLogsGroupActive, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal">
@@ -212,6 +219,7 @@
                 </ToggleButton>
                 <ToggleButton Style="{StaticResource SettingsFilterToggle}"
                               HorizontalContentAlignment="Left"
+                              AutomationProperties.Name="数据与备份设置"
                               Command="{Binding SelectSettingsGroupCommand}" CommandParameter="data"
                               IsChecked="{Binding IsDataGroupActive, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal">
