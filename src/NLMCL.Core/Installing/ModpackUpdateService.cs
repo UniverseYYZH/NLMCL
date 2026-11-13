@@ -89,11 +89,12 @@ namespace NLMCL.Core.Installing
                 .OfType<JObject>()
                 .Where(item => !string.IsNullOrWhiteSpace(item.Value<string>("id")))
                 .OrderByDescending(PublishedAt)
-                .FirstOrDefault(item => !string.Equals(
-                    item.Value<string>("id"), manifest.VersionId, StringComparison.Ordinal));
+                .FirstOrDefault();
 
-            if (latest == null)
+            if (latest == null || string.Equals(
+                    latest.Value<string>("id"), manifest.VersionId, StringComparison.Ordinal))
             {
+                // 已经是最新版本；不能跳过当前版本去拿列表里的旧版本。
                 return null;
             }
 

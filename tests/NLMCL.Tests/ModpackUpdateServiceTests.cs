@@ -80,6 +80,36 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Check_does_not_offer_an_older_version_when_already_latest()
+        {
+            string instance = Path.Combine(_root, "versions", "Latest Pack");
+            Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                ProjectId = "proj",
+                VersionId = "v2",
+                Name = "Latest Pack",
+                MinecraftVersion = "1.21.1",
+                Loader = "Fabric"
+            });
+
+            string versions = @"[
+              { ""id"": ""v2"", ""version_number"": ""2.0.0"",
+                ""date_published"": ""2026-02-01T00:00:00Z"",
+                ""files"": [ { ""url"": ""https://cdn/v2.mrpack"", ""filename"": ""v2.mrpack"", ""primary"": true } ] },
+              { ""id"": ""v1"", ""version_number"": ""1.0.0"",
+                ""date_published"": ""2026-01-01T00:00:00Z"",
+                ""files"": [ { ""url"": ""https://cdn/v1.mrpack"", ""filename"": ""v1.mrpack"", ""primary"": true } ] }
+            ]";
+
+            ModpackUpdateService service = new ModpackUpdateService(
+                new FakeDownload(versions), new FakePackages(),
+                new AppPaths(Path.Combine(_root, "data"), portable: true));
+
+            Assert.Null(await service.CheckAsync(instance, CancellationToken.None));
+        }
+
+        [Fact]
         public async Task Backup_creates_a_zip_under_the_modpack_backup_directory()
         {
             string instance = Path.Combine(_root, "versions", "Backup Pack");
