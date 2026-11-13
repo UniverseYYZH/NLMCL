@@ -430,6 +430,67 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Failed_update_leaves_the_original_instance_intact()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-update-" + Guid.NewGuid().ToString("N"));
+            string mc = Path.Combine(root, ".minecraft");
+            Directory.CreateDirectory(mc);
+
+            try
+            {
+                ModpackInstaller installer = new ModpackInstaller(
+                    new FakeDownload(), new FakeVersions(), new FakeLoaders(), new FakeFileDownloader());
+                string versionId = await installer.InstallAsync(
+                    BuildMrpack(root), mc, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
+                string instance = Path.Combine(mc, "versions", versionId);
+                string mods = Path.Combine(instance, "mods");
+                Directory.CreateDirectory(mods);
+                File.WriteAllText(Path.Combine(mods, "player.jar"), "player");
+
+                const string nextIndex = @"{
+                    ""formatVersion"": 1,
+                    ""name"": ""Fabulously Optimized"",
+                    ""versionId"": ""5.0.1"",
+                    ""files"": [
+                        { ""path"": ""mods/sodium-new.jar"", ""downloads"": [""https://cdn/sodium-new.jar""] }
+                    ],
+                    ""dependencies"": { ""minecraft"": ""1.20.1"", ""fabric-loader"": ""0.16.9"" }
+                }";
+                string nextDir = Path.Combine(root, "next-fail");
+                Directory.CreateDirectory(nextDir);
+                string nextPack = BuildMrpack(nextDir, nextIndex);
+
+                ModpackInstaller failingInstaller = new ModpackInstaller(
+                    new FakeDownload(), new FakeVersions(), new FakeLoaders(), new ThrowingFileDownloader());
+
+                await Assert.ThrowsAnyAsync<Exception>(() => failingInstaller.UpdateAsync(
+                    nextPack, instance, null, CancellationToken.None));
+
+                Assert.True(File.Exists(Path.Combine(mods, "sodium.jar")), "失败更新必须保留旧版 mod");
+                Assert.True(File.Exists(Path.Combine(mods, "player.jar")), "失败更新必须保留玩家 mod");
+                Assert.False(File.Exists(Path.Combine(mods, "sodium-new.jar")), "失败更新不能留下半套新 mod");
+
+                ModpackManifest? manifest = ModpackManifestStore.Read(instance);
+                Assert.NotNull(manifest);
+                Assert.Equal("5.0.0", manifest!.VersionId);
+
+                string[] staging = Directory.GetDirectories(
+                    Path.Combine(mc, "versions"), "*.nlmcl-staging-*", SearchOption.TopDirectoryOnly);
+                Assert.Empty(staging);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
         public async Task Clones_loader_json_so_pcl_can_merge_it()
         {
             string root = Path.Combine(Path.GetTempPath(), "nlmcl-mrp-" + Guid.NewGuid().ToString("N"));
