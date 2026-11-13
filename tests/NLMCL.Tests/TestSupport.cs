@@ -483,7 +483,8 @@ namespace NLMCL.Tests
             IFileDownloader? fileDownloader = null,
             IResourceCatalog? resourceCatalog = null,
             IInstancePathResolver? instancePaths = null,
-            ISafeModeService? safeMode = null)
+            ISafeModeService? safeMode = null,
+            IVersionRepairer? repairer = null)
         {
             return new MainViewModel(
                 catalog,
@@ -517,7 +518,8 @@ namespace NLMCL.Tests
                 fileDownloader: fileDownloader,
                 resourceCatalog: resourceCatalog,
                 instancePaths: instancePaths,
-                safeMode: safeMode);
+                safeMode: safeMode,
+                repairer: repairer);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {

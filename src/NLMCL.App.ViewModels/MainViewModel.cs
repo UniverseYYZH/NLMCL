@@ -6201,22 +6201,12 @@ namespace NLMCL.App.ViewModels
             }
 
             IsBusy = true;
-            StatusText = "正在检查文件完整性…";
+            StatusText = "正在检查并修复文件…";
 
             try
             {
-                RepairReport inspect = await _repairer
-                    .InspectAsync(CurrentGameDirectory, SelectedVersion.FolderName, CancellationToken.None)
-                    .ConfigureAwait(true);
-
-                if (inspect.Missing == 0)
-                {
-                    StatusText = "文件完整，无需修复。";
-                    return;
-                }
-
-                StatusText = "缺失 " + inspect.Missing + " 个文件，开始修复…";
-
+                // RepairAsync 自己会先收集并校验 SHA1；不要再先 InspectAsync，
+                // 否则同一批文件会被完整读两遍。
                 RepairReport result = await _repairer
                     .RepairAsync(
                         CurrentGameDirectory,
@@ -6228,7 +6218,10 @@ namespace NLMCL.App.ViewModels
                 StatusText = result.Summary
                     + (result.Details.Count > 0 ? "（" + string.Join("；", result.Details.Take(3)) + "）" : string.Empty);
 
-                await RefreshAsync().ConfigureAwait(true);
+                if (result.Missing > 0)
+                {
+                    await RefreshAsync().ConfigureAwait(true);
+                }
             }
             catch (Exception ex)
             {
