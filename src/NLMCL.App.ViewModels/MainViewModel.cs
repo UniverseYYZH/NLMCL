@@ -688,6 +688,24 @@ namespace NLMCL.App.ViewModels
         [ObservableProperty]
         private bool _isAccountPopupOpen;
 
+        /// <summary>收到 nlmcl:// 邀请后显示确认卡；确认前绝不启动游戏。</summary>
+        [ObservableProperty]
+        private bool _isInvitePromptOpen;
+
+        [ObservableProperty]
+        private string _inviteServerName = string.Empty;
+
+        [ObservableProperty]
+        private string _inviteServerAddress = string.Empty;
+
+        [ObservableProperty]
+        private bool _inviteRequiresAutoModpack;
+
+        [ObservableProperty]
+        private string _inviteHint = string.Empty;
+
+        private InviteLink? _pendingInvite;
+
         /// <summary>正在等待微软登录完成。</summary>
         [ObservableProperty]
         private bool _isMicrosoftSigningIn;
@@ -740,6 +758,48 @@ namespace NLMCL.App.ViewModels
         public void ToggleAccountPopup()
         {
             IsAccountPopupOpen = !IsAccountPopupOpen;
+        }
+
+        /// <summary>只展示邀请确认，不启动、不探测、不写服务器列表。</summary>
+        public void ShowInvite(InviteLink invite)
+        {
+            _pendingInvite = invite;
+            InviteServerName = invite.DisplayName;
+            InviteServerAddress = invite.Address;
+            InviteRequiresAutoModpack = invite.RequiresAutoModpack;
+            InviteHint = invite.RequiresAutoModpack
+                ? "邀请标记为模组服；确认后会先准备实例，再启动游戏。"
+                : "确认后才会启动游戏并连接该地址。";
+            IsInvitePromptOpen = true;
+            StatusText = "收到服务器邀请：" + invite.DisplayName;
+        }
+
+        [RelayCommand]
+        public async Task AcceptInviteAsync()
+        {
+            if (_pendingInvite == null)
+            {
+                return;
+            }
+
+            InviteLink invite = _pendingInvite;
+            _pendingInvite = null;
+            IsInvitePromptOpen = false;
+            ServerAddress = invite.Address;
+            StatusText = "正在加入邀请服务器 " + invite.Address + " …";
+            await ConnectToLanAsync().ConfigureAwait(true);
+        }
+
+        [RelayCommand]
+        public void CancelInvite()
+        {
+            _pendingInvite = null;
+            IsInvitePromptOpen = false;
+            InviteServerName = string.Empty;
+            InviteServerAddress = string.Empty;
+            InviteRequiresAutoModpack = false;
+            InviteHint = string.Empty;
+            StatusText = "已取消加入服务器邀请。";
         }
 
         /// <summary>是否正在启动（防止重复点击）。</summary>

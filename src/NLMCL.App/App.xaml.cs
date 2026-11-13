@@ -2,18 +2,21 @@ using System.Collections.Generic;
 using System.Threading;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using NLMCL.Abstractions;
+using NLMCL.App.Services;
 using NLMCL.App.ViewModels;
 using NLMCL.Core;
 using NLMCL.Core.Pcl;
 using NLMCL.Core.Pcl.Vb;
 using NLMCL.Core.Accounts;
 using NLMCL.Core.Installing;
+using NLMCL.Core.Invites;
 using NLMCL.Core.Networking;
 using NLMCL.Core.Settings;
 using NLMCL.Core.Snapshots;
@@ -33,6 +36,7 @@ namespace NLMCL.App
 
         private Mutex? _singleInstance;
         private bool _ownsSingleInstance;
+        private CancellationTokenSource? _inviteListener;
 
         /// <summary>页面代码后置需要从组合根取窗口/服务时使用。</summary>
         public IServiceProvider RootServices =>
@@ -48,8 +52,31 @@ namespace NLMCL.App
                 name: @"Local\NLMCL.SingleInstance",
                 createdNew: out _ownsSingleInstance);
 
+            string? inviteArgument = e.Args.FirstOrDefault(
+                argument => argument.StartsWith("nlmcl://", StringComparison.OrdinalIgnoreCase));
+            InviteLinkParseResult? invite = inviteArgument == null
+                ? null
+                : InviteLinkParser.Parse(inviteArgument);
+
             if (!_ownsSingleInstance)
             {
+                if (invite != null && !invite.Success)
+                {
+                    MessageBox.Show(
+                        invite.Error ?? "邀请链接无效。",
+                        "NLMCL",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                    Shutdown(1);
+                    return;
+                }
+
+                // 单实例转发：已有窗口负责展示确认卡，第二个进程只负责把链接交给它。
+                if (invite?.Link != null && inviteArgument != null)
+                {
+                    InvitePipe.SendAsync(inviteArgument).GetAwaiter().GetResult();
+                }
+
                 // 最小化/隐藏到托盘时，第二个实例必须把已有窗口叫回来，而不是无声退出。
                 if (!TryActivateExistingInstance())
                 {
@@ -136,6 +163,28 @@ namespace NLMCL.App
                 window.Title = "NLMCL — 构建 " + Services.StartupTrace.BuildStamp();
 
                 window.Show();
+
+                StartInviteListener();
+                if (!UrlProtocolRegistrar.TryRegister(
+                        Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty,
+                        out string? protocolError))
+                {
+                    Services.StartupTrace.Write(new InvalidOperationException(
+                        "nlmcl:// 协议注册失败：" + protocolError));
+                }
+
+                if (invite?.Link != null)
+                {
+                    ShowInvite(invite.Link);
+                }
+                else if (invite != null && !invite.Success)
+                {
+                    MessageBox.Show(
+                        invite.Error ?? "邀请链接无效。",
+                        "NLMCL",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
             }
             catch (Exception ex)
             {
@@ -336,6 +385,55 @@ namespace NLMCL.App
             return MicrosoftAuthenticator.DefaultClientId;
         }
 
+        private void StartInviteListener()
+        {
+            _inviteListener = new CancellationTokenSource();
+            CancellationToken token = _inviteListener.Token;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await InvitePipe.ListenAsync(
+                        message =>
+                        {
+                            InviteLinkParseResult parsed = InviteLinkParser.Parse(message);
+                            if (parsed.Link != null)
+                            {
+                                Dispatcher.InvokeAsync(() => ShowInvite(parsed.Link));
+                            }
+
+                            return Task.CompletedTask;
+                        },
+                        token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 正常退出。
+                }
+                catch (Exception ex)
+                {
+                    Services.CrashReporter.Write("邀请链接监听失败", ex);
+                }
+            });
+        }
+
+        private void ShowInvite(InviteLink invite)
+        {
+            if (MainWindow?.DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            viewModel.ShowInvite(invite);
+            if (!MainWindow.IsVisible)
+            {
+                MainWindow.Show();
+            }
+
+            MainWindow.ShowInTaskbar = true;
+            MainWindow.Activate();
+        }
+
         /// <summary>把已经在运行的 NLMCL 窗口恢复并置前；找不到窗口时返回 false。</summary>
         private static bool TryActivateExistingInstance()
         {
@@ -389,6 +487,16 @@ namespace NLMCL.App
 
         protected override void OnExit(ExitEventArgs e)
         {
+            try
+            {
+                _inviteListener?.Cancel();
+                _inviteListener?.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+                // 监听已结束。
+            }
+
             if (_services != null)
             {
                 try

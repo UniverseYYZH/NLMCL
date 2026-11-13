@@ -1215,6 +1215,41 @@
         </Grid>
 
         <!-- ===== 状态提示（左下角滑入，几秒后自动淡出） ===== -->
+        <!-- 邀请链接确认：确认前不启动游戏。 -->
+        <Grid Grid.RowSpan="3" Grid.ColumnSpan="2" Panel.ZIndex="1000" Background="#66000000"
+              Visibility="{Binding IsInvitePromptOpen, Converter={StaticResource BoolToVisibility}}">
+            <Border Width="520" VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Background="{DynamicResource Card}" CornerRadius="10"
+                    BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                    Padding="22,20">
+                <StackPanel>
+                    <TextBlock Text="收到服务器邀请" FontSize="18" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" />
+                    <TextBlock Text="确认后才会启动游戏并连接；取消不会改动任何设置。"
+                               FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,6,0,14" />
+                    <TextBlock Text="{Binding InviteServerName}" FontSize="15" FontWeight="SemiBold"
+                               Foreground="{DynamicResource Text}" TextTrimming="CharacterEllipsis" />
+                    <Border Background="{DynamicResource Surface}" CornerRadius="7" Padding="10,8" Margin="0,8,0,0">
+                        <TextBlock Text="{Binding InviteServerAddress}" FontSize="12"
+                                   FontFamily="Cascadia Mono, Consolas" Foreground="{DynamicResource Text}" />
+                    </Border>
+                    <Border Background="{DynamicResource AmberBg}" CornerRadius="7" Padding="10,8" Margin="0,10,0,0"
+                            Visibility="{Binding InviteRequiresAutoModpack, Converter={StaticResource BoolToVisibility}}">
+                        <TextBlock Text="该邀请标记为模组服；如果本机没有对应实例，需要先准备 AutoModpack。"
+                                   FontSize="10.5" Foreground="{DynamicResource Text}" TextWrapping="Wrap" />
+                    </Border>
+                    <TextBlock Text="{Binding InviteHint}" FontSize="10.5"
+                               Foreground="{DynamicResource Faint}" TextWrapping="Wrap" Margin="0,10,0,0" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                        <Button Content="取消" Style="{StaticResource GhostButton}" Padding="16,7"
+                                Command="{Binding CancelInviteCommand}" Margin="0,0,8,0" />
+                        <Button Content="加入服务器" Style="{StaticResource PrimaryButton}" Padding="18,7"
+                                Command="{Binding AcceptInviteCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
         <Border x:Name="StatusToast" Grid.ColumnSpan="2" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                 Margin="272,0,0,22" Padding="14,9" MaxWidth="560"
                 Background="{DynamicResource Card}" BorderThickness="1"
