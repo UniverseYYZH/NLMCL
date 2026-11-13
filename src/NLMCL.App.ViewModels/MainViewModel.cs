@@ -99,11 +99,20 @@ namespace NLMCL.App.ViewModels
         /// <summary>上一次启动用的服务器地址（"重启游戏"要用）。</summary>
         private string? _lastServerAddress;
 
-        /// <summary>当前由世界库启动、用于回写主状态栏的会话。</summary>
-        private IGameSession? _statusSession;
+        /// <summary>
+        /// 由世界库启动、用于回写主状态栏的会话。允许多开，不能只记最后一个，
+        /// 否则先启动的会话退出时会被误判成“所有游戏都退出了”。
+        /// </summary>
+        private readonly Dictionary<IGameSession, EventHandler<int>> _statusHandlers =
+            new Dictionary<IGameSession, EventHandler<int>>();
 
-        /// <summary>主状态栏的退出订阅；换会话或退出后必须解绑。</summary>
-        private EventHandler<int>? _statusExitHandler;
+        private readonly object _statusGate = new object();
+
+        /// <summary>最近一次由世界库启动的会话；它退出后才改写“已启动”状态。</summary>
+        private IGameSession? _statusLatest;
+
+        /// <summary>状态代次，防止已排队到 UI 线程的旧退出覆盖新启动。</summary>
+        private long _statusVersion;
 
         /// <summary>把会话退出封送到 UI 线程；单测没有 UI 时直接执行。</summary>
         private readonly IUiDispatcher? _dispatcher;
@@ -5217,30 +5226,54 @@ namespace NLMCL.App.ViewModels
         /// </summary>
         private void WatchSessionForStatus(IGameSession session)
         {
-            if (_statusExitHandler != null && _statusSession != null)
-            {
-                _statusSession.Exited -= _statusExitHandler;
-            }
-
-            _statusSession = session;
-
             EventHandler<int> handler = null!;
             handler = (sender, exitCode) =>
             {
                 session.Exited -= handler;
 
-                void Apply()
+                int remaining;
+                long version;
+                lock (_statusGate)
                 {
-                    if (!ReferenceEquals(_statusSession, session))
+                    if (!_statusHandlers.Remove(session))
                     {
                         return;
                     }
 
-                    _statusSession = null;
-                    _statusExitHandler = null;
-                    StatusText = exitCode == 0
-                        ? "游戏已退出（PID " + session.ProcessId + "）"
-                        : "游戏已退出（退出码 " + exitCode + "），详情见「启动与日志」";
+                    // 旧会话退出不能覆盖最新会话的“已启动”。等最新会话退出时，
+                    // 再把状态交给仍然存活的会话。
+                    if (!ReferenceEquals(_statusLatest, session))
+                    {
+                        return;
+                    }
+
+                    _statusLatest = _statusHandlers.Count == 0
+                        ? null
+                        : _statusHandlers.Keys.Last();
+                    remaining = _statusHandlers.Count;
+                    version = ++_statusVersion;
+                }
+
+                void Apply()
+                {
+                    lock (_statusGate)
+                    {
+                        if (version != _statusVersion)
+                        {
+                            return;
+                        }
+                    }
+
+                    if (remaining == 0)
+                    {
+                        StatusText = exitCode == 0
+                            ? "游戏已退出（PID " + session.ProcessId + "）"
+                            : "游戏已退出（退出码 " + exitCode + "），详情见「启动与日志」";
+                        return;
+                    }
+
+                    StatusText = "还有 " + remaining + " 个游戏在运行"
+                        + (exitCode == 0 ? "（最近退出码 0）" : "（最近退出码 " + exitCode + "）");
                 }
 
                 if (_dispatcher != null)
@@ -5253,7 +5286,18 @@ namespace NLMCL.App.ViewModels
                 }
             };
 
-            _statusExitHandler = handler;
+            lock (_statusGate)
+            {
+                if (_statusHandlers.ContainsKey(session))
+                {
+                    return;
+                }
+
+                _statusHandlers.Add(session, handler);
+                _statusLatest = session;
+                _statusVersion++;
+            }
+
             session.Exited += handler;
 
             // JVM 秒退时 Exited 可能在订阅前已经广播完，补查一次终态。

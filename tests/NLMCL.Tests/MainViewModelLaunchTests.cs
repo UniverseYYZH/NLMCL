@@ -801,6 +801,21 @@ namespace NLMCL.Tests
             }
         }
 
+        private sealed class QueueSessionLauncher : IGameSessionLauncher
+        {
+            private readonly Queue<StubSession> _sessions;
+
+            public QueueSessionLauncher(params StubSession[] sessions)
+            {
+                _sessions = new Queue<StubSession>(sessions);
+            }
+
+            public Task<IGameSession> StartAsync(LaunchRequest request, CancellationToken cancellationToken)
+            {
+                return Task.FromResult<IGameSession>(_sessions.Dequeue());
+            }
+        }
+
         /// <summary>
         /// 回归：从「本地版本」点「启动游戏」也要把会话交给控制台。
         /// 以前两条启动路径互不相干——主界面走 IGameLauncher，不捕获输出，
@@ -884,6 +899,68 @@ namespace NLMCL.Tests
 
             Assert.Contains("退出码 1", vm.StatusText);
             Assert.DoesNotContain("已启动", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Older_session_exit_does_not_replace_latest_started_status()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            StubSession first = new StubSession();
+            StubSession second = new StubSession();
+            QueueSessionLauncher launcher = new QueueSessionLauncher(first, second);
+
+            MainViewModel vm = TestSupport.CreateMain(
+                catalog,
+                new AppPaths(@"C:\Temp\roaming"),
+                new FixedJavaLocator(TestSupport.CreateJava(21)),
+                launcher);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+            await vm.LaunchSelectedAsync();
+
+            Assert.Contains("已启动", vm.StatusText);
+
+            first.RaiseExit(0);
+
+            Assert.Contains("已启动", vm.StatusText);
+            Assert.DoesNotContain("游戏已退出", vm.StatusText);
+
+            second.RaiseExit(1);
+
+            Assert.Contains("退出码 1", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Latest_session_exit_keeps_older_running_session_status()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("1.21.1", "1.21.1", VersionKind.Release, null));
+            StubSession first = new StubSession();
+            StubSession second = new StubSession();
+            QueueSessionLauncher launcher = new QueueSessionLauncher(first, second);
+
+            MainViewModel vm = TestSupport.CreateMain(
+                catalog,
+                new AppPaths(@"C:\Temp\roaming"),
+                new FixedJavaLocator(TestSupport.CreateJava(21)),
+                launcher);
+
+            await vm.RefreshAsync();
+            vm.SelectVersion(vm.Versions[0]);
+            await vm.LaunchSelectedAsync();
+            await vm.LaunchSelectedAsync();
+
+            second.RaiseExit(0);
+
+            Assert.Contains("还有 1 个游戏在运行", vm.StatusText);
+            Assert.DoesNotContain("游戏已退出", vm.StatusText);
+
+            first.RaiseExit(2);
+
+            Assert.Contains("退出码 2", vm.StatusText);
         }
     }
 }
