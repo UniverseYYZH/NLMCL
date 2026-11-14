@@ -5133,16 +5133,27 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            // 启动期间必须锁定目标实例。否则用户在 Java 探测/预检的几秒里点另一行，
+            // 后续步骤会读到新的 SelectedVersion，把“选中的实例”和“实际启动的实例”拆开。
+            if (IsLaunching)
+            {
+                StatusText = "正在启动，已忽略切换实例。";
+                return;
+            }
+
             foreach (VersionItem candidate in Versions)
             {
                 candidate.IsSelected = ReferenceEquals(candidate, item);
             }
+
+            bool directoryChanged = false;
 
             if (!string.IsNullOrWhiteSpace(item.GameDirectory)
                 && !string.Equals(item.GameDirectory, CurrentGameDirectory, StringComparison.OrdinalIgnoreCase))
             {
                 CurrentGameDirectory = item.GameDirectory;
                 SelectedGameDirectory = item.GameDirectory;
+                directoryChanged = true;
             }
 
             SelectedVersion = item;
@@ -5150,6 +5161,14 @@ namespace NLMCL.App.ViewModels
             NotifyMultiInstanceStateChanged();
             StatusText = "已选择 " + item.Name;
             OnPropertyChanged(nameof(HasModpackBackup));
+
+            // 选中别的目录里的实例时，活动目录已经跟着变了；必须立即落盘，
+            // 否则界面（和本次启动）用一个目录，settings.json 还停在另一个目录。
+            // 内部选中（启动/刷新/进服）不落盘，避免自动扫描把用户目录改掉。
+            if (loadSettings && directoryChanged)
+            {
+                _ = SaveGameDirectoryAsync();
+            }
 
             // 旧实例的预检结果立刻作废。实例设置是异步读的，等它读完再刷新会让上一个
             // 实例的“代理不完整”等告警短暂挂在新实例上，看起来像新实例也有问题。
@@ -5906,6 +5925,8 @@ namespace NLMCL.App.ViewModels
 
             if (Interlocked.CompareExchange(ref _launchGate, 1, 0) != 0)
             {
+                // 静默 return 会让用户以为点击没生效；明确告诉他有一次启动正在处理。
+                StatusText = "正在启动，已忽略重复点击。";
                 return;
             }
 
@@ -5935,6 +5956,11 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            VersionItem launchedVersion = SelectedVersion;
+            string launchedDirectory = string.IsNullOrWhiteSpace(launchedVersion.GameDirectory)
+                ? CurrentGameDirectory
+                : launchedVersion.GameDirectory;
+
             if (UseProxy && (string.IsNullOrWhiteSpace(ProxyHost)
                 || ProxyHost.Contains(" ") || ProxyHost.Contains("\t")
                 || ProxyPort <= 0 || ProxyPort > 65535))
@@ -5950,7 +5976,7 @@ namespace NLMCL.App.ViewModels
                 try
                 {
                     string modsDirectory = Path.Combine(
-                        ResolveGameDirectory(_instancePaths, CurrentGameDirectory, SelectedVersion.FolderName),
+                        ResolveGameDirectory(_instancePaths, launchedDirectory, launchedVersion.FolderName),
                         "mods");
                     IReadOnlyList<string> warnings = await _mods
                         .GetLaunchWarningsAsync(modsDirectory, CancellationToken.None)
@@ -5974,7 +6000,7 @@ namespace NLMCL.App.ViewModels
 
             // 缺客户端 JAR 的实例直接拉起 JVM 只会弹「A Java Exception has occurred.」，
             // 对用户毫无信息量。这里提前拦住，并告诉他去哪儿修。
-            if (SelectedVersion.HasWarning)
+            if (launchedVersion.HasWarning)
             {
                 StatusText = "该实例缺少客户端 JAR，无法启动。请到「下载中心」安装对应原版，"
                     + "或重新安装这个实例。";
@@ -5982,7 +6008,23 @@ namespace NLMCL.App.ViewModels
             }
 
             StatusText = "正在查找 Java…";
-            VersionItem launchedVersion = SelectedVersion;
+
+            // 从这里开始只认这份快照。Java 探测、预检、建快照都可能花几秒，
+            // 期间用户仍可能改内存/窗口/Java，或（防御性）切换实例。
+            // 启动必须使用点击“启动”那一刻的目标与参数，不能一路读可变属性。
+            int launchedMemoryMb = MemoryMb;
+            int launchedWindowWidth = WindowWidth;
+            int launchedWindowHeight = WindowHeight;
+            bool launchedFullscreen = Fullscreen;
+            IReadOnlyList<string> launchedExtraGameArguments = BuildExtraGameArguments();
+            string launchedGlobalJvm = string.IsNullOrWhiteSpace(DefaultJvmArgs)
+                ? string.Empty
+                : DefaultJvmArgs.Trim();
+            string launchedProxyJvm = BuildProxyJvmArguments();
+            string launchedGraphicsJvm = BuildGraphicsJvmArguments();
+            string? launchedDefaultJavaPath = DefaultJavaPath;
+            string? launchedJavaPath = JavaPath;
+            Account launchedAccount = Account ?? BuildImplicitOfflineAccount();
 
             SafeModeSession? safeSession = null;
             bool safeModeHandedOff = false;
@@ -5997,9 +6039,9 @@ namespace NLMCL.App.ViewModels
                 string? javaExecutable = null;
                 Version? javaVersion = null;
 
-                if (!string.IsNullOrWhiteSpace(DefaultJavaPath) && File.Exists(DefaultJavaPath))
+                if (!string.IsNullOrWhiteSpace(launchedDefaultJavaPath) && File.Exists(launchedDefaultJavaPath))
                 {
-                    javaExecutable = DefaultJavaPath;
+                    javaExecutable = launchedDefaultJavaPath;
                     javaVersion = JavaVersionProbe.TryRead(javaExecutable);
 
                     if (javaVersion == null)
@@ -6009,15 +6051,15 @@ namespace NLMCL.App.ViewModels
                     }
                 }
 
-                if (javaExecutable == null && !string.IsNullOrWhiteSpace(JavaPath))
+                if (javaExecutable == null && !string.IsNullOrWhiteSpace(launchedJavaPath))
                 {
-                    javaExecutable = JavaPath;
+                    javaExecutable = launchedJavaPath;
                 }
 
                 if (javaExecutable == null)
                 {
                     int? required = JavaRequirements.ReadRequiredMajor(
-                        CurrentGameDirectory, SelectedVersion.FolderName);
+                        launchedDirectory, launchedVersion.FolderName);
 
                     JavaRuntime? picked = JavaRequirements.Pick(javas, required);
 
@@ -6026,7 +6068,7 @@ namespace NLMCL.App.ViewModels
                         // 本机没有合适的 Java：按版本 JSON 声明的组件名自动下载 Mojang 运行时。
                         // 装 1.21 时用户机器上通常只有 17，没有这一步就只能干看着报错。
                         string? component = JavaRequirements.ReadComponent(
-                            CurrentGameDirectory, SelectedVersion.FolderName);
+                            launchedDirectory, launchedVersion.FolderName);
 
                         if (_javaInstaller != null && !string.IsNullOrEmpty(component))
                         {
@@ -6084,7 +6126,7 @@ namespace NLMCL.App.ViewModels
                     try
                     {
                         string modsDirectory = Path.Combine(
-                            ResolveGameDirectory(_instancePaths, CurrentGameDirectory, SelectedVersion.FolderName),
+                            ResolveGameDirectory(_instancePaths, launchedDirectory, launchedVersion.FolderName),
                             "mods");
                         safeSession = await _safeMode!
                             .BeginAsync(modsDirectory, CancellationToken.None)
@@ -6102,22 +6144,21 @@ namespace NLMCL.App.ViewModels
                     }
                 }
 
-                StatusText = "正在启动 " + SelectedVersion.Name + "（内存 " + MemoryMb + " MB）…";
+                StatusText = "正在启动 " + launchedVersion.Name + "（内存 " + launchedMemoryMb + " MB）…";
 
-                Account launchAccount = Account ?? BuildImplicitOfflineAccount();
-                LaunchRequest request = new LaunchRequest(CurrentGameDirectory, SelectedVersion.FolderName)
+                LaunchRequest request = new LaunchRequest(launchedDirectory, launchedVersion.FolderName)
                 {
                     JavaExecutable = javaExecutable,
                     JavaVersion = javaVersion,
-                    MaximumMemoryMb = MemoryMb,
+                    MaximumMemoryMb = launchedMemoryMb,
                     ServerAddress = serverAddress
-                }.WithAccount(launchAccount);
+                }.WithAccount(launchedAccount);
 
-                request.UserType = launchAccount.Type == NLMCL.Abstractions.AccountType.Offline ? "legacy" : "msa";
-                request.ExtraGameArguments = BuildExtraGameArguments();
-                request.WindowWidth = WindowWidth;
-                request.WindowHeight = WindowHeight;
-                request.Fullscreen = Fullscreen;
+                request.UserType = launchedAccount.Type == NLMCL.Abstractions.AccountType.Offline ? "legacy" : "msa";
+                request.ExtraGameArguments = launchedExtraGameArguments;
+                request.WindowWidth = launchedWindowWidth;
+                request.WindowHeight = launchedWindowHeight;
+                request.Fullscreen = launchedFullscreen;
 
                 // 外置登录：把 authlib-injector 挂到 JVM 上。
                 // 失败就明确报错，不要带着空身份启动（服务器会直接踢人，日志还看不出原因）。
@@ -6125,16 +6166,12 @@ namespace NLMCL.App.ViewModels
                 {
                     // 全局 JVM 参数（设置页）拼在外置登录注入的参数之前。
                     // 这里以前算出了 globalJvm 却直接覆盖，导致设置页的输入框完全不生效。
-                    string globalJvm = string.IsNullOrWhiteSpace(DefaultJvmArgs)
-                        ? string.Empty
-                        : DefaultJvmArgs.Trim();
-
                     string? externalJvm = await ExternalLaunch
-                        .BuildJvmArgumentsAsync(Account, _authlibInjector, CancellationToken.None)
+                        .BuildJvmArgumentsAsync(launchedAccount, _authlibInjector, CancellationToken.None)
                         .ConfigureAwait(true);
 
                     request.ExtraJvmArguments = string.Join(" ",
-                        new[] { globalJvm, BuildProxyJvmArguments(), BuildGraphicsJvmArguments(), externalJvm ?? string.Empty }
+                        new[] { launchedGlobalJvm, launchedProxyJvm, launchedGraphicsJvm, externalJvm ?? string.Empty }
                             .Where(part => !string.IsNullOrWhiteSpace(part)));
                 }
                 catch (Exception ex)
@@ -6154,7 +6191,7 @@ namespace NLMCL.App.ViewModels
                     // 会话已经拿到进程：从这一刻起安全模式由会话退出事件负责恢复。
                     // 后续 Console.Attach / 写最后启动时间即使失败，也不能在游戏运行时把 Mod 放回去。
                     safeModeHandedOff = safeSession != null;
-                    StatusText = "已启动 " + SelectedVersion.Name
+                    StatusText = "已启动 " + launchedVersion.Name
                         + "（PID " + session.ProcessId + "），日志见「启动与日志」";
                     WatchSessionForStatus(session, launchedVersion.FolderName, safeSession);
 
@@ -6173,7 +6210,7 @@ namespace NLMCL.App.ViewModels
                 }
 
                 StatusText = result.Succeeded
-                    ? "已启动 " + SelectedVersion.Name + "（PID " + result.ProcessId + "）"
+                    ? "已启动 " + launchedVersion.Name + "（PID " + result.ProcessId + "）"
                     : "启动失败：" + result.Message;
             }
             catch (Exception ex)

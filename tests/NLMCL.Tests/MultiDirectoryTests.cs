@@ -59,6 +59,54 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Selecting_a_version_from_another_directory_persists_the_active_directory()
+        {
+            string root = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "nlmcl-select-version-" + Guid.NewGuid().ToString("N"));
+            string first = System.IO.Path.Combine(root, "one");
+            string second = System.IO.Path.Combine(root, "two");
+
+            try
+            {
+                System.IO.Directory.CreateDirectory(first);
+                System.IO.Directory.CreateDirectory(second);
+
+                TestSupport.FakeAppSettings settings = new TestSupport.FakeAppSettings();
+                settings.Current.GameDirectory = first;
+                settings.Current.GameDirectories = new List<string> { first, second };
+
+                MainViewModel vm = TestSupport.CreateMain(
+                    new MultiCatalog(first, second),
+                    new NLMCL.Core.AppPaths(root),
+                    appSettings: settings);
+                await vm.InitializeAsync();
+
+                VersionItem target = vm.Versions.First(item =>
+                    string.Equals(item.GameDirectory, second, StringComparison.OrdinalIgnoreCase));
+                vm.SelectVersion(target);
+
+                for (int i = 0; i < 50
+                    && !string.Equals(settings.Current.GameDirectory, second, StringComparison.OrdinalIgnoreCase); i++)
+                {
+                    await Task.Delay(20);
+                }
+
+                Assert.Equal(second, vm.CurrentGameDirectory);
+                Assert.Equal(second, settings.Current.GameDirectory);
+            }
+            finally
+            {
+                try
+                {
+                    System.IO.Directory.Delete(root, true);
+                }
+                catch (System.IO.IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
         public async Task Selecting_a_known_directory_persists_the_active_directory()
         {
             string root = System.IO.Path.Combine(

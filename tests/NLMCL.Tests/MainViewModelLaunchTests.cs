@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NLMCL.Abstractions;
@@ -72,10 +73,13 @@ namespace NLMCL.Tests
 
             public int Calls { get; private set; }
 
+            public LaunchRequest? LastRequest { get; private set; }
+
             public async Task<LaunchResult> LaunchAsync(
                 LaunchRequest request, CancellationToken cancellationToken)
             {
                 Calls++;
+                LastRequest = request;
                 Entered.TrySetResult(true);
                 return await _result.Task.ConfigureAwait(false);
             }
@@ -1062,6 +1066,42 @@ namespace NLMCL.Tests
             first.RaiseExit(2);
 
             Assert.Contains("退出码 2", vm.StatusText);
+        }
+
+        [Fact]
+        public async Task Launch_uses_the_target_and_memory_snapshot_after_user_tries_to_switch()
+        {
+            CountingCatalog catalog = new CountingCatalog(
+                new MinecraftVersion("A", "A", VersionKind.Release, null, hasClientJar: true),
+                new MinecraftVersion("B", "B", VersionKind.Release, null, hasClientJar: true));
+            BlockingLauncher launcher = new BlockingLauncher();
+
+            MainViewModel vm = TestSupport.CreateMain(
+                catalog,
+                new AppPaths(@"C:\Temp\roaming"),
+                javaLocator: new FixedJavaLocator(TestSupport.CreateJava(21)),
+                launcher: launcher);
+
+            await vm.RefreshAsync();
+            VersionItem first = vm.Versions.Single(item => item.FolderName == "A");
+            VersionItem second = vm.Versions.Single(item => item.FolderName == "B");
+            vm.SelectVersion(first);
+            vm.MemoryMb = 1536;
+
+            Task launch = vm.LaunchSelectedAsync();
+            Task completed = await Task.WhenAny(launcher.Entered.Task, Task.Delay(5000));
+            Assert.Same(launcher.Entered.Task, completed);
+
+            // 启动已进入 Java 探测之后、真正拉起 JVM 之前：模拟用户点另一行并改内存。
+            vm.SelectVersion(second);
+            vm.MemoryMb = 4096;
+
+            launcher.Release();
+            await launch;
+
+            Assert.Equal("A", launcher.LastRequest!.VersionId);
+            Assert.Equal(1536, launcher.LastRequest.MaximumMemoryMb);
+            Assert.Equal("A", vm.SelectedVersion!.FolderName);
         }
     }
 }
