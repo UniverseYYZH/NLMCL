@@ -88,6 +88,9 @@ namespace NLMCL.App.ViewModels
         private readonly ILauncherUpdateService? _launcherUpdates;
         private readonly IInstanceContentService? _instanceContent;
 
+        /// <summary>PCL 目录探测；同时作为游戏目录可写判断，便于测试替换。</summary>
+        private readonly PclMigrationProbe _pclProbe;
+
         /// <summary>常用服务器（快捷入口）。</summary>
         private readonly IServerBookmarkStore? _bookmarks;
 
@@ -224,7 +227,8 @@ namespace NLMCL.App.ViewModels
             IInstanceContentService? instanceContent = null,
             IUiDispatcher? dispatcher = null,
             ISafeModeService? safeMode = null,
-            ILauncherUpdateService? launcherUpdates = null)
+            ILauncherUpdateService? launcherUpdates = null,
+            PclMigrationProbe? pclMigration = null)
         {
             _catalog = catalog ?? throw new ArgumentNullException(nameof(catalog));
             _launcher = launcher ?? throw new ArgumentNullException(nameof(launcher));
@@ -264,6 +268,7 @@ namespace NLMCL.App.ViewModels
             _modpackUpdates = modpackUpdates;
             _modpackInstaller = modpackInstaller;
             _launcherUpdates = launcherUpdates;
+            _pclProbe = pclMigration ?? new PclMigrationProbe();
             _instanceContent = instanceContent;
             _dispatcher = dispatcher;
             _safeMode = safeMode;
@@ -389,7 +394,7 @@ namespace NLMCL.App.ViewModels
 
         private void RefreshEnvironmentWarning()
         {
-            EnvironmentWarning = NLMCL.Core.Runtime.EnvironmentProbe.CanWriteDirectory(CurrentGameDirectory)
+            EnvironmentWarning = _pclProbe.CanWrite(CurrentGameDirectory)
                 ? string.Empty
                 : "当前启动器无法写入游戏目录。Forge/NeoForge 启动、安全模式和整合包更新可能失败；请把启动器放到普通目录，或以普通权限运行。";
         }
@@ -4617,6 +4622,141 @@ namespace NLMCL.App.ViewModels
             }
         }
 
+        [ObservableProperty]
+        private bool _isPclMigrationOpen;
+
+        [ObservableProperty]
+        private string _pclMigrationPath = string.Empty;
+
+        [ObservableProperty]
+        private string _pclMigrationResult = string.Empty;
+
+        [ObservableProperty]
+        private string _pclMigrationError = string.Empty;
+
+        [ObservableProperty]
+        private string _pclMigrationStatus = string.Empty;
+
+        [ObservableProperty]
+        private bool _pclMigrationCanActivate;
+
+        [ObservableProperty]
+        private bool _pclMigrationAlreadyAdded;
+
+        public bool HasPclMigrationError => !string.IsNullOrEmpty(PclMigrationError);
+
+        partial void OnPclMigrationErrorChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasPclMigrationError));
+        }
+
+        /// <summary>打开迁移面板并自动探测 %APPDATA%\.minecraft。</summary>
+        [RelayCommand]
+        public void OpenPclMigration()
+        {
+            IsPclMigrationOpen = true;
+            PclMigrationStatus = string.Empty;
+            ProbePclDirectory(_pclProbe.DefaultPath);
+        }
+
+        [RelayCommand]
+        public void ClosePclMigration()
+        {
+            IsPclMigrationOpen = false;
+        }
+
+        /// <summary>选择 PCL 的 .minecraft（允许选到父目录）。只加入目录，不复制文件。</summary>
+        [RelayCommand]
+        public void PickPclDirectory()
+        {
+            if (_folderPicker == null)
+            {
+                PclMigrationError = "目录选择不可用。";
+                return;
+            }
+
+            string start = string.IsNullOrWhiteSpace(PclMigrationPath)
+                ? CurrentGameDirectory
+                : PclMigrationPath;
+            string? picked = _folderPicker.PickFolder("选择 PCL 的 .minecraft 文件夹", start);
+            if (string.IsNullOrWhiteSpace(picked))
+            {
+                return;
+            }
+
+            PclMigrationStatus = string.Empty;
+            ProbePclDirectory(ResolveMinecraftDirectory(picked!));
+        }
+
+        /// <summary>探测 PCL 目录；只读，不创建、不移动、不删除文件。</summary>
+        public void ProbePclDirectory(string? path)
+        {
+            string display = string.IsNullOrWhiteSpace(path)
+                ? string.Empty
+                : path!.Trim();
+            PclMigrationPath = display;
+
+            PclDirectoryInfo info = _pclProbe.Inspect(display);
+            PclMigrationError = info.IsValid ? string.Empty : info.Error;
+            PclMigrationCanActivate = info.IsValid;
+            PclMigrationStatus = string.Empty;
+
+            if (!info.IsValid)
+            {
+                PclMigrationResult = string.Empty;
+                PclMigrationAlreadyAdded = false;
+                return;
+            }
+
+            bool already = GameDirectories.Any(item => string.Equals(
+                item, info.Path, StringComparison.OrdinalIgnoreCase));
+            PclMigrationAlreadyAdded = already;
+            PclMigrationPath = info.Path;
+            PclMigrationResult = string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} 个版本 · mods：{1} · saves：{2} · {3}{4}",
+                info.VersionCount,
+                info.HasMods ? "有" : "无",
+                info.HasSaves ? "有" : "无",
+                info.CanWrite ? "可写" : "不可写",
+                already ? " · 已在已添加列表" : string.Empty);
+        }
+
+        [RelayCommand]
+        public async Task ActivatePclDirectoryAsync()
+        {
+            if (!PclMigrationCanActivate || string.IsNullOrWhiteSpace(PclMigrationPath))
+            {
+                return;
+            }
+
+            string directory = NormalizeDirectory(PclMigrationPath);
+            if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+            {
+                PclMigrationError = "目录不存在：" + PclMigrationPath;
+                PclMigrationCanActivate = false;
+                return;
+            }
+
+            string? existing = GameDirectories.FirstOrDefault(item => string.Equals(
+                item, directory, StringComparison.OrdinalIgnoreCase));
+            bool added = existing == null;
+            if (added)
+            {
+                GameDirectories.Add(directory);
+            }
+
+            string target = existing ?? directory;
+            CurrentGameDirectory = target;
+            SelectedGameDirectory = target;
+            await SaveGameDirectoryAsync().ConfigureAwait(true);
+            await RefreshAsync().ConfigureAwait(true);
+
+            PclMigrationStatus = added
+                ? "已加入游戏目录列表，并切换为当前目录。"
+                : "该目录已在列表中，已切换为当前目录。";
+        }
+
         [RelayCommand]
         public async Task AddGameDirectoryAsync()
         {
@@ -6711,15 +6851,27 @@ namespace NLMCL.App.ViewModels
                         ? null
                         : Versions.FirstOrDefault(item =>
                             string.Equals(item.FolderName, SelectedVersion.FolderName, StringComparison.Ordinal)
-                            && string.Equals(item.GameDirectory, SelectedVersion.GameDirectory, StringComparison.OrdinalIgnoreCase));
+                            && string.Equals(item.GameDirectory, SelectedVersion.GameDirectory, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(item.GameDirectory, CurrentGameDirectory, StringComparison.OrdinalIgnoreCase));
 
                     // 刷新会重建 VersionItem；必须重新指向列表里的新对象，否则列表没有高亮。
-                    // 首次没有 previous 时优先选当前目录里的版本：多目录扫描时 Versions[0]
-                    // 可能来自别的目录，SelectVersion 会把活动目录改回去，表现为“目录自己变了”。
+                    // 只从当前目录自动选版本：多目录扫描时选另一个目录的版本会让
+                    // SelectVersion 把活动目录改回去，表现为“目录自己变了”。
                     VersionItem? inCurrentDirectory = Versions.FirstOrDefault(item =>
                         string.Equals(item.GameDirectory, CurrentGameDirectory, StringComparison.OrdinalIgnoreCase));
 
-                    SelectVersion(previous ?? inCurrentDirectory ?? Versions[0]);
+                    VersionItem? next = previous ?? inCurrentDirectory;
+                    if (next != null)
+                    {
+                        SelectVersion(next);
+                    }
+                    else
+                    {
+                        // 当前目录没有可识别版本：保留当前目录，不要偷偷切到别的目录。
+                        SelectedVersion = null;
+                        HasSelection = false;
+                        _ = RefreshLaunchPreflightAsync();
+                    }
                 }
                 else
                 {

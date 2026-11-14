@@ -69,7 +69,7 @@ namespace NLMCL.App.ViewModels
         private static readonly (string Key, string Keywords)[] SettingsGroups =
         {
             ("general", "通用 启动 页面 关闭 窗口 托盘 默认页 询问"),
-            ("game", "游戏 目录 Java 运行时 内存 启动 参数 JVM .minecraft 路径 新实例 预设 游戏参数"),
+            ("game", "游戏 目录 Java 运行时 内存 启动 参数 JVM .minecraft 路径 新实例 预设 游戏参数 PCL 迁移 导入 mods saves 版本"),
             ("appearance", "外观 主题 缩放 窗口 动效 高对比度"),
             ("download", "下载 线程 限速 镜像 网络 BMCLAPI"),
             ("logs", "日志 诊断 目录 诊断包"),
@@ -260,6 +260,26 @@ namespace NLMCL.App.ViewModels
         public string GameDirectoryStatusText => _host.GameDirectoryStatusText;
 
         public string GameDirectoryDiskText => _host.GameDirectoryDiskText;
+
+        public string EnvironmentWarning => _host.EnvironmentWarning;
+
+        public bool HasEnvironmentWarning => _host.HasEnvironmentWarning;
+
+        public bool IsPclMigrationOpen => _host.IsPclMigrationOpen;
+
+        public string PclMigrationPath => _host.PclMigrationPath;
+
+        public string PclMigrationResult => _host.PclMigrationResult;
+
+        public string PclMigrationError => _host.PclMigrationError;
+
+        public string PclMigrationStatus => _host.PclMigrationStatus;
+
+        public bool PclMigrationCanActivate => _host.PclMigrationCanActivate;
+
+        public bool PclMigrationAlreadyAdded => _host.PclMigrationAlreadyAdded;
+
+        public bool HasPclMigrationError => _host.HasPclMigrationError;
 
         public string EffectiveJavaText => SelectedJava == null
             || string.IsNullOrWhiteSpace(SelectedJava.Path)
@@ -514,6 +534,14 @@ namespace NLMCL.App.ViewModels
         {
             return _commands?.RemoveGameDirectoryAsync() ?? Task.CompletedTask;
         }
+
+        public IRelayCommand OpenPclMigrationCommand => _host.OpenPclMigrationCommand;
+
+        public IRelayCommand PickPclDirectoryCommand => _host.PickPclDirectoryCommand;
+
+        public IAsyncRelayCommand ActivatePclDirectoryCommand => _host.ActivatePclDirectoryCommand;
+
+        public IRelayCommand ClosePclMigrationCommand => _host.ClosePclMigrationCommand;
 
         [RelayCommand]
         private void OpenGameDirectory()

@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using NLMCL.Abstractions;
 using NLMCL.App.ViewModels;
+using NLMCL.Core.Installing;
 
 namespace NLMCL.Tests
 {
@@ -486,7 +487,8 @@ namespace NLMCL.Tests
             ISafeModeService? safeMode = null,
             IVersionRepairer? repairer = null,
             IModpackUpdateService? modpackUpdates = null,
-            IModpackInstaller? modpackInstaller = null)
+            IModpackInstaller? modpackInstaller = null,
+            PclMigrationProbe? pclMigration = null)
         {
             return new MainViewModel(
                 catalog,
@@ -523,7 +525,8 @@ namespace NLMCL.Tests
                 safeMode: safeMode,
                 repairer: repairer,
                 modpackUpdates: modpackUpdates,
-                modpackInstaller: modpackInstaller);
+                modpackInstaller: modpackInstaller,
+                pclMigration: pclMigration);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {
