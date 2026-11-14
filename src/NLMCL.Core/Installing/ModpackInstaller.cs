@@ -159,13 +159,33 @@ namespace NLMCL.Core.Installing
             JObject index = ReadIndex(archive);
             ModpackInfo info = Parse(index);
 
-            if (!string.Equals(previous.MinecraftVersion, info.MinecraftVersion, StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(previous.Loader, info.Loader.ToString(), StringComparison.OrdinalIgnoreCase)
-                || !string.Equals(previous.LoaderVersion ?? string.Empty, info.LoaderVersion ?? string.Empty,
-                    StringComparison.OrdinalIgnoreCase))
+            bool sameMinecraft = string.Equals(
+                previous.MinecraftVersion, info.MinecraftVersion, StringComparison.OrdinalIgnoreCase);
+            bool sameLoader = string.Equals(
+                previous.Loader, info.Loader.ToString(), StringComparison.OrdinalIgnoreCase);
+            bool sameLoaderVersion = string.Equals(
+                previous.LoaderVersion ?? string.Empty, info.LoaderVersion ?? string.Empty,
+                StringComparison.OrdinalIgnoreCase);
+
+            // Fabric 的加载器升级可以安全地原地完成：先装目标加载器，再把实例 JSON 的
+            // inheritsFrom 指过去。Forge/NeoForge 的安装器需要额外 Java 与脚本参数，
+            // 仍要求同版本，避免把半装好的加载器带进实例。
+            bool fabricUpgrade = sameLoader && info.Loader == ModpackLoader.Fabric && !sameLoaderVersion;
+
+            if (!sameMinecraft || !sameLoader || (!sameLoaderVersion && !fabricUpgrade))
             {
                 throw new InvalidDataException(
                     "新版整合包的 Minecraft/加载器与当前实例不一致。请新建实例，不能原地更新。");
+            }
+
+            string minecraftDirectory = Directory.GetParent(instanceDirectory)?.Parent?.FullName
+                ?? throw new InvalidDataException("无法定位实例所在的 .minecraft 目录。");
+            string? upgradedLoaderId = null;
+
+            if (fabricUpgrade)
+            {
+                upgradedLoaderId = await EnsureLoaderAsync(
+                    info, minecraftDirectory, string.Empty, progress, cancellationToken).ConfigureAwait(false);
             }
 
             ModpackManifest next = BuildManifest(info, index, mrpackPath, previous);
@@ -208,6 +228,12 @@ namespace NLMCL.Core.Installing
                     }
                 }
 
+                if (upgradedLoaderId != null)
+                {
+                    RewriteLoaderProfile(
+                        staging, Path.GetFileName(instanceDirectory), minecraftDirectory, upgradedLoaderId);
+                }
+
                 ModpackManifestStore.Write(staging, next);
 
                 string oldDirectory = instanceDirectory + ".nlmcl-old-" + Guid.NewGuid().ToString("N");
@@ -231,6 +257,40 @@ namespace NLMCL.Core.Installing
                 TryDeleteDirectory(staging);
                 throw;
             }
+        }
+
+        private static void RewriteLoaderProfile(
+            string stagingDirectory,
+            string folderName,
+            string minecraftDirectory,
+            string loaderVersionId)
+        {
+            string jsonPath = Path.Combine(stagingDirectory, folderName + ".json");
+
+            if (!File.Exists(jsonPath))
+            {
+                throw new InvalidDataException("实例版本 JSON 缺失，不能切换加载器。");
+            }
+
+            JObject existing = JObject.Parse(File.ReadAllText(jsonPath));
+            JObject? profile = CloneLoaderVersionJson(minecraftDirectory, loaderVersionId, folderName);
+
+            if (profile == null)
+            {
+                throw new InvalidDataException("新加载器的版本 JSON 缺失，不能切换加载器。");
+            }
+
+            profile["id"] = folderName;
+
+            foreach (string key in new[] { "modpack", "time", "releaseTime" })
+            {
+                if (existing[key] != null)
+                {
+                    profile[key] = existing[key]!.DeepClone();
+                }
+            }
+
+            File.WriteAllText(jsonPath, profile.ToString(), new UTF8Encoding(false));
         }
 
         private static ModpackManifest BuildManifest(

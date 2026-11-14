@@ -430,6 +430,67 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Updates_fabric_loader_version_in_place()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-loader-update-" + Guid.NewGuid().ToString("N"));
+            string mc = Path.Combine(root, ".minecraft");
+            Directory.CreateDirectory(mc);
+
+            try
+            {
+                FakeVersions versions = new FakeVersions();
+                ModpackInstaller installer = new ModpackInstaller(
+                    new FakeDownload(), versions, new FakeLoaders(), new FakeFileDownloader());
+                string versionId = await installer.InstallAsync(
+                    BuildMrpack(root), mc, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
+                string instance = Path.Combine(mc, "versions", versionId);
+
+                const string nextIndex = @"{ 
+                    ""formatVersion"": 1,
+                    ""name"": ""Fabulously Optimized"",
+                    ""versionId"": ""5.1.0"",
+                    ""files"": [
+                        { ""path"": ""mods/sodium-new.jar"", ""downloads"": [""https://cdn/sodium-new.jar""] }
+                    ],
+                    ""dependencies"": { ""minecraft"": ""1.20.1"", ""fabric-loader"": ""0.19.3"" }
+                }";
+                string nextDir = Path.Combine(root, "next");
+                Directory.CreateDirectory(nextDir);
+
+                string newLoaderId = "fabric-loader-0.19.3-1.20.1";
+                string newLoaderDir = Path.Combine(mc, "versions", newLoaderId);
+                Directory.CreateDirectory(newLoaderDir);
+                File.WriteAllText(
+                    Path.Combine(newLoaderDir, newLoaderId + ".json"),
+                    @"{""id"":""fabric-loader-0.19.3-1.20.1"",""inheritsFrom"":""1.20.1"",
+                       ""mainClass"":""new.LoaderMain"",""libraries"":[{""name"":""new:loader""}]}");
+
+                await installer.UpdateAsync(
+                    BuildMrpack(nextDir, nextIndex), instance, null, CancellationToken.None);
+
+                ModpackManifest? manifest = ModpackManifestStore.Read(instance);
+                Assert.NotNull(manifest);
+                Assert.Equal("0.19.3", manifest!.LoaderVersion);
+
+                JObject versionJson = JObject.Parse(
+                    File.ReadAllText(Path.Combine(instance, versionId + ".json")));
+                Assert.Equal("1.20.1", versionJson.Value<string>("inheritsFrom"));
+                Assert.Equal("new.LoaderMain", versionJson.Value<string>("mainClass"));
+                Assert.Equal("0.19.3", versions.LastRequest!.LoaderVersion);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
         public async Task Failed_update_leaves_the_original_instance_intact()
         {
             string root = Path.Combine(Path.GetTempPath(), "nlmcl-update-" + Guid.NewGuid().ToString("N"));
