@@ -496,7 +496,8 @@ namespace NLMCL.Tests
             IVersionRepairer? repairer = null,
             IModpackUpdateService? modpackUpdates = null,
             IModpackInstaller? modpackInstaller = null,
-            PclMigrationProbe? pclMigration = null)
+            PclMigrationProbe? pclMigration = null,
+            IInstancePackageService? instancePackages = null)
         {
             return new MainViewModel(
                 catalog,
@@ -534,7 +535,8 @@ namespace NLMCL.Tests
                 repairer: repairer,
                 modpackUpdates: modpackUpdates,
                 modpackInstaller: modpackInstaller,
-                pclMigration: pclMigration);
+                pclMigration: pclMigration,
+                instancePackages: instancePackages);
         }
         internal sealed class NoopResourceCatalog : IResourceCatalog
         {

@@ -5581,6 +5581,16 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            if (_dialogs != null && !_dialogs.Confirm(
+                    "回滚整合包",
+                    "将用更新前的备份覆盖当前实例：\n" + version.Name
+                    + "\n\n更新后新增或修改的文件会丢失。确定回滚吗？"))
+            {
+                ModpackUpdateMessage = "已取消回滚。";
+                StatusText = "整合包回滚已取消。";
+                return;
+            }
+
             IsModpackUpdateBusy = true;
             try
             {
