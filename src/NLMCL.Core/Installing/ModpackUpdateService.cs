@@ -42,7 +42,16 @@ namespace NLMCL.Core.Installing
             return Task.FromResult(ModpackManifestStore.Read(instanceDirectory));
         }
 
-        public async Task<ModpackUpdateInfo?> CheckAsync(
+        public Task<ModpackUpdateInfo?> CheckAsync(
+            string instanceDirectory, CancellationToken cancellationToken)
+        {
+            // PCL 的下载器禁止在 UI 线程发请求；VM 的 async 命令会从 UI 线程进入这里。
+            return Task.Run(
+                () => CheckCoreAsync(instanceDirectory, cancellationToken),
+                cancellationToken);
+        }
+
+        private async Task<ModpackUpdateInfo?> CheckCoreAsync(
             string instanceDirectory, CancellationToken cancellationToken)
         {
             ModpackManifest? manifest = ModpackManifestStore.Read(instanceDirectory);
@@ -302,8 +311,12 @@ namespace NLMCL.Core.Installing
                 return false;
             }
 
+            // 启动器可能运行在低完整性/受控目录环境，写不了 %TEMP%；
+            // 候选包放到自己的 DataRoot 下，和正式更新下载同一个可写位置。
+            string temporaryRoot = Path.Combine(_paths.DataRoot, "modpack-downloads");
+            Directory.CreateDirectory(temporaryRoot);
             string temporary = Path.Combine(
-                Path.GetTempPath(), "nlmcl-update-check-" + Guid.NewGuid().ToString("N") + ".mrpack");
+                temporaryRoot, "check-" + Guid.NewGuid().ToString("N") + ".mrpack");
             try
             {
                 await _files.DownloadAsync(url, temporary, cancellationToken).ConfigureAwait(false);
