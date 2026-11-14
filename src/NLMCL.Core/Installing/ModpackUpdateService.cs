@@ -56,7 +56,7 @@ namespace NLMCL.Core.Installing
 
             if (string.IsNullOrWhiteSpace(manifest.ProjectId))
             {
-                manifest.ProjectId = await ResolveProjectIdAsync(manifest.VersionId, cancellationToken)
+                manifest.ProjectId = await ResolveProjectIdAsync(manifest, cancellationToken)
                     .ConfigureAwait(false);
 
                 if (string.IsNullOrWhiteSpace(manifest.ProjectId))
@@ -95,8 +95,13 @@ namespace NLMCL.Core.Installing
                 .OrderByDescending(PublishedAt)
                 .ToList();
 
-            JObject? installed = ordered.FirstOrDefault(item => string.Equals(
-                item.Value<string>("id"), manifest.VersionId, StringComparison.Ordinal));
+            // 导入的 .mrpack 里 versionId 是作者写的版本号（如 6.3.1），
+            // 只有从 Modrinth 目录直接安装时才是平台 id；两种都要认。
+            JObject? installed = ordered.FirstOrDefault(item =>
+                string.Equals(item.Value<string>("id"), manifest.VersionId, StringComparison.Ordinal)
+                || string.Equals(
+                    item.Value<string>("version_number"), manifest.VersionId,
+                    StringComparison.OrdinalIgnoreCase));
             DateTimeOffset? installedAt = installed == null ? (DateTimeOffset?)null : PublishedAt(installed);
 
             // 已是最新版本；不能跳过当前版本去拿列表里的旧版本。
@@ -110,7 +115,10 @@ namespace NLMCL.Core.Installing
             foreach (JObject candidate in ordered)
             {
                 string candidateId = candidate.Value<string>("id") ?? string.Empty;
-                if (string.Equals(candidateId, manifest.VersionId, StringComparison.Ordinal))
+                if (string.Equals(candidateId, manifest.VersionId, StringComparison.Ordinal)
+                    || string.Equals(
+                        candidate.Value<string>("version_number"), manifest.VersionId,
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -196,13 +204,68 @@ namespace NLMCL.Core.Installing
         }
 
         private async Task<string> ResolveProjectIdAsync(
-            string versionId, CancellationToken cancellationToken)
+            ModpackManifest manifest, CancellationToken cancellationToken)
         {
-            string url = ModrinthApi + "/version/" + Uri.EscapeDataString(versionId);
-            JObject version = JObject.Parse(await _download.GetStringAsync(url, cancellationToken)
-                .ConfigureAwait(false));
+            try
+            {
+                string url = ModrinthApi + "/version/" + Uri.EscapeDataString(manifest.VersionId);
+                JObject version = JObject.Parse(await _download.GetStringAsync(url, cancellationToken)
+                    .ConfigureAwait(false));
 
-            return version.Value<string>("project_id") ?? string.Empty;
+                string projectId = version.Value<string>("project_id") ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(projectId))
+                {
+                    return projectId;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 手动导入的 .mrpack 里 versionId 是版本号，不是平台 id；回退按名称搜索。
+            }
+
+            if (string.IsNullOrWhiteSpace(manifest.Name))
+            {
+                return string.Empty;
+            }
+
+            string searchUrl = ModrinthApi + "/search?query="
+                + Uri.EscapeDataString(manifest.Name)
+                + "&facets=" + Uri.EscapeDataString("[[\"project_type:modpack\"]]")
+                + "&limit=10";
+            try
+            {
+                JObject search = JObject.Parse(await _download.GetStringAsync(searchUrl, cancellationToken)
+                    .ConfigureAwait(false));
+                JArray? hits = search["hits"] as JArray;
+                if (hits == null)
+                {
+                    return string.Empty;
+                }
+
+                foreach (JObject hit in hits.OfType<JObject>())
+                {
+                    string? title = hit.Value<string>("title");
+                    string? slug = hit.Value<string>("slug");
+                    if (string.Equals(title, manifest.Name, StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(slug, manifest.Name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return hit.Value<string>("project_id") ?? string.Empty;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+            }
+
+            return string.Empty;
         }
 
         private static DateTimeOffset? PublishedAt(JObject version)
