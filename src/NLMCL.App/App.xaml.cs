@@ -311,7 +311,11 @@ namespace NLMCL.App
             // 安装编排（§2.1a 豁免项：只依赖端口，实现见 NLMCL.Core）
             services.AddSingleton(new InstallOptions());
             services.AddSingleton<VanillaVersionInstaller>();
-            services.AddSingleton<FabricLoaderInstaller>();
+            // 显式注入直连兜底：可选参数在部分容器/裁剪场景不会被填充，导致 PCL 失败后没有 fallback。
+            services.AddSingleton<FabricLoaderInstaller>(sp => new FabricLoaderInstaller(
+                sp.GetRequiredService<IDownloadService>(),
+                sp.GetRequiredService<VanillaVersionInstaller>(),
+                sp.GetRequiredService<IFileDownloader>()));
             services.AddSingleton<IVersionInstaller>(sp => new CompositeVersionInstaller(
                 sp.GetRequiredService<VanillaVersionInstaller>(),
                 sp.GetRequiredService<FabricLoaderInstaller>()));
