@@ -1223,6 +1223,65 @@ namespace NLMCL.Core.Installing
             return combined;
         }
 
+        /// <summary>
+        /// 恢复更新过程中被中断的目录交换。
+        /// 旧实现先 <c>instance → .nlmcl-old-*</c>，再把 staging 移到 instance；
+        /// 如果进程在两次 Move 之间退出，实例目录会消失。启动扫描前调用本方法：
+        /// 实例缺失时把最新的 old 移回，否则清理残留 old/staging。
+        /// </summary>
+        public static int RecoverInterruptedUpdates(string versionsDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(versionsDirectory) || !Directory.Exists(versionsDirectory))
+            {
+                return 0;
+            }
+
+            int recovered = 0;
+            try
+            {
+                foreach (string staging in Directory.GetDirectories(
+                    versionsDirectory, "*.nlmcl-staging-*", SearchOption.TopDirectoryOnly))
+                {
+                    TryDeleteDirectory(staging);
+                }
+
+                string[] olds = Directory.GetDirectories(
+                    versionsDirectory, "*.nlmcl-old-*", SearchOption.TopDirectoryOnly)
+                    .OrderByDescending(path => Directory.GetLastWriteTimeUtc(path))
+                    .ToArray();
+
+                foreach (string oldDirectory in olds)
+                {
+                    int marker = oldDirectory.IndexOf(".nlmcl-old-", StringComparison.Ordinal);
+                    if (marker <= 0)
+                    {
+                        continue;
+                    }
+
+                    string instanceDirectory = oldDirectory.Substring(0, marker);
+                    if (!Directory.Exists(instanceDirectory))
+                    {
+                        Directory.Move(oldDirectory, instanceDirectory);
+                        recovered++;
+                    }
+                    else
+                    {
+                        // 新实例已经就位，旧副本只是切换成功后的残留。
+                        TryDeleteDirectory(oldDirectory);
+                    }
+                }
+            }
+            catch (IOException)
+            {
+                // 扫描阶段的尽力恢复；不阻塞世界库加载。
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
+
+            return recovered;
+        }
+
         private static void TryDeleteDirectory(string path)
         {
             try

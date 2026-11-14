@@ -6870,6 +6870,14 @@ namespace NLMCL.App.ViewModels
             {
                 EnsureCurrentDirectoryInList();
 
+                // 整合包更新需要把旧实例目录移走再换入 staging；进程若在两次 Move 之间退出，
+                // 世界库会看不到该实例。扫描前先恢复，避免用户只能手动改文件夹。
+                if (!string.IsNullOrWhiteSpace(CurrentGameDirectory))
+                {
+                    ModpackInstaller.RecoverInterruptedUpdates(
+                        Path.Combine(CurrentGameDirectory, "versions"));
+                }
+
                 List<VersionItem> discovered = new List<VersionItem>();
                 List<string> ids = new List<string>();
                 int scanned = 0;
