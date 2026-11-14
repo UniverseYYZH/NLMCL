@@ -4749,12 +4749,14 @@ namespace NLMCL.App.ViewModels
             string target = existing ?? directory;
             CurrentGameDirectory = target;
             SelectedGameDirectory = target;
-            await SaveGameDirectoryAsync().ConfigureAwait(true);
+            bool saved = await SaveGameDirectoryAsync().ConfigureAwait(true);
             await RefreshAsync().ConfigureAwait(true);
 
-            PclMigrationStatus = added
-                ? "已加入游戏目录列表，并切换为当前目录。"
-                : "该目录已在列表中，已切换为当前目录。";
+            PclMigrationStatus = !saved
+                ? "已切换为当前目录，但设置未能保存；重启后可能回退。"
+                : added
+                    ? "已加入游戏目录列表，并切换为当前目录。"
+                    : "该目录已在列表中，已切换为当前目录。";
         }
 
         [RelayCommand]
@@ -4983,8 +4985,8 @@ namespace NLMCL.App.ViewModels
             await SaveGameDirectoryAsync().ConfigureAwait(true);
         }
 
-        /// <summary>记住当前游戏目录。</summary>
-        private async Task SaveGameDirectoryAsync()
+        /// <summary>记住当前游戏目录；返回是否真正写入。</summary>
+        private async Task<bool> SaveGameDirectoryAsync()
         {
             try
             {
@@ -4997,10 +4999,12 @@ namespace NLMCL.App.ViewModels
                     settings.GameDirectory = directory;
                     settings.GameDirectories = directories;
                 }, CancellationToken.None).ConfigureAwait(true);
+                return true;
             }
             catch (Exception ex)
             {
                 StatusText = "保存设置失败：" + ex.Message;
+                return false;
             }
         }
 

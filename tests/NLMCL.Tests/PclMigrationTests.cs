@@ -110,6 +110,38 @@ namespace NLMCL.Tests
         }
 
         [Fact]
+        public async Task Reports_when_the_directory_cannot_be_saved()
+        {
+            string root = CreateRoot();
+            try
+            {
+                string pcl = CreatePcl(root, "pcl");
+                TestSupport.FakeAppSettings settings = new TestSupport.FakeAppSettings
+                {
+                    Current = new NLMCL.Abstractions.AppSettings
+                    {
+                        GameDirectory = Path.Combine(root, "current"),
+                        GameDirectories = new List<string>()
+                    },
+                    FailWrites = true
+                };
+                MainViewModel vm = CreateMain(root, settings, canWrite: true);
+                await vm.InitializeAsync();
+
+                vm.ProbePclDirectory(pcl);
+                await vm.ActivatePclDirectoryAsync();
+
+                Assert.Equal(pcl, vm.CurrentGameDirectory);
+                Assert.Contains("未能保存", vm.PclMigrationStatus);
+                Assert.Contains("重启后可能回退", vm.PclMigrationStatus);
+            }
+            finally
+            {
+                Delete(root);
+            }
+        }
+
+        [Fact]
         public async Task Unwritable_directory_activates_but_keeps_the_environment_warning()
         {
             string root = CreateRoot();

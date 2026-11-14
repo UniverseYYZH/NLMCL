@@ -435,11 +435,19 @@ namespace NLMCL.Tests
         {
             public AppSettings Current { get; set; } = new AppSettings();
 
+            /// <summary>模拟磁盘不可写，用来验证调用方是否误报成功。</summary>
+            public bool FailWrites { get; set; }
+
             public Task<AppSettings> LoadAsync(CancellationToken cancellationToken)
                 => Task.FromResult(Current);
 
             public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken)
             {
+                if (FailWrites)
+                {
+                    throw new UnauthorizedAccessException("settings.json 写入被拒绝");
+                }
+
                 Current = settings;
                 return Task.CompletedTask;
             }
