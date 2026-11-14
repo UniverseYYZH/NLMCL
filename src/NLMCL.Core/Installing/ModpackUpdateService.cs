@@ -330,7 +330,46 @@ namespace NLMCL.Core.Installing
                 ModpackManifestStore.Write(instanceDirectory, manifest);
             }
 
+            PruneBackups(root, safe, backup);
             return backup;
+        }
+
+        /// <summary>每个实例最多保留 5 份备份，当前备份永不删除。</summary>
+        private const int MaxBackupsPerInstance = 5;
+
+        private static void PruneBackups(string root, string instanceName, string current)
+        {
+            try
+            {
+                List<string> files = Directory
+                    .EnumerateFiles(root, instanceName + "-*.zip", SearchOption.TopDirectoryOnly)
+                    .Where(path => !string.Equals(
+                        Path.GetFullPath(path), Path.GetFullPath(current), StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .ThenBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                // 当前备份占 1 份，旧备份最多再留 4 份。
+                foreach (string stale in files.Skip(MaxBackupsPerInstance - 1))
+                {
+                    try
+                    {
+                        File.Delete(stale);
+                    }
+                    catch (IOException)
+                    {
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                    }
+                }
+            }
+            catch (IOException)
+            {
+            }
+            catch (UnauthorizedAccessException)
+            {
+            }
         }
 
         private async Task<string> ResolveProjectIdAsync(

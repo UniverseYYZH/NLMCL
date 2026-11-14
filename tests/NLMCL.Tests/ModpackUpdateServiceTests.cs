@@ -341,6 +341,39 @@ namespace NLMCL.Tests
             Assert.Equal(backup, ModpackManifestStore.Read(instance)?.LastBackup);
         }
 
+        [Fact]
+        public async Task Backup_keeps_only_the_five_newest_archives_per_instance()
+        {
+            string instance = Path.Combine(_root, "versions", "Backup Pack");
+            Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                VersionId = "v1",
+                Name = "Backup Pack",
+                MinecraftVersion = "1.21.1",
+                Loader = "Fabric"
+            });
+
+            AppPaths paths = new AppPaths(Path.Combine(_root, "data"), portable: true);
+            string directory = Path.Combine(paths.DataRoot, "modpack-backups");
+            Directory.CreateDirectory(directory);
+            for (int index = 0; index < 6; index++)
+            {
+                string old = Path.Combine(directory, "Backup Pack-20200101-00000" + index + ".zip");
+                File.WriteAllText(old, "old");
+                File.SetLastWriteTimeUtc(old, DateTime.UtcNow.AddDays(-index - 1));
+            }
+
+            ModpackUpdateService service = new ModpackUpdateService(
+                new FakeDownload("[]"), new FakePackages(), paths);
+
+            string current = await service.BackupAsync(instance, CancellationToken.None);
+
+            string[] archives = Directory.GetFiles(directory, "Backup Pack-*.zip");
+            Assert.Equal(5, archives.Length);
+            Assert.Contains(current, archives);
+        }
+
         public void Dispose()
         {
             try
