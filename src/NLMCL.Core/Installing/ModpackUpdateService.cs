@@ -139,8 +139,16 @@ namespace NLMCL.Core.Installing
                     continue;
                 }
 
-                if (await IsLoaderCompatibleAsync(candidate, manifest, cancellationToken)
-                    .ConfigureAwait(false))
+                // Fabric 的加载器版本可以在 UpdateAsync 中原地升级；无需为了判断
+                // 兼容性下载整个 .mrpack。这样既避免大包超时导致误判“无更新”，
+                // 也让 6.5.0 这类只升级 Fabric 的版本能够被正确发现。
+                bool fabricCandidate = string.Equals(manifest.Loader, "Fabric", StringComparison.OrdinalIgnoreCase)
+                    && (candidate["loaders"] as JArray)?.Any(loader =>
+                        string.Equals(loader.Value<string>(), "fabric", StringComparison.OrdinalIgnoreCase)) == true;
+
+                if (fabricCandidate
+                    || await IsLoaderCompatibleAsync(candidate, manifest, cancellationToken)
+                        .ConfigureAwait(false))
                 {
                     latest = candidate;
                     break;

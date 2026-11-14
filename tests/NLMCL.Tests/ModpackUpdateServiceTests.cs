@@ -128,6 +128,7 @@ namespace NLMCL.Tests
             string versions = @"[
               { ""id"": ""v3"", ""version_number"": ""2.0.0"",
                 ""date_published"": ""2026-02-01T00:00:00Z"",
+                ""loaders"": [ ""fabric"" ],
                 ""files"": [ { ""url"": ""https://cdn/v3.mrpack"", ""filename"": ""v3.mrpack"", ""primary"": true } ] },
               { ""id"": ""v2"", ""version_number"": ""1.5.0"",
                 ""date_published"": ""2026-01-15T00:00:00Z"",
@@ -137,16 +138,18 @@ namespace NLMCL.Tests
                 ""files"": [ { ""url"": ""https://cdn/v1.mrpack"", ""filename"": ""v1.mrpack"", ""primary"": true } ] }
             ]";
 
+            FakeFiles files = new FakeFiles();
             ModpackUpdateService service = new ModpackUpdateService(
                 new FakeDownload(versions), new FakePackages(),
                 new AppPaths(Path.Combine(_root, "data"), portable: true),
-                new FakeFiles());
+                files);
 
             ModpackUpdateInfo? update = await service.CheckAsync(instance, CancellationToken.None);
 
             Assert.NotNull(update);
             Assert.Equal("v3", update!.VersionId);
             Assert.Equal("2.0.0", update.VersionName);
+            Assert.Equal(0, files.Calls);
         }
 
         [Fact]
@@ -263,6 +266,8 @@ namespace NLMCL.Tests
                 _older = older;
             }
 
+            public int Calls { get; private set; }
+
             public Task DownloadAsync(
                 string url, string targetPath, CancellationToken cancellationToken)
                 => DownloadAsync(url, targetPath, null, cancellationToken);
@@ -271,6 +276,7 @@ namespace NLMCL.Tests
                 string url, string targetPath, IProgress<double>? progress,
                 CancellationToken cancellationToken)
             {
+                Calls++;
                 string loader = url.Contains("v3") ? _newer : _older;
                 Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
                 using (FileStream stream = File.Create(targetPath))
