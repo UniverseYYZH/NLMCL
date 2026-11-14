@@ -44,6 +44,20 @@ namespace NLMCL.Core.Installing
                 }
 
                 manifest.ModFiles ??= new System.Collections.Generic.List<string>();
+
+                // 早期版本没有 Source；根据已有 ID 推断，避免旧实例更新检查直接降级为“暂不支持”。
+                if (string.IsNullOrWhiteSpace(manifest.Source))
+                {
+                    if (manifest.CurseForgeProjectId.HasValue && manifest.CurseForgeProjectId.Value > 0)
+                    {
+                        manifest.Source = "curseforge";
+                    }
+                    else if (!string.IsNullOrWhiteSpace(manifest.ProjectId))
+                    {
+                        manifest.Source = "modrinth";
+                    }
+                }
+
                 return manifest;
             }
             catch (Exception)
@@ -70,13 +84,26 @@ namespace NLMCL.Core.Installing
             File.WriteAllText(temporary, JsonConvert.SerializeObject(manifest, Formatting.Indented),
                 new UTF8Encoding(false));
 
-            if (File.Exists(path))
+            if (!File.Exists(path))
+            {
+                File.Move(temporary, path);
+                return;
+            }
+
+            try
             {
                 File.Replace(temporary, path, null);
             }
-            else
+            catch (IOException)
             {
-                File.Move(temporary, path);
+                // 部分非 NTFS/网络盘不支持 File.Replace；退回复制后删除临时文件。
+                File.Copy(temporary, path, overwrite: true);
+                File.Delete(temporary);
+            }
+            catch (PlatformNotSupportedException)
+            {
+                File.Copy(temporary, path, overwrite: true);
+                File.Delete(temporary);
             }
         }
     }

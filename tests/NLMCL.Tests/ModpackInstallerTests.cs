@@ -145,6 +145,15 @@ namespace NLMCL.Tests
 
         private sealed class FakeDownload : DownloadServiceStub
         {
+            private readonly int _classId;
+            private readonly string _fileName;
+
+            public FakeDownload(int classId = 12, string fileName = "cf.jar")
+            {
+                _classId = classId;
+                _fileName = fileName;
+            }
+
             public List<string> Downloaded { get; } = new List<string>();
 
             public override Task DownloadFileAsync(string url, string localPath, CancellationToken cancellationToken)
@@ -160,11 +169,13 @@ namespace NLMCL.Tests
                 if (url.IndexOf("/files/", StringComparison.Ordinal) >= 0)
                 {
                     return Task.FromResult(
-                        @"{ ""data"": { ""downloadUrl"": ""https://cdn.curseforge/cf.jar"", ""fileName"": ""cf.jar"", ""fileLength"": 4, ""hashes"": { ""sha1"": """" } } }");
+                        @"{ ""data"": { ""downloadUrl"": ""https://cdn.curseforge/"
+                        + _fileName + @""", ""fileName"": """ + _fileName
+                        + @""", ""fileLength"": 4, ""hashes"": { ""sha1"": """" } } }");
                 }
 
-                // 项目查询：classId=12 资源包，验证会落 resourcepacks 而不是 mods。
-                return Task.FromResult(@"{ ""data"": { ""classId"": 12 } }");
+                // classId=12 资源包，classId=6/其他为 mods。
+                return Task.FromResult(@"{ ""data"": { ""classId"": " + _classId + " } }");
             }
         }
 
@@ -328,6 +339,71 @@ namespace NLMCL.Tests
                 Assert.Equal("1.2.3", manifest.VersionId);
                 Assert.Contains(files.Downloaded, url => url.Contains("cf.jar"));
                 Assert.Contains(reports, item => item.BytesTotal > 0 && item.BytesReceived > 0);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public async Task Curseforge_mod_install_records_the_mod_file_for_future_updates()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-cf-mod-" + Guid.NewGuid().ToString("N"));
+            string mc = Path.Combine(root, ".minecraft");
+            Directory.CreateDirectory(mc);
+
+            try
+            {
+                string pack = BuildCurseForgePack(root);
+                ModpackInstaller installer = new ModpackInstaller(
+                    new FakeDownload(6, "cfmod.jar"),
+                    new FakeVersions(),
+                    new FakeLoaders(),
+                    new FakeFileDownloader());
+
+                string versionId = await installer.InstallAsync(
+                    pack, mc, @"C:\Java\bin\javaw.exe", null, CancellationToken.None);
+
+                string instanceDir = Path.Combine(mc, "versions", versionId);
+                Assert.True(File.Exists(Path.Combine(instanceDir, "mods", "cfmod.jar")));
+                ModpackManifest manifest = Assert.IsType<ModpackManifest>(
+                    ModpackManifestStore.Read(instanceDir));
+                Assert.Contains("mods/cfmod.jar", manifest.ModFiles);
+            }
+            finally
+            {
+                try
+                {
+                    Directory.Delete(root, true);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        [Fact]
+        public void Reads_source_from_old_manifest_with_curseforge_id()
+        {
+            string root = Path.Combine(Path.GetTempPath(), "nlmcl-old-manifest-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+
+            try
+            {
+                File.WriteAllText(
+                    Path.Combine(root, ModpackManifestStore.FileName),
+                    "{\"name\":\"Old Pack\",\"curseForgeProjectId\":1243993,\"curseForgeFileId\":6603702}");
+
+                ModpackManifest manifest = Assert.IsType<ModpackManifest>(
+                    ModpackManifestStore.Read(root));
+                Assert.Equal("curseforge", manifest.Source);
             }
             finally
             {

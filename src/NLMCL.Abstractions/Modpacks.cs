@@ -74,7 +74,7 @@ namespace NLMCL.Abstractions
         public int Schema { get; set; } = 1;
 
         /// <summary>modrinth / curseforge；只有 modrinth 支持更新检查。</summary>
-        public string Source { get; set; } = "modrinth";
+        public string Source { get; set; } = string.Empty;
 
         public string ProjectId { get; set; } = string.Empty;
 

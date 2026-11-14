@@ -105,11 +105,13 @@ namespace NLMCL.Core.Installing
             //    先换直链再下载到 mods；Modrinth 走文件清单。
             string instanceDirectory = Path.Combine(minecraftDirectory, "versions", versionId);
 
+            IReadOnlyList<string> curseForgeMods = Array.Empty<string>();
+
             try
             {
                 if (IsCurseForgeManifest(index))
                 {
-                    await DownloadCurseForgeFilesAsync(
+                    curseForgeMods = await DownloadCurseForgeFilesAsync(
                         index, instanceDirectory, progress, cancellationToken).ConfigureAwait(false);
                 }
                 else
@@ -137,7 +139,7 @@ namespace NLMCL.Core.Installing
 
             WriteManifest(
                 instanceDirectory, info, index, mrpackPath,
-                curseForgeProjectId, curseForgeFileId);
+                curseForgeProjectId, curseForgeFileId, curseForgeMods);
 
             progress?.Report(new InstallProgress("整合包安装完成", 100, 0));
 
@@ -198,8 +200,6 @@ namespace NLMCL.Core.Installing
             (long? curseForgeProjectId, long? curseForgeFileId) =
                 await ResolveCurseForgeIdsAsync(mrpackPath, index, cancellationToken)
                     .ConfigureAwait(false);
-            ModpackManifest next = BuildManifest(
-                info, index, mrpackPath, previous, curseForgeProjectId, curseForgeFileId);
             string staging = instanceDirectory + ".nlmcl-staging-" + Guid.NewGuid().ToString("N");
 
             progress?.Report(new InstallProgress("复制现有实例到临时目录", 20, 0));
@@ -208,9 +208,10 @@ namespace NLMCL.Core.Installing
             {
                 CopyDirectory(instanceDirectory, staging);
 
+                IReadOnlyList<string> curseForgeMods = Array.Empty<string>();
                 if (IsCurseForgeManifest(index))
                 {
-                    await DownloadCurseForgeFilesAsync(
+                    curseForgeMods = await DownloadCurseForgeFilesAsync(
                         index, staging, progress, cancellationToken).ConfigureAwait(false);
                 }
                 else
@@ -222,6 +223,12 @@ namespace NLMCL.Core.Installing
                 progress?.Report(new InstallProgress("展开 overrides", 88, 0));
                 string overridesPrefix = (index.Value<string>("overrides") ?? "overrides").TrimEnd('/') + "/";
                 ExtractOverrides(archive, staging, overridesPrefix);
+
+                // CurseForge 的 manifest 没有文件路径，必须把实际落盘的 mod 文件名补进清单，
+                // 否则下一次更新无法识别并清理旧整合包自带的 mod。
+                ModpackManifest next = BuildManifest(
+                    info, index, mrpackPath, previous, curseForgeProjectId, curseForgeFileId,
+                    curseForgeMods);
 
                 // 只删旧整合包清单里的 mod；玩家自己加的 mod 不在 old.ModFiles 中，原样保留。
                 foreach (string relative in previous.ModFiles)
@@ -365,7 +372,8 @@ namespace NLMCL.Core.Installing
             string mrpackPath,
             ModpackManifest? previous = null,
             long? curseForgeProjectId = null,
-            long? curseForgeFileId = null)
+            long? curseForgeFileId = null,
+            IReadOnlyList<string>? extraModFiles = null)
         {
             return new ModpackManifest
             {
@@ -385,18 +393,28 @@ namespace NLMCL.Core.Installing
                 CurseForgeFileId = curseForgeFileId
                     ?? ReadLong(index, "fileID")
                     ?? previous?.CurseForgeFileId,
-                ModFiles = (index["files"] as JArray)?
-                    .OfType<JObject>()
-                    .Where(item => !string.Equals(
-                        item.SelectToken("env.client")?.Value<string>(),
-                        "unsupported", StringComparison.OrdinalIgnoreCase))
-                    .Select(item => item.Value<string>("path"))
-                    .Where(path => !string.IsNullOrWhiteSpace(path)
-                        && path!.StartsWith("mods/", StringComparison.OrdinalIgnoreCase))
-                    .Select(path => path!)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList() ?? new List<string>()
+                ModFiles = CollectModFiles(index, extraModFiles)
             };
+        }
+
+        private static List<string> CollectModFiles(
+            JObject index, IReadOnlyList<string>? extraModFiles)
+        {
+            IEnumerable<string> fromIndex = (index["files"] as JArray)?
+                .OfType<JObject>()
+                .Where(item => !string.Equals(
+                    item.SelectToken("env.client")?.Value<string>(),
+                    "unsupported", StringComparison.OrdinalIgnoreCase))
+                .Select(item => item.Value<string>("path"))
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Select(path => path!)
+                ?? Enumerable.Empty<string>();
+
+            return fromIndex
+                .Concat(extraModFiles ?? Array.Empty<string>())
+                .Where(path => path.StartsWith("mods/", StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private static void CopyDirectory(string source, string destination)
@@ -432,7 +450,8 @@ namespace NLMCL.Core.Installing
             JObject index,
             string mrpackPath,
             long? curseForgeProjectId = null,
-            long? curseForgeFileId = null)
+            long? curseForgeFileId = null,
+            IReadOnlyList<string>? extraModFiles = null)
         {
             ModpackManifest manifest = new ModpackManifest
             {
@@ -446,17 +465,7 @@ namespace NLMCL.Core.Installing
                 InstalledAt = DateTimeOffset.Now,
                 CurseForgeProjectId = curseForgeProjectId ?? ReadLong(index, "projectID"),
                 CurseForgeFileId = curseForgeFileId ?? ReadLong(index, "fileID"),
-                ModFiles = (index["files"] as JArray)?
-                    .OfType<JObject>()
-                    .Where(item => !string.Equals(
-                        item.SelectToken("env.client")?.Value<string>(),
-                        "unsupported", StringComparison.OrdinalIgnoreCase))
-                    .Select(item => item.Value<string>("path"))
-                    .Where(path => !string.IsNullOrWhiteSpace(path)
-                        && path!.StartsWith("mods/", StringComparison.OrdinalIgnoreCase))
-                    .Select(path => path!)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList() ?? new List<string>()
+                ModFiles = CollectModFiles(index, extraModFiles)
             };
 
             ModpackManifestStore.Write(instanceDirectory, manifest);
@@ -593,13 +602,14 @@ namespace NLMCL.Core.Installing
         }
 
         /// <summary>CurseForge 整合包：manifest 只有 projectID/fileID，按 mcim 接口换直链后下载到 mods。</summary>
-        private async Task DownloadCurseForgeFilesAsync(
+        private async Task<IReadOnlyList<string>> DownloadCurseForgeFilesAsync(
             JObject manifest,
             string instanceDirectory,
             IProgress<InstallProgress>? progress,
             CancellationToken cancellationToken)
         {
             IReadOnlyList<JToken> files = (manifest["files"] as JArray)?.ToList() ?? new List<JToken>();
+            ConcurrentBag<string> installedMods = new ConcurrentBag<string>();
 
             int total = 0;
             int completed = 0;
@@ -696,6 +706,11 @@ namespace NLMCL.Core.Installing
                                 }
                             }
 
+                            if (string.Equals(folder, "mods", StringComparison.OrdinalIgnoreCase))
+                            {
+                                installedMods.Add(folder + "/" + name);
+                            }
+
                             if (size > 0)
                             {
                                 Interlocked.Add(ref completedBytes, size);
@@ -737,6 +752,9 @@ namespace NLMCL.Core.Installing
             }
 
             ThrowIfFailures(failures);
+            return installedMods
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         private async Task<string> ResolveCurseForgeFolderAsync(
