@@ -233,30 +233,21 @@ namespace NLMCL.Core.Installing
 
                 try
                 {
-                    // Fabric 的 maven 没有国内镜像，普通下载会因超时/连接假死失败。
-                    // 用带停滞检测的封装：只要文件还在变大就继续等，连续 30 秒不涨才重试。
-                    try
+                    // Fabric maven 直连稳定；PCL 的 ModNet 在部分环境会卡在临时目录/重试。
+                    // 有直连下载器时优先直连，避免整个安装卡死。
+                    if (_fallback != null)
+                    {
+                        progress?.Report(new InstallProgress(
+                            "直连下载 Fabric 库：" + Path.GetFileName(file.TargetPath), 0, 0));
+                        await _fallback
+                            .DownloadAsync(file.Url, tempPath, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    else
                     {
                         await ResilientDownload
                             .DownloadAsync(
-                                _download, file.Url, tempPath, cancellationToken, fallback: _fallback)
-                            .ConfigureAwait(false);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch when (_fallback != null)
-                    {
-                        progress?.Report(new InstallProgress(
-                            "PCL 下载失败，改走直连：" + Path.GetFileName(file.TargetPath), 0, 0));
-                        if (!string.IsNullOrEmpty(directory))
-                        {
-                            Directory.CreateDirectory(directory);
-                        }
-
-                        await _fallback!
-                            .DownloadAsync(file.Url, tempPath, cancellationToken)
+                                _download, file.Url, tempPath, cancellationToken)
                             .ConfigureAwait(false);
                     }
 
