@@ -384,6 +384,14 @@ namespace NLMCL.App.ViewModels
 
             RefreshInstanceContent();
             RefreshJoinChecks();
+            RefreshEnvironmentWarning();
+        }
+
+        private void RefreshEnvironmentWarning()
+        {
+            EnvironmentWarning = NLMCL.Core.Runtime.EnvironmentProbe.CanWriteDirectory(CurrentGameDirectory)
+                ? string.Empty
+                : "当前启动器无法写入游戏目录。Forge/NeoForge 启动、安全模式和整合包更新可能失败；请把启动器放到普通目录，或以普通权限运行。";
         }
 
         /// <summary>选中版本时把控制台的"版本目录名"一起带过去，省得用户再抄一遍。</summary>
@@ -1090,6 +1098,16 @@ namespace NLMCL.App.ViewModels
 
         [ObservableProperty]
         private string _statusText = "就绪";
+
+        [ObservableProperty]
+        private string _environmentWarning = string.Empty;
+
+        public bool HasEnvironmentWarning => !string.IsNullOrWhiteSpace(EnvironmentWarning);
+
+        partial void OnEnvironmentWarningChanged(string value)
+        {
+            OnPropertyChanged(nameof(HasEnvironmentWarning));
+        }
 
         [ObservableProperty]
         private bool _isBusy;
@@ -4419,6 +4437,7 @@ namespace NLMCL.App.ViewModels
                 // 设置页的当前值 + 立刻应用一次外观（窗口可能已经显示，DynamicResource 会即时刷新）
                 ApplySettingsToUi(settings);
                 ApplyStartupPage(settings);
+                RefreshEnvironmentWarning();
                 _settingsLoaded = true;
 
                 // 后台检查，不阻塞进入主界面；失败/离线只更新设置页提示。
