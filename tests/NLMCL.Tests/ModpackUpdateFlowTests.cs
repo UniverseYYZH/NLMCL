@@ -31,19 +31,23 @@ namespace NLMCL.Tests
 
             public Task<ModpackUpdateInfo?> CheckAsync(
                 string instanceDirectory, CancellationToken cancellationToken)
-            {
-                ModpackManifest manifest = new ModpackManifest
-                {
-                    Name = "Test Pack",
-                    ProjectId = "project",
-                    VersionId = "1.0.0",
-                    MinecraftVersion = "1.21.1"
-                };
+                => Task.FromResult<ModpackUpdateInfo?>(Info());
 
-                return Task.FromResult<ModpackUpdateInfo?>(new ModpackUpdateInfo(
-                    manifest, "1.0.1", "1.0.1", "https://example.invalid/pack.mrpack",
-                    "pack.mrpack", DateTimeOffset.UtcNow, new string('0', 40)));
-            }
+            public Task<ModpackUpdateCheckResult> CheckDetailedAsync(
+                string instanceDirectory, CancellationToken cancellationToken)
+                => Task.FromResult(ModpackUpdateCheckResult.Available(Info()));
+
+            private static ModpackUpdateInfo Info()
+                => new ModpackUpdateInfo(
+                    new ModpackManifest
+                    {
+                        Name = "Test Pack",
+                        ProjectId = "project",
+                        VersionId = "1.0.0",
+                        MinecraftVersion = "1.21.1"
+                    },
+                    "1.0.1", "1.0.1", "https://example.invalid/pack.mrpack",
+                    "pack.mrpack", DateTimeOffset.UtcNow, new string('0', 40));
 
             public Task<string> BackupAsync(
                 string instanceDirectory, CancellationToken cancellationToken)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using NLMCL.Abstractions;
@@ -78,6 +79,129 @@ namespace NLMCL.Tests
                 new AppPaths(Path.Combine(_root, "data"), portable: true));
 
             Assert.Null(await service.CheckAsync(instance, CancellationToken.None));
+        }
+
+        [Fact]
+        public async Task CurseForge_without_ids_is_unsupported_without_a_request()
+        {
+            string instance = Path.Combine(_root, "versions", "CF Pack");
+            Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                Source = "curseforge",
+                VersionId = "1.0",
+                Name = "CF Pack"
+            });
+
+            FakeDownload download = new FakeDownload("{\"data\":[]}");
+            ModpackUpdateService service = new ModpackUpdateService(
+                download, new FakePackages(),
+                new AppPaths(Path.Combine(_root, "data"), portable: true));
+
+            ModpackUpdateCheckResult result = await service.CheckDetailedAsync(
+                instance, CancellationToken.None);
+
+            Assert.Equal(ModpackUpdateCheckStatus.Unsupported, result.Status);
+            Assert.Null(result.Info);
+            Assert.Empty(download.LastUrl);
+        }
+
+        [Fact]
+        public async Task CurseForge_with_ids_reports_a_newer_file()
+        {
+            string instance = Path.Combine(_root, "versions", "CF Pack");
+            Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                Source = "curseforge",
+                Name = "CF Pack",
+                MinecraftVersion = "1.12.2",
+                CurseForgeProjectId = 1243993,
+                CurseForgeFileId = 6603701
+            });
+
+            const string body = @"{""data"":[{""id"":6603702,""displayName"":""Pack 1.1"",
+                ""fileName"":""pack-1.1.zip"",""fileDate"":""2025-06-01T04:41:28.693Z"",
+                ""downloadUrl"":""https://edge.forgecdn.net/files/6603/702/pack-1.1.zip"",
+                ""hashes"":[{""value"":""abc"",""algo"":1}],""gameVersions"":[""Forge"",""1.12.2""]}]}";
+            ModpackUpdateService service = new ModpackUpdateService(
+                new FakeDownload(body), new FakePackages(),
+                new AppPaths(Path.Combine(_root, "data"), portable: true));
+
+            ModpackUpdateCheckResult result = await service.CheckDetailedAsync(
+                instance, CancellationToken.None);
+
+            Assert.Equal(ModpackUpdateCheckStatus.UpdateAvailable, result.Status);
+            Assert.NotNull(result.Info);
+            Assert.Equal("curseforge", result.Info!.Source);
+            Assert.Equal("6603702", result.Info.VersionId);
+            Assert.Equal("abc", result.Info.Sha1);
+        }
+
+        [Fact]
+        public async Task CurseForge_with_same_file_is_up_to_date()
+        {
+            string instance = Path.Combine(_root, "versions", "CF Pack");
+            Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                Source = "curseforge",
+                Name = "CF Pack",
+                CurseForgeProjectId = 1243993,
+                CurseForgeFileId = 6603702
+            });
+
+            const string body = @"{""data"":[{""id"":6603702,""fileName"":""pack.zip"",
+                ""fileDate"":""2025-06-01T04:41:28.693Z"",
+                ""downloadUrl"":""https://edge.forgecdn.net/files/6603/702/pack.zip""}]}";
+            ModpackUpdateService service = new ModpackUpdateService(
+                new FakeDownload(body), new FakePackages(),
+                new AppPaths(Path.Combine(_root, "data"), portable: true));
+
+            ModpackUpdateCheckResult result = await service.CheckDetailedAsync(
+                instance, CancellationToken.None);
+
+            Assert.Equal(ModpackUpdateCheckStatus.UpToDate, result.Status);
+            Assert.Null(result.Info);
+        }
+
+        [Fact]
+        public async Task CurseForge_api_failure_is_unsupported_and_does_not_throw()
+        {
+            string instance = Path.Combine(_root, "versions", "CF Pack");
+            Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                Source = "curseforge",
+                Name = "CF Pack",
+                CurseForgeProjectId = 1243993,
+                CurseForgeFileId = 6603701
+            });
+
+            ModpackUpdateService service = new ModpackUpdateService(
+                new FailingDownload(), new FakePackages(),
+                new AppPaths(Path.Combine(_root, "data"), portable: true));
+
+            ModpackUpdateCheckResult result = await service.CheckDetailedAsync(
+                instance, CancellationToken.None);
+
+            Assert.Equal(ModpackUpdateCheckStatus.Unsupported, result.Status);
+            Assert.Contains("暂不支持", result.Message);
+        }
+
+        [Fact]
+        public void Old_manifest_without_curseforge_fields_still_reads()
+        {
+            string instance = Path.Combine(_root, "versions", "Old CF Pack");
+            Directory.CreateDirectory(instance);
+            File.WriteAllText(Path.Combine(instance, ModpackManifestStore.FileName),
+                "{\"Source\":\"curseforge\",\"Name\":\"Old\",\"VersionId\":\"1.0\"}");
+
+            ModpackManifest? manifest = ModpackManifestStore.Read(instance);
+
+            Assert.NotNull(manifest);
+            Assert.Null(manifest!.CurseForgeProjectId);
+            Assert.Null(manifest.CurseForgeFileId);
         }
 
         [Fact]
@@ -248,6 +372,13 @@ namespace NLMCL.Tests
                 LastUrl = url;
                 return Task.FromResult(_body);
             }
+        }
+
+        private sealed class FailingDownload : DownloadServiceStub
+        {
+            public override Task<string> GetStringAsync(
+                string url, CancellationToken cancellationToken)
+                => throw new HttpRequestException("rate limited");
         }
 
         private sealed class FakeFiles : IFileDownloader

@@ -18,6 +18,7 @@ namespace NLMCL.Core.Installing
     public sealed class ModpackUpdateService : IModpackUpdateService
     {
         private const string ModrinthApi = "https://api.modrinth.com/v2";
+        private const string CurseForgeApi = "https://mod.mcimirror.top/curseforge/v1";
 
         private readonly IDownloadService _download;
         private readonly IInstancePackageService _packages;
@@ -42,13 +43,125 @@ namespace NLMCL.Core.Installing
             return Task.FromResult(ModpackManifestStore.Read(instanceDirectory));
         }
 
-        public Task<ModpackUpdateInfo?> CheckAsync(
+        public async Task<ModpackUpdateInfo?> CheckAsync(
+            string instanceDirectory, CancellationToken cancellationToken)
+        {
+            ModpackUpdateCheckResult result = await CheckDetailedAsync(
+                instanceDirectory, cancellationToken).ConfigureAwait(false);
+            return result.Info;
+        }
+
+        public Task<ModpackUpdateCheckResult> CheckDetailedAsync(
             string instanceDirectory, CancellationToken cancellationToken)
         {
             // PCL 的下载器禁止在 UI 线程发请求；VM 的 async 命令会从 UI 线程进入这里。
             return Task.Run(
-                () => CheckCoreAsync(instanceDirectory, cancellationToken),
+                () => CheckDetailedCoreAsync(instanceDirectory, cancellationToken),
                 cancellationToken);
+        }
+
+        private async Task<ModpackUpdateCheckResult> CheckDetailedCoreAsync(
+            string instanceDirectory, CancellationToken cancellationToken)
+        {
+            try
+            {
+                ModpackManifest? manifest = ModpackManifestStore.Read(instanceDirectory);
+
+                if (manifest == null)
+                {
+                    return ModpackUpdateCheckResult.Unsupported("缺少整合包元数据，暂不支持检查。");
+                }
+
+                if (string.Equals(manifest.Source, "curseforge", StringComparison.OrdinalIgnoreCase))
+                {
+                    return await CheckCurseForgeAsync(manifest, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                if (!string.Equals(manifest.Source, "modrinth", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ModpackUpdateCheckResult.Unsupported("这个整合包来源暂不支持检查更新。");
+                }
+
+                ModpackUpdateInfo? update = await CheckCoreAsync(instanceDirectory, cancellationToken)
+                    .ConfigureAwait(false);
+                return update == null
+                    ? ModpackUpdateCheckResult.UpToDate()
+                    : ModpackUpdateCheckResult.Available(update);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // 网络失败/限流/坏 JSON 一律降级为“暂不支持”，不能阻塞启动。
+                return ModpackUpdateCheckResult.Unsupported(
+                    "暂不支持检查更新（" + ex.Message + "）。");
+            }
+        }
+
+        private async Task<ModpackUpdateCheckResult> CheckCurseForgeAsync(
+            ModpackManifest manifest, CancellationToken cancellationToken)
+        {
+            long? projectId = manifest.CurseForgeProjectId;
+            long? fileId = manifest.CurseForgeFileId;
+
+            if (!projectId.HasValue || projectId.Value <= 0
+                || !fileId.HasValue || fileId.Value <= 0)
+            {
+                return ModpackUpdateCheckResult.Unsupported(
+                    "CurseForge 导入包未携带项目/文件 ID，暂不支持检查更新。");
+            }
+
+            string url = CurseForgeApi + "/mods/" + projectId.Value.ToString(CultureInfo.InvariantCulture)
+                + "/files?pageSize=50&index=0";
+            JObject root = JObject.Parse(await _download.GetStringAsync(url, cancellationToken)
+                .ConfigureAwait(false));
+
+            JArray? files = root["data"] as JArray;
+            JObject? latest = files?
+                .OfType<JObject>()
+                .Where(item => (item.Value<long?>("id") ?? 0) > 0)
+                .OrderByDescending(item => PublishedAt(item))
+                .ThenByDescending(item => item.Value<long?>("id") ?? 0)
+                .FirstOrDefault();
+
+            long latestId = latest?.Value<long?>("id") ?? 0;
+            if (latest == null || latestId <= 0)
+            {
+                return ModpackUpdateCheckResult.Unsupported("CurseForge 没有返回可用的文件列表。");
+            }
+
+            if (latestId <= fileId.Value)
+            {
+                return ModpackUpdateCheckResult.UpToDate();
+            }
+
+            string download = latest.Value<string>("downloadUrl") ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(download))
+            {
+                return ModpackUpdateCheckResult.Unsupported(
+                    "CurseForge 新版没有提供可展示的下载地址。");
+            }
+
+            string sha1 = (latest["hashes"] as JArray)?
+                .OfType<JObject>()
+                .FirstOrDefault(item => item.Value<int?>("algo") == 1)?
+                .Value<string>("value") ?? string.Empty;
+
+            string fileName = latest.Value<string>("fileName") ?? string.Empty;
+            string versionName = latest.Value<string>("displayName") ?? fileName;
+
+            return ModpackUpdateCheckResult.Available(new ModpackUpdateInfo(
+                manifest,
+                latestId.ToString(CultureInfo.InvariantCulture),
+                versionName,
+                download,
+                fileName,
+                PublishedAt(latest),
+                sha1,
+                "curseforge"));
         }
 
         private async Task<ModpackUpdateInfo?> CheckCoreAsync(
@@ -287,7 +400,8 @@ namespace NLMCL.Core.Installing
 
         private static DateTimeOffset? PublishedAt(JObject version)
         {
-            string? raw = version.Value<string>("date_published");
+            string? raw = version.Value<string>("date_published")
+                ?? version.Value<string>("fileDate");
 
             return DateTimeOffset.TryParse(
                 raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal, out DateTimeOffset parsed)

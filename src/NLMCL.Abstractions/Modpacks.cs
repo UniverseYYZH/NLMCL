@@ -95,6 +95,15 @@ namespace NLMCL.Abstractions
         /// <summary>最近一次更新前备份的绝对路径；用于重启后仍能一键回滚。</summary>
         public string? LastBackup { get; set; }
 
+        /// <summary>
+        /// CurseForge 整合包的项目 ID。只有导入包显式携带时才写入；
+        /// 普通 CurseForge manifest 没有这个字段，更新检查会降级为“暂不支持”。
+        /// </summary>
+        public long? CurseForgeProjectId { get; set; }
+
+        /// <summary>CurseForge 整合包文件 ID；与项目 ID 同时存在才可用于更新检查。</summary>
+        public long? CurseForgeFileId { get; set; }
+
         /// <summary>整合包自己安装的 mods 相对路径，用于更新时保留玩家额外加的 Mod。</summary>
         public List<string> ModFiles { get; set; } = new List<string>();
 
@@ -114,7 +123,8 @@ namespace NLMCL.Abstractions
             string downloadUrl,
             string fileName,
             DateTimeOffset? publishedAt,
-            string? sha1 = null)
+            string? sha1 = null,
+            string source = "modrinth")
         {
             Installed = installed;
             VersionId = versionId ?? string.Empty;
@@ -123,9 +133,13 @@ namespace NLMCL.Abstractions
             FileName = fileName ?? string.Empty;
             PublishedAt = publishedAt;
             Sha1 = sha1 ?? string.Empty;
+            Source = source ?? string.Empty;
         }
 
         public ModpackManifest Installed { get; }
+
+        /// <summary>modrinth / curseforge；CurseForge 本轮只检查、不自动安装。</summary>
+        public string Source { get; }
 
         public string VersionId { get; }
 
@@ -145,13 +159,62 @@ namespace NLMCL.Abstractions
             : VersionName + "（" + VersionId + "）";
     }
 
+    /// <summary>更新检查的三种用户可见结果。</summary>
+    public enum ModpackUpdateCheckStatus
+    {
+        /// <summary>发现可展示的新版。</summary>
+        UpdateAvailable = 0,
+
+        /// <summary>当前版本已是最新。</summary>
+        UpToDate = 1,
+
+        /// <summary>来源缺少 ID、接口失败或本轮不支持。</summary>
+        Unsupported = 2
+    }
+
+    /// <summary>带状态的更新检查结果；失败/缺元数据不能抛出到启动路径。</summary>
+    public sealed class ModpackUpdateCheckResult
+    {
+        private ModpackUpdateCheckResult(
+            ModpackUpdateCheckStatus status, ModpackUpdateInfo? info, string message)
+        {
+            Status = status;
+            Info = info;
+            Message = message ?? string.Empty;
+        }
+
+        public ModpackUpdateCheckStatus Status { get; }
+
+        public ModpackUpdateInfo? Info { get; }
+
+        public string Message { get; }
+
+        public static ModpackUpdateCheckResult Available(ModpackUpdateInfo info)
+            => new ModpackUpdateCheckResult(
+                ModpackUpdateCheckStatus.UpdateAvailable,
+                info ?? throw new ArgumentNullException(nameof(info)),
+                string.Empty);
+
+        public static ModpackUpdateCheckResult UpToDate(string message = "已是最新版本。")
+            => new ModpackUpdateCheckResult(
+                ModpackUpdateCheckStatus.UpToDate, null, message);
+
+        public static ModpackUpdateCheckResult Unsupported(string message)
+            => new ModpackUpdateCheckResult(
+                ModpackUpdateCheckStatus.Unsupported, null, message);
+    }
+
     /// <summary>整合包元数据读取、更新检查与本地备份；不负责直接替换实例。</summary>
     public interface IModpackUpdateService
     {
         Task<ModpackManifest?> ReadAsync(string instanceDirectory, CancellationToken cancellationToken);
 
-        /// <summary>无更新、非 Modrinth 整合包或无法解析来源时返回 null。</summary>
+        /// <summary>兼容旧调用：只有发现新版时返回信息。</summary>
         Task<ModpackUpdateInfo?> CheckAsync(string instanceDirectory, CancellationToken cancellationToken);
+
+        /// <summary>带“有新版/无更新/暂不支持”的检查结果；不抛网络/限流异常。</summary>
+        Task<ModpackUpdateCheckResult> CheckDetailedAsync(
+            string instanceDirectory, CancellationToken cancellationToken);
 
         /// <summary>备份实例为 zip，返回备份文件路径。</summary>
         Task<string> BackupAsync(string instanceDirectory, CancellationToken cancellationToken);

@@ -5218,6 +5218,12 @@ namespace NLMCL.App.ViewModels
 
         public bool HasModpackUpdateAvailable => _availableModpackUpdate != null;
 
+        /// <summary>本轮 CurseForge 只检查；不显示“安装更新”按钮。</summary>
+        public bool CanApplyModpackUpdate =>
+            _availableModpackUpdate != null
+            && string.Equals(
+                _availableModpackUpdate.Source, "modrinth", StringComparison.OrdinalIgnoreCase);
+
         public bool HasModpackBackup =>
             !string.IsNullOrWhiteSpace(_lastModpackBackup)
             && string.Equals(SelectedVersion?.FolderName, _lastModpackBackupFolder, StringComparison.OrdinalIgnoreCase);
@@ -5233,6 +5239,7 @@ namespace NLMCL.App.ViewModels
         {
             _availableModpackUpdate = null;
             OnPropertyChanged(nameof(HasModpackUpdateAvailable));
+            OnPropertyChanged(nameof(CanApplyModpackUpdate));
 
             if (_modpackUpdates == null)
             {
@@ -5293,8 +5300,8 @@ namespace NLMCL.App.ViewModels
             IsModpackUpdateBusy = true;
             try
             {
-                ModpackUpdateInfo? update = await _modpackUpdates
-                    .CheckAsync(version.InstancePath, CancellationToken.None)
+                ModpackUpdateCheckResult result = await _modpackUpdates
+                    .CheckDetailedAsync(version.InstancePath, CancellationToken.None)
                     .ConfigureAwait(true);
 
                 if (!ReferenceEquals(SelectedVersion, version))
@@ -5302,12 +5309,24 @@ namespace NLMCL.App.ViewModels
                     return;
                 }
 
+                ModpackUpdateInfo? update = result.Info;
                 _availableModpackUpdate = update;
                 OnPropertyChanged(nameof(HasModpackUpdateAvailable));
+                OnPropertyChanged(nameof(CanApplyModpackUpdate));
 
-                if (update == null)
+                if (result.Status == ModpackUpdateCheckStatus.Unsupported)
                 {
-                    ModpackUpdateMessage = "没有可用的整合包更新，或该实例不是 Modrinth 整合包。";
+                    ModpackUpdateMessage = "暂不支持检查此整合包更新：" + result.Message;
+                }
+                else if (update == null)
+                {
+                    ModpackUpdateMessage = result.Message;
+                }
+                else if (string.Equals(update.Source, "curseforge", StringComparison.OrdinalIgnoreCase))
+                {
+                    ModpackUpdateMessage = "发现 CurseForge 整合包新版：" + update.Summary
+                        + "。本轮只提示，不提供自动安装。";
+                    StatusText = "发现 CurseForge 整合包新版：" + update.Summary;
                 }
                 else
                 {
@@ -5388,6 +5407,12 @@ namespace NLMCL.App.ViewModels
                 return;
             }
 
+            if (!string.Equals(update.Source, "modrinth", StringComparison.OrdinalIgnoreCase))
+            {
+                ModpackUpdateMessage = "本轮 CurseForge 只检查更新，不提供自动安装。";
+                return;
+            }
+
             if (_modpackUpdates == null || _modpackInstaller == null || _fileDownloader == null)
             {
                 ModpackUpdateMessage = "整合包更新服务不可用。";
@@ -5463,6 +5488,7 @@ namespace NLMCL.App.ViewModels
                 string folder = version.FolderName;
                 _availableModpackUpdate = null;
                 OnPropertyChanged(nameof(HasModpackUpdateAvailable));
+            OnPropertyChanged(nameof(CanApplyModpackUpdate));
 
                 await RefreshAsync().ConfigureAwait(true);
                 VersionItem? refreshed = Versions.FirstOrDefault(item =>

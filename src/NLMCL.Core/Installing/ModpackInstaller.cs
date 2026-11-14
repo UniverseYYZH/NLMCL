@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using MeloongCore;
 using NLMCL.Abstractions;
+using NLMCL.Core.Mods;
 
 namespace NLMCL.Core.Installing
 {
@@ -130,7 +131,13 @@ namespace NLMCL.Core.Installing
                 throw;
             }
 
-            WriteManifest(instanceDirectory, info, index, mrpackPath);
+            (long? curseForgeProjectId, long? curseForgeFileId) =
+                await ResolveCurseForgeIdsAsync(mrpackPath, index, cancellationToken)
+                    .ConfigureAwait(false);
+
+            WriteManifest(
+                instanceDirectory, info, index, mrpackPath,
+                curseForgeProjectId, curseForgeFileId);
 
             progress?.Report(new InstallProgress("整合包安装完成", 100, 0));
 
@@ -188,7 +195,11 @@ namespace NLMCL.Core.Installing
                     info, minecraftDirectory, string.Empty, progress, cancellationToken).ConfigureAwait(false);
             }
 
-            ModpackManifest next = BuildManifest(info, index, mrpackPath, previous);
+            (long? curseForgeProjectId, long? curseForgeFileId) =
+                await ResolveCurseForgeIdsAsync(mrpackPath, index, cancellationToken)
+                    .ConfigureAwait(false);
+            ModpackManifest next = BuildManifest(
+                info, index, mrpackPath, previous, curseForgeProjectId, curseForgeFileId);
             string staging = instanceDirectory + ".nlmcl-staging-" + Guid.NewGuid().ToString("N");
 
             progress?.Report(new InstallProgress("复制现有实例到临时目录", 20, 0));
@@ -293,11 +304,68 @@ namespace NLMCL.Core.Installing
             File.WriteAllText(jsonPath, profile.ToString(), new UTF8Encoding(false));
         }
 
+        /// <summary>
+        /// CurseForge 整合包 manifest 不带整合包自身的 projectID/fileID；
+        /// 用文件指纹查 mcim exactMatches，能稳定拿到来源时写入元数据。
+        /// 查不到只表示“暂不支持更新检查”，绝不能让导入失败。
+        /// </summary>
+        private async Task<(long? ProjectId, long? FileId)> ResolveCurseForgeIdsAsync(
+            string mrpackPath, JObject index, CancellationToken cancellationToken)
+        {
+            if (!IsCurseForgeManifest(index))
+            {
+                return (null, null);
+            }
+
+            long? projectId = ReadLong(index, "projectID");
+            long? fileId = ReadLong(index, "fileID");
+
+            if (projectId.HasValue && fileId.HasValue)
+            {
+                return (projectId, fileId);
+            }
+
+            try
+            {
+                uint fingerprint = CurseForgeFingerprint.Compute(mrpackPath);
+                string body = "{\"fingerprints\":[" + fingerprint.ToString(CultureInfo.InvariantCulture) + "]}";
+                string raw = await _download.PostJsonAsync(
+                    CurseForgeApiBase + "/fingerprints", body, null, cancellationToken)
+                    .ConfigureAwait(false);
+
+                JObject root = JObject.Parse(raw);
+                JObject? match = (root.SelectToken("data.exactMatches") as JArray)?
+                    .OfType<JObject>()
+                    .FirstOrDefault();
+
+                projectId ??= match?.Value<long?>("id");
+                fileId ??= match?.SelectToken("file.id")?.Value<long?>();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // 镜像/限流/包未收录：保留空 ID，更新检查会显示“暂不支持”。
+            }
+
+            return (projectId, fileId);
+        }
+
+        private static long? ReadLong(JObject value, string name)
+        {
+            long? parsed = value.Value<long?>(name);
+            return parsed.HasValue && parsed.Value > 0 ? parsed : (long?)null;
+        }
+
         private static ModpackManifest BuildManifest(
             ModpackInfo info,
             JObject index,
             string mrpackPath,
-            ModpackManifest? previous = null)
+            ModpackManifest? previous = null,
+            long? curseForgeProjectId = null,
+            long? curseForgeFileId = null)
         {
             return new ModpackManifest
             {
@@ -311,6 +379,12 @@ namespace NLMCL.Core.Installing
                 LoaderVersion = info.LoaderVersion,
                 InstalledAt = DateTimeOffset.Now,
                 LastBackup = previous?.LastBackup,
+                CurseForgeProjectId = curseForgeProjectId
+                    ?? previous?.CurseForgeProjectId
+                    ?? ReadLong(index, "projectID"),
+                CurseForgeFileId = curseForgeFileId
+                    ?? ReadLong(index, "fileID")
+                    ?? previous?.CurseForgeFileId,
                 ModFiles = (index["files"] as JArray)?
                     .OfType<JObject>()
                     .Where(item => !string.Equals(
@@ -356,7 +430,9 @@ namespace NLMCL.Core.Installing
             string instanceDirectory,
             ModpackInfo info,
             JObject index,
-            string mrpackPath)
+            string mrpackPath,
+            long? curseForgeProjectId = null,
+            long? curseForgeFileId = null)
         {
             ModpackManifest manifest = new ModpackManifest
             {
@@ -368,6 +444,8 @@ namespace NLMCL.Core.Installing
                 Loader = info.Loader.ToString(),
                 LoaderVersion = info.LoaderVersion,
                 InstalledAt = DateTimeOffset.Now,
+                CurseForgeProjectId = curseForgeProjectId ?? ReadLong(index, "projectID"),
+                CurseForgeFileId = curseForgeFileId ?? ReadLong(index, "fileID"),
                 ModFiles = (index["files"] as JArray)?
                     .OfType<JObject>()
                     .Where(item => !string.Equals(
