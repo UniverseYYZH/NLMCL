@@ -238,7 +238,8 @@ namespace NLMCL.Core.Installing
                     try
                     {
                         await ResilientDownload
-                            .DownloadAsync(_download, file.Url, tempPath, cancellationToken)
+                            .DownloadAsync(
+                                _download, file.Url, tempPath, cancellationToken, fallback: _fallback)
                             .ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
@@ -249,6 +250,11 @@ namespace NLMCL.Core.Installing
                     {
                         progress?.Report(new InstallProgress(
                             "PCL 下载失败，改走直连：" + Path.GetFileName(file.TargetPath), 0, 0));
+                        if (!string.IsNullOrEmpty(directory))
+                        {
+                            Directory.CreateDirectory(directory);
+                        }
+
                         await _fallback!
                             .DownloadAsync(file.Url, tempPath, cancellationToken)
                             .ConfigureAwait(false);
