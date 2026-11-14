@@ -333,8 +333,21 @@ namespace NLMCL.Core.Installing
                     {
                         JObject index = JObject.Parse(reader.ReadToEnd());
                         string? required = index.SelectToken("dependencies." + dependency)?.Value<string>();
-                        return string.IsNullOrWhiteSpace(required)
-                            || string.Equals(required, manifest.LoaderVersion, StringComparison.OrdinalIgnoreCase);
+                        if (string.IsNullOrWhiteSpace(required))
+                        {
+                            return true;
+                        }
+
+                        // Fabric 已支持原地升级加载器；允许同版本或更高版本，
+                        // 但不把降级包装成“更新”。Forge/NeoForge 仍要求完全一致。
+                        if (string.Equals(dependency, "fabric-loader", StringComparison.OrdinalIgnoreCase)
+                            && Version.TryParse(required, out Version? wanted)
+                            && Version.TryParse(manifest.LoaderVersion, out Version? installed))
+                        {
+                            return wanted >= installed;
+                        }
+
+                        return string.Equals(required, manifest.LoaderVersion, StringComparison.OrdinalIgnoreCase);
                     }
                 }
             }

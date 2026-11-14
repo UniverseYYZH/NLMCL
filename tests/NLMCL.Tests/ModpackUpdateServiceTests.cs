@@ -111,7 +111,7 @@ namespace NLMCL.Tests
         }
 
         [Fact]
-        public async Task Check_skips_versions_that_require_a_newer_loader()
+        public async Task Check_allows_a_newer_fabric_loader()
         {
             string instance = Path.Combine(_root, "versions", "Loader Pack");
             Directory.CreateDirectory(instance);
@@ -141,6 +141,45 @@ namespace NLMCL.Tests
                 new FakeDownload(versions), new FakePackages(),
                 new AppPaths(Path.Combine(_root, "data"), portable: true),
                 new FakeFiles());
+
+            ModpackUpdateInfo? update = await service.CheckAsync(instance, CancellationToken.None);
+
+            Assert.NotNull(update);
+            Assert.Equal("v3", update!.VersionId);
+            Assert.Equal("2.0.0", update.VersionName);
+        }
+
+        [Fact]
+        public async Task Check_skips_versions_that_require_a_newer_forge()
+        {
+            string instance = Path.Combine(_root, "versions", "Forge Pack");
+            Directory.CreateDirectory(instance);
+            ModpackManifestStore.Write(instance, new ModpackManifest
+            {
+                ProjectId = "proj",
+                VersionId = "v1",
+                Name = "Forge Pack",
+                MinecraftVersion = "1.21.1",
+                Loader = "Forge",
+                LoaderVersion = "47.2.0"
+            });
+
+            string versions = @"[
+              { ""id"": ""v3"", ""version_number"": ""2.0.0"",
+                ""date_published"": ""2026-02-01T00:00:00Z"",
+                ""files"": [ { ""url"": ""https://cdn/v3.mrpack"", ""filename"": ""v3.mrpack"", ""primary"": true } ] },
+              { ""id"": ""v2"", ""version_number"": ""1.5.0"",
+                ""date_published"": ""2026-01-15T00:00:00Z"",
+                ""files"": [ { ""url"": ""https://cdn/v2.mrpack"", ""filename"": ""v2.mrpack"", ""primary"": true } ] },
+              { ""id"": ""v1"", ""version_number"": ""1.0.0"",
+                ""date_published"": ""2026-01-01T00:00:00Z"",
+                ""files"": [ { ""url"": ""https://cdn/v1.mrpack"", ""filename"": ""v1.mrpack"", ""primary"": true } ] }
+            ]";
+
+            ModpackUpdateService service = new ModpackUpdateService(
+                new FakeDownload(versions), new FakePackages(),
+                new AppPaths(Path.Combine(_root, "data"), portable: true),
+                new FakeFiles("forge", "47.4.0", "47.2.0"));
 
             ModpackUpdateInfo? update = await service.CheckAsync(instance, CancellationToken.None);
 
@@ -210,6 +249,20 @@ namespace NLMCL.Tests
 
         private sealed class FakeFiles : IFileDownloader
         {
+            private readonly string _dependency;
+            private readonly string _newer;
+            private readonly string _older;
+
+            public FakeFiles(
+                string dependency = "fabric-loader",
+                string newer = "0.19.3",
+                string older = "0.16.10")
+            {
+                _dependency = dependency;
+                _newer = newer;
+                _older = older;
+            }
+
             public Task DownloadAsync(
                 string url, string targetPath, CancellationToken cancellationToken)
                 => DownloadAsync(url, targetPath, null, cancellationToken);
@@ -218,7 +271,7 @@ namespace NLMCL.Tests
                 string url, string targetPath, IProgress<double>? progress,
                 CancellationToken cancellationToken)
             {
-                string loader = url.Contains("v3") ? "0.19.3" : "0.16.10";
+                string loader = url.Contains("v3") ? _newer : _older;
                 Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
                 using (FileStream stream = File.Create(targetPath))
                 using (ZipArchive archive = new ZipArchive(stream, ZipArchiveMode.Create))
@@ -226,7 +279,7 @@ namespace NLMCL.Tests
                     ZipArchiveEntry entry = archive.CreateEntry("modrinth.index.json");
                     using (StreamWriter writer = new StreamWriter(entry.Open()))
                     {
-                        writer.Write("{\"dependencies\":{\"fabric-loader\":\"" + loader + "\"}}");
+                        writer.Write("{\"dependencies\":{\"" + _dependency + "\":\"" + loader + "\"}}");
                     }
                 }
 
