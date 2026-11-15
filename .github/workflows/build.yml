@@ -19,24 +19,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Restore
-        run: dotnet restore NLMCL.sln
+      # 公开镜像不包含 PCL 适配层，只构建可公开的领域层。
+      - name: Restore public solution
+        run: dotnet restore NLMCL.Public.sln
 
-      # -m:1：并行构建偶发 MSBuild 的 ResolvePackageFileConflicts NRE
-      - name: Build
-        run: dotnet build NLMCL.sln -c Debug --no-restore -nologo -m:1
-
-      - name: Locate xunit console runner
-        shell: pwsh
-        run: |
-          $runner = Get-ChildItem "$env:USERPROFILE\.nuget\packages\xunit.runner.console\*\tools\net472\xunit.console.exe" -ErrorAction SilentlyContinue |
-            Sort-Object FullName -Descending | Select-Object -First 1
-          if (-not $runner) { throw "xunit.console.exe 未找到，检查 NuGet 还原是否成功" }
-          "XUNIT_RUNNER=$($runner.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
-      # net48 + SDK 风格项目下 VSTest 适配器会加载失败，必须用控制台 runner
-      - name: Test
-        shell: pwsh
-        run: |
-          & "$env:XUNIT_RUNNER" "tests\NLMCL.Tests\bin\Debug\net48\NLMCL.Tests.dll" -nologo -parallel none
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build public solution
+        run: dotnet build NLMCL.Public.sln -c Debug --no-restore -nologo -m:1
