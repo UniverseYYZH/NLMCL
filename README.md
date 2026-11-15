@@ -2,7 +2,13 @@
 
 Minecraft Java 版启动器（Windows / .NET Framework 4.8 / WPF）。
 
-本仓库是 **NLMCL 的当前主仓库**，作者 **UniverseYYZH**。
+本仓库是 **NLMCL 的公开代码镜像**，作者 **UniverseYYZH**，主要用于比赛展示与代码评审。
+
+> **重要说明**
+>
+> 完整可运行实现（含 PCL 适配层及其 vendor 代码）在作者的私有仓库中；本公开仓库**不包含 PCL 源码，也不能独立构建/运行完整启动器**。
+>
+> 公开部分可以构建领域层与 ViewModel 层（见 `NLMCL.Public.sln`）。完整程序的运行演示、构建产物由作者另行提供。
 
 项目最初使用 Python + Flet 实现，v1.0.0 旧仓库已迁至：
 
@@ -12,15 +18,36 @@ Minecraft Java 版启动器（Windows / .NET Framework 4.8 / WPF）。
 
 ---
 
+## 仓库范围
+
+公开镜像包含：
+
+- WPF 界面与交互
+- `NLMCL.Abstractions` 端口契约
+- `NLMCL.Core` 领域与编排
+- `NLMCL.App.ViewModels` 展示逻辑
+- 测试、架构文档、修复记录
+- 旧版 Python + Flet 实现（`legacy/`）
+
+公开镜像**不包含**：
+
+- `src/NLMCL.Core.Pcl`（PCL 的 C# 适配）
+- `src/NLMCL.Core.Pcl.Vb`（PCL 的 VB 适配与 vendor）
+- 完整启动器所需的私有运行时组件
+
+这些组件只在作者的私有构建中提供，不随本仓库分发。
+
 ## 当前实现
 
 - **前端**：WPF（XAML）自研，支持浅色/深色主题与界面缩放。
-- **后端**：复用 PCL（Plain Craft Launcher）的成熟实现，经适配层接入。
+- **后端**：复用 PCL（Plain Craft Launcher）的成熟实现，经适配层接入；适配层属于私有依赖。
 - **架构**：分层单体 + 端口/适配器 + MVVM，详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
 
 接手开发请先读 [docs/HANDOVER.md](docs/HANDOVER.md)：现状、构建方式、剩余待办和已知问题都在里面。
 
 ## 功能
+
+以下功能在完整构建中可用；本公开镜像只展示其 UI、领域逻辑和测试。
 
 | 能力 | 状态 | 说明 |
 |---|---|---|
@@ -50,23 +77,16 @@ Minecraft Java 版启动器（Windows / .NET Framework 4.8 / WPF）。
 | `nlmcl://` 邀请 | ✅ | 单实例转发、确认卡；确认前不启动游戏 |
 | 多开设置提示 | ✅ | 同实例运行中时提示并锁定内存/窗口/参数编辑 |
 
-## 快速开始
+## 快速开始（公开部分）
 
 ```powershell
-# 构建（-m:1：并行构建偶发 MSBuild NRE）
-dotnet build NLMCL.sln -c Debug -m:1
-
-# 测试（net48 + SDK 风格项目，VSTest 适配器不可用，必须用 xunit 控制台 runner）
-& "$env:USERPROFILE\.nuget\packages\xunit.runner.console\2.9.2\tools\net472\xunit.console.exe" `
-    tests\NLMCL.Tests\bin\Debug\net48\NLMCL.Tests.dll -nologo -parallel none
-
-# 运行 exe
-dotnet run --project src\NLMCL.App\NLMCL.App.csproj
+# 公开镜像：只构建 Abstractions / Core / ViewModels
+dotnet build NLMCL.Public.sln -c Debug -m:1
 ```
 
 要求：.NET SDK 8+（无需 Visual Studio）。首次构建会自动还原 NuGet 包。
 
-> **运行位置**：不要把 exe 放在受约束的目录（例如某些 AI 工作区）里运行。此类目录可能让进程无法写 `%APPDATA%`/`%TEMP%`；启动器会回退数据目录，但 Forge 等游戏进程仍可能因 Low 完整性写不了游戏目录。建议复制到普通目录（如 `D:\NLMCL-test\`）再运行。
+完整启动器需要在私有环境中补齐 `NLMCL.Core.Pcl*` 后，构建 `NLMCL.sln`；本仓库不提供这些项目。
 
 ## 解决方案结构
 
@@ -74,10 +94,12 @@ dotnet run --project src\NLMCL.App\NLMCL.App.csproj
 src/
   NLMCL.Abstractions      端口契约（netstandard2.0）——全项目的稳定边界
   NLMCL.Core              领域与编排（C# / net48）
-  NLMCL.Core.Pcl          PCL 的 C# 部分（vendor）
-  NLMCL.Core.Pcl.Vb       PCL 的 VB 部分 + Shim（唯一允许出现 VB 的地方）
   NLMCL.App.ViewModels    展示逻辑（C# / net48，零 WPF 依赖，可单测）
   NLMCL.App               WPF 视图 + 组合根（C# / net48）
+
+  NLMCL.Core.Pcl          [私有，不在本镜像]
+  NLMCL.Core.Pcl.Vb       [私有，不在本镜像]
+
 tests/
   NLMCL.Tests             单元测试 + XAML 冒烟 + 离屏渲染快照
 docs/                     架构、迁移映射、逐模块修复记录（INDEX.md）
@@ -89,9 +111,9 @@ legacy/                   旧的 Python + Flet 实现（迁移对照物，勿删
 
 ## 来源与第三方
 
-- **NLMCL**：由 **UniverseYYZH** 创建和维护；本仓库是当前主仓库。
+- **NLMCL**：由 **UniverseYYZH** 创建和维护；本仓库是公开代码镜像，完整实现由作者私有维护。
 - **NLMCL-Old**：项目旧版（Python + Flet，v1.0.0）保留在 [UniverseYYZH/NLMCL-Old](https://github.com/UniverseYYZH/NLMCL-Old)。
-- **PCL（Plain Craft Launcher）**：作者 Meloong-Git 及社区贡献者。部分源码以 vendor 形式位于 `src/NLMCL.Core.Pcl.Vb/Vendor/`，按《PCL 分发有限许可》**仅限私人范围内使用，不对外分发**；许可原文见 [PCL/LICENCE](https://github.com/Meloong-Git/PCL/blob/main/LICENCE)。本仓库不因包含 vendor 代码而授予任何再分发权。
+- **PCL（Plain Craft Launcher）**：作者 Meloong-Git 及社区贡献者。完整构建中的 PCL 适配/vendor 代码按《PCL 分发有限许可》使用，仅限私人范围；本公开仓库不分发 PCL 源码，也不因任何内容授予再分发权。许可原文见 [PCL/LICENCE](https://github.com/Meloong-Git/PCL/blob/main/LICENCE)。
 - **MeloongCore**：Apache-2.0，见 [third_party/MeloongCore](third_party/MeloongCore)。
 - 其余 NuGet 依赖见 `Directory.Packages.props`。
 
