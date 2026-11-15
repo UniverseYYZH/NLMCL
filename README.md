@@ -2,17 +2,15 @@
 
 Minecraft Java 版启动器（Windows / .NET Framework 4.8 / WPF）。
 
-本仓库是 **NLMCL 的公开代码镜像**，作者 **UniverseYYZH**，主要用于比赛展示与代码评审。
+本仓库是 **NLMCL 的公开代码镜像**，现由 **UniverseYYZH** 维护，主要用于比赛展示与代码评审。
+
+项目最初由 **ZackWatts1145** 创建并交接给 UniverseYYZH；早期 Python + Flet 实现（v1.0.0）已归档至 [UniverseYYZH/NLMCL-Old](https://github.com/UniverseYYZH/NLMCL-Old)。
 
 > **重要说明**
 >
 > 完整可运行实现（含 PCL 适配层及其 vendor 代码）在作者的私有仓库中；本公开仓库**不包含 PCL 源码，也不能独立构建/运行完整启动器**。
 >
 > 公开部分可以构建领域层与 ViewModel 层（见 `NLMCL.Public.sln`）。完整程序的运行演示、构建产物由作者另行提供。
-
-项目最初使用 Python + Flet 实现，v1.0.0 旧仓库已迁至：
-
-**[UniverseYYZH/NLMCL-Old](https://github.com/UniverseYYZH/NLMCL-Old)**
 
 旧实现源码仍在本仓库的 [`legacy/`](legacy/) 中保留，仅用于 C#/WPF 重写时的行为对照，不再作为主开发线。
 
@@ -111,8 +109,8 @@ legacy/                   旧的 Python + Flet 实现（迁移对照物，勿删
 
 ## 来源与第三方
 
-- **NLMCL**：由 **UniverseYYZH** 创建和维护；本仓库是公开代码镜像，完整实现由作者私有维护。
-- **NLMCL-Old**：项目旧版（Python + Flet，v1.0.0）保留在 [UniverseYYZH/NLMCL-Old](https://github.com/UniverseYYZH/NLMCL-Old)。
+- **NLMCL**：最初由 **ZackWatts1145** 创建，后交接给 **UniverseYYZH** 维护；本仓库是公开代码镜像，完整实现由维护者私有维护。
+- **NLMCL-Old**：项目旧版（Python + Flet，v1.0.0，最初由 ZackWatts1145 创建）归档在 [UniverseYYZH/NLMCL-Old](https://github.com/UniverseYYZH/NLMCL-Old)。
 - **PCL（Plain Craft Launcher）**：作者 Meloong-Git 及社区贡献者。完整构建中的 PCL 适配/vendor 代码按《PCL 分发有限许可》使用，仅限私人范围；本公开仓库不分发 PCL 源码，也不因任何内容授予再分发权。许可原文见 [PCL/LICENCE](https://github.com/Meloong-Git/PCL/blob/main/LICENCE)。
 - **MeloongCore**：Apache-2.0，见 [third_party/MeloongCore](third_party/MeloongCore)。
 - 其余 NuGet 依赖见 `Directory.Packages.props`。
