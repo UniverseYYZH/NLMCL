@@ -22,7 +22,7 @@
 
 | 约束 | 推导出的结论 |
 |---|---|
-| 必须**直接复用 PCL 的成熟代码**（AGENTS.md §2.1/§3） | PCL 是 VB.NET + WPF + .NET Framework 4.8，且 `OptionStrict=Off`。**VB + WPF 在 .NET 5+ 上不受支持**，因此整个应用必须留在 net48。 |
+| 必须**直接复用 PCL 的成熟代码**（项目架构约束） | PCL 是 VB.NET + WPF + .NET Framework 4.8，且 `OptionStrict=Off`。**VB + WPF 在 .NET 5+ 上不受支持**，因此整个应用必须留在 net48。 |
 | **不做 VB.NET → C# 机械翻译**（§2.3） | 复用部分保持 VB；新代码用 C#。两者共存只能靠**程序集边界**，不能靠语言转换器。 |
 | **前端自研**（§2.2）且要能多人并行 | UI 必须独立成程序集，且展示逻辑要能脱离 UI 线程测试。 |
 

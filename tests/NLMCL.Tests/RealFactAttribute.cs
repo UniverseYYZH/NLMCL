@@ -22,7 +22,7 @@ namespace NLMCL.Tests
 
             if (string.IsNullOrWhiteSpace(minecraft))
             {
-                Skip = "需要真机环境：设置 NLMCL_TEST_MC_DIR（见 docs/ACCEPTANCE.md）";
+                Skip = "需要真机环境：设置 NLMCL_TEST_MC_DIR";
             }
         }
     }

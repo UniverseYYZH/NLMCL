@@ -3996,7 +3996,7 @@ namespace NLMCL.App.ViewModels
 
             if (string.IsNullOrWhiteSpace(clientId))
             {
-                StatusText = "微软登录需要 Azure 应用的 client id：请填在登录弹层下方（获取步骤见 docs/FIX-6-ACCOUNTS.md）";
+                StatusText = "微软登录需要 Azure 应用的 client id：请填在登录弹层下方";
                 return;
             }
 

@@ -133,7 +133,7 @@ namespace NLMCL.Tests
                 Root + "/");
 
             Assert.Equal(
-                "-javaagent:\"C:\\Users\\zack\\AppData\\Roaming\\NLMCL\\authlib-injector\\authlib-injector-1.2.8.jar\"="
+                "-javaagent:\"C:\\Users\\tester\\AppData\\Roaming\\NLMCL\\authlib-injector\\authlib-injector-1.2.8.jar\"="
                 + Root,
                 argument);
         }
